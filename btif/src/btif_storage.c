@@ -56,7 +56,7 @@
 **  Constants & Macros
 ************************************************************************************/
 
-#define BTIF_STORAGE_PATH_BLUEDROID "/data/misc/bluedroid"
+#define BTIF_STORAGE_PATH_BLUEDROID "/data/bluedroid"
 
 //#define BTIF_STORAGE_PATH_ADAPTER_INFO "adapter_info"
 //#define BTIF_STORAGE_PATH_REMOTE_DEVICES "remote_devices"

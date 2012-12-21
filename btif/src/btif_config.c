@@ -56,7 +56,7 @@
 #define error(fmt, ...) ALOGE ("## ERROR : %s(L%d): " fmt "##",__FUNCTION__, __LINE__, ## __VA_ARGS__)
 #define asrt(s) if(!(s)) ALOGE ("## %s assert %s failed at line:%d ##",__FUNCTION__, #s, __LINE__)
 //#define UNIT_TEST
-#define CFG_PATH "/data/misc/bluedroid/"
+#define CFG_PATH "/data/bluedroid/"
 #define CFG_FILE_NAME "bt_config"
 #define CFG_FILE_EXT ".xml"
 #define CFG_FILE_EXT_OLD ".old"
