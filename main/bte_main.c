@@ -45,7 +45,7 @@
 
 /* if not specified in .txt file then use this as default  */
 #ifndef HCI_LOGGING_FILENAME
-#define HCI_LOGGING_FILENAME  "/data/bluedroid/btsnoop_hci.log"
+#define HCI_LOGGING_FILENAME  "/data/misc/bluedroid/btsnoop_hci.log"
 #endif
 
 /*******************************************************************************

@@ -1772,8 +1772,8 @@ void btif_dm_load_local_oob(void)
 void btif_dm_proc_loc_oob(BOOLEAN valid, BT_OCTET16 c, BT_OCTET16 r)
 {
     FILE *fp;
-    char *path_a = "/data/bluedroid/LOCAL/a.key";
-    char *path_b = "/data/bluedroid/LOCAL/b.key";
+    char *path_a = "/data/misc/bluedroid/LOCAL/a.key";
+    char *path_b = "/data/misc/bluedroid/LOCAL/b.key";
     char *path = NULL;
     char prop_oob[32];
     BTIF_TRACE_DEBUG1("btif_dm_proc_loc_oob: valid=%d", valid);
@@ -1811,8 +1811,8 @@ BOOLEAN btif_dm_proc_rmt_oob(BD_ADDR bd_addr,  BT_OCTET16 p_c, BT_OCTET16 p_r)
 {
     char t[128];
     FILE *fp;
-    char *path_a = "/data/bluedroid/LOCAL/a.key";
-    char *path_b = "/data/bluedroid/LOCAL/b.key";
+    char *path_a = "/data/misc/bluedroid/LOCAL/a.key";
+    char *path_b = "/data/misc/bluedroid/LOCAL/b.key";
     char *path = NULL;
     char prop_oob[32];
     BOOLEAN result = FALSE;

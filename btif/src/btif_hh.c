@@ -52,7 +52,7 @@
 #define COD_HID_POINTING  0x0580
 #define COD_HID_COMBO     0x05C0
 
-#define KEYSTATE_FILEPATH "/data/bluedroid/bt_hh_ks" //keep this in sync with HID host jni
+#define KEYSTATE_FILEPATH "/data/misc/bluedroid/bt_hh_ks" //keep this in sync with HID host jni
 
 #define HID_REPORT_CAPSLOCK   0x39
 #define HID_REPORT_NUMLOCK    0x53
