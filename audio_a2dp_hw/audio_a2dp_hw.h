@@ -32,8 +32,8 @@
 ******************************************************************************/
 
 #define A2DP_AUDIO_HARDWARE_INTERFACE "audio.a2dp"
-#define A2DP_CTRL_PATH "/data/bluedroid/.a2dp_ctrl"
-#define A2DP_DATA_PATH "/data/bluedroid/.a2dp_data"
+#define A2DP_CTRL_PATH "/data/misc/bluedroid/.a2dp_ctrl"
+#define A2DP_DATA_PATH "/data/misc/bluedroid/.a2dp_data"
 
 #define AUDIO_STREAM_DEFAULT_RATE          44100
 #define AUDIO_STREAM_DEFAULT_FORMAT        AUDIO_FORMAT_PCM_16_BIT
