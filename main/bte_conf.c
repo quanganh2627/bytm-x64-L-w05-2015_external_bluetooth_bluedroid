@@ -32,6 +32,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <cutils/properties.h>
 
 #include "bt_target.h"
 #include "bta_api.h"
@@ -447,3 +448,68 @@ void bte_load_did_conf (const char *p_path)
     }
 }
 
+/*****************************************************************************
+**   PROPERTIES INTERFACE FUNCTIONS
+*****************************************************************************/
+char *bt_trace_properties_name[] = {
+    "BtSnoopLogOutput",
+    "BtSnoopFileName",
+    "TraceConf",
+    "TRC_BTM",
+    "TRC_HCI",
+    "TRC_L2CAP",
+    "TRC_RFCOMM",
+    "TRC_OBEX",
+    "TRC_AVCT",
+    "TRC_AVDT",
+    "TRC_AVRC",
+    "TRC_AVDT_SCB",
+    "TRC_AVDT_CCB",
+    "TRC_A2D",
+    "TRC_SDP",
+    "TRC_GATT",
+    "TRC_SMP",
+    "TRC_BTAPP",
+    NULL
+};
+
+/*******************************************************************************
+**
+** Function        bte_load_prop
+**
+** Description     Read properties entry from local properties one by one and
+**                 call the corresponding config function
+**
+** Returns         None
+**
+*******************************************************************************/
+void bte_load_prop()
+{
+    char         **p_name = bt_trace_properties_name;
+    char         value[PROPERTY_VALUE_MAX];
+    BOOLEAN      name_matched;
+    conf_entry_t *p_entry;
+
+    ALOGI("Loading BT stack properties conf");
+    /* parse prop by prop */
+    while (*p_name != NULL) {
+        name_matched = FALSE;
+        if (property_get(*p_name, value, NULL) > 0) {
+            p_entry = (conf_entry_t *)conf_table;
+            while (p_entry->conf_entry != NULL) {
+                if (strcmp(p_entry->conf_entry, *p_name) == 0) {
+                    name_matched = TRUE;
+                    if (p_entry->p_action != NULL)
+                        p_entry->p_action(*p_name, value);
+                    break;
+                    }
+                    p_entry++;
+            }
+            if ((name_matched == FALSE) && (trace_conf_enabled == TRUE)) {
+                /* Check if this is a TRC config item */
+                bte_trace_conf(*p_name, value);
+            }
+        }
+        *p_name++;
+    }
+}
