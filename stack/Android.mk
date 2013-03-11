@@ -33,11 +33,6 @@ LOCAL_C_INCLUDES:= . \
 
 LOCAL_CFLAGS += $(bdroid_CFLAGS)
 
-ifeq ($(BOARD_HAVE_BLUETOOTH_BCM),true)
-LOCAL_CFLAGS += \
-	-DBOARD_HAVE_BLUETOOTH_BCM
-endif
-
 LOCAL_PRELINK_MODULE:=false
 LOCAL_SRC_FILES:= \
     ./a2dp/a2d_api.c \
@@ -101,7 +96,6 @@ LOCAL_SRC_FILES:= \
     ./smp/smp_act.c \
     ./smp/smp_keys.c \
     ./smp/smp_api.c \
-    ./smp/aes.c \
     ./avdt/avdt_ccb.c \
     ./avdt/avdt_scb_act.c \
     ./avdt/avdt_msg.c \
