@@ -683,6 +683,34 @@ int main (int argc, char * argv[])
     /* Automatically perform the init */
     bdt_init();
 
+    /* Handling the '-testmode' option where we directly enable and put in test mode. */
+    if(argc == 2 && !strcmp(argv[1], "-testmode"))
+    {
+        bdt_log(":: Bluedroid test app called with '-testmode' option: put directly in test mode");
+
+        /* 1. enable bluetooth */
+        bdt_log(":: Bluedroid test app: -testmode: calling enable()");
+        bdt_enable();
+
+        /* 2. if bt was not enabled, wait for the adapter_state_changed() callback to be called
+         * and bt_enabled to be set to 1. */
+        bdt_log(":: Bluedroid test app: -testmode: waiting for enabling");
+        do
+        {
+            sleep(1);
+        }
+        while (!bt_enabled);
+
+        // Bluetooth is now enabled
+
+        /* 3. Set into test mode */
+        bdt_log(":: Bluedroid test app: -testmode: setting in test mode");
+        bdt_dut_mode_configure("1");
+
+        /* 4. Then wait, accepting further commands as normally */
+    }
+
+
     while(!main_done)
     {
         char line[128];
