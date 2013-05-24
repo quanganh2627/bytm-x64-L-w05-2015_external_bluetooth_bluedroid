@@ -23,9 +23,11 @@ LOCAL_SRC_FILES:=     \
 
 LOCAL_C_INCLUDES :=
 
-LOCAL_MODULE_TAGS := eng
+LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= bdt
+
+LOCAL_CFLAGS:= -DDYNAMIC_HCI_LOGGING
 
 LOCAL_LDLIBS += -lpthread -ldl -llog -lreadline
 LIBS_c += -lreadline
