@@ -4346,9 +4346,18 @@ void btm_sec_disconnected (UINT16 handle, UINT8 reason)
     /* clear unused flags */
     p_dev_rec->sm4 &= BTM_SM4_TRUE;
 
-    BTM_TRACE_EVENT6("btm_sec_disconnected() sec_req:x%x  State: %s   reason:%d bda:%04x%08x RName:%s",
-                     p_dev_rec->security_required, btm_pair_state_descr(btm_cb.pairing_state), reason,  (p_dev_rec->bd_addr[0]<<8)+p_dev_rec->bd_addr[1],
-                     (p_dev_rec->bd_addr[2]<<24)+(p_dev_rec->bd_addr[3]<<16)+(p_dev_rec->bd_addr[4]<<8)+p_dev_rec->bd_addr[5], p_dev_rec->sec_bd_name);
+    if (reason)
+    {
+        BTM_TRACE_ERROR6("btm_sec_disconnected() sec_req:0x%x  State: %s   reason:0x%x bda:%04x%08x RName:%s",
+                         p_dev_rec->security_required, btm_pair_state_descr(btm_cb.pairing_state), reason, (p_dev_rec->bd_addr[0]<<8)+p_dev_rec->bd_addr[1],
+                         (p_dev_rec->bd_addr[2]<<24)+(p_dev_rec->bd_addr[3]<<16)+(p_dev_rec->bd_addr[4]<<8)+p_dev_rec->bd_addr[5], p_dev_rec->sec_bd_name);
+    }
+    else
+    {
+        BTM_TRACE_EVENT6("btm_sec_disconnected() sec_req:0x%x  State: %s   reason:0x%x bda:%04x%08x RName:%s",
+                         p_dev_rec->security_required, btm_pair_state_descr(btm_cb.pairing_state), reason, (p_dev_rec->bd_addr[0]<<8)+p_dev_rec->bd_addr[1],
+                         (p_dev_rec->bd_addr[2]<<24)+(p_dev_rec->bd_addr[3]<<16)+(p_dev_rec->bd_addr[4]<<8)+p_dev_rec->bd_addr[5], p_dev_rec->sec_bd_name);
+    }
 
     BTM_TRACE_EVENT1("before Update sec_flags=0x%x", p_dev_rec->sec_flags);
 
