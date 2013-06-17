@@ -733,7 +733,7 @@ static void process_service_search_attr_rsp (tCONN_CB *p_ccb, UINT8 *p_reply, UI
     /*******************************************************************/
 
 #if (SDP_RAW_DATA_INCLUDED == TRUE)
-    SDP_TRACE_WARNING0("process_service_search_attr_rsp");
+    SDP_TRACE_DEBUG0("process_service_search_attr_rsp");
     sdp_copy_raw_data (p_ccb, len, TRUE);
 #endif
 
