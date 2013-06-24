@@ -30,6 +30,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <ctype.h>
@@ -416,8 +417,18 @@ static void btif_fetch_local_bdaddr(bt_bdaddr_t *local_addr)
     if (!valid_bda)
     {
         bdstr_t bdstr;
+        struct timeval tval;
         /* Seed the random number generator */
-        srand((unsigned int) (time(0)));
+        int ret = gettimeofday(&tval, NULL);
+        if (!ret) {
+            BTIF_TRACE_DEBUG2("gettimeofday returns %d secs and %d usecs",
+                                                    tval.tv_sec, tval.tv_usec);
+            srand((unsigned int) tval.tv_sec * tval.tv_usec);
+        } else {
+            BTIF_TRACE_WARNING1("gettimeofday failed with error %s",
+                                                            strerror(errno));
+            srand((unsigned int) time(NULL));
+        }
 
         /* No autogen BDA. Generate one now. */
         local_addr->address[0] = 0x22;
