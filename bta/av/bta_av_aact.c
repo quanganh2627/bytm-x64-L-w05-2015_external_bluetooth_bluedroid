@@ -242,7 +242,7 @@ static void bta_av_save_addr(tBTA_AV_SCB *p_scb, const BD_ADDR b)
         p_scb->recfg_sup, p_scb->suspend_sup);
     if(bdcmp(p_scb->peer_addr, b) != 0)
     {
-        APPL_TRACE_ERROR0("reset flags");
+        APPL_TRACE_DEBUG0("reset flags");
         /* a new addr, reset the supported flags */
         p_scb->recfg_sup    = TRUE;
         p_scb->suspend_sup  = TRUE;
@@ -1131,7 +1131,7 @@ void bta_av_setconfig_rsp (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data)
         p_scb->wait = BTA_AV_WAIT_ACP_CAPS_ON;
         if(p_data->ci_setconfig.recfg_needed)
             p_scb->role |= BTA_AV_ROLE_SUSPEND_OPT;
-        APPL_TRACE_ERROR3("bta_av_setconfig_rsp recfg_needed:%d role:x%x num:%d",
+        APPL_TRACE_DEBUG3("bta_av_setconfig_rsp recfg_needed:%d role:x%x num:%d",
             p_data->ci_setconfig.recfg_needed, p_scb->role, num);
         /* callout module tells BTA the number of "good" SEPs and their SEIDs.
          * getcap on these SEID */
@@ -1757,7 +1757,7 @@ void bta_av_str_stopped (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data)
     BT_HDR  *p_buf;
     UINT8 policy = HCI_ENABLE_SNIFF_MODE;
 
-    APPL_TRACE_ERROR2("bta_av_str_stopped:audio_open_cnt=%d, p_data %x",
+    APPL_TRACE_EVENT2("bta_av_str_stopped:audio_open_cnt=%d, p_data %x",
             bta_av_cb.audio_open_cnt, p_data);
 
     bta_sys_idle(BTA_ID_AV, bta_av_cb.audio_open_cnt, p_scb->peer_addr);
