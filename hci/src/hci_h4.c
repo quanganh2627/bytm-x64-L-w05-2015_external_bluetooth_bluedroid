@@ -110,6 +110,9 @@ static const uint16_t msg_evt_table[] =
 
 #define IGNORE_EVENT                3
 
+/* Temporary FIX to handle Debug Events for Phone tool */
+uint16_t Phonetool_enable = FALSE;
+
 /******************************************************************************
 **  Local type definitions
 ******************************************************************************/
@@ -349,7 +352,16 @@ uint8_t internal_event_intercept(void)
             bt_hc_cbacks->dealloc((TRANSAC) p_cb->p_rcv_msg, \
                 (char *) (p_cb->p_rcv_msg + 1));
         }
-        return IGNORE_EVENT;
+		/* Temporary FIX to handle Debug Events for Phone tool */
+		if (Phonetool_enable == TRUE)
+		{
+			ALOGE("INTEL DEBUG EVENT. HANDLE");
+		}
+		else
+		{
+			ALOGE("INTEL DEBUG EVENT. IGNORE");
+			return IGNORE_EVENT;
+		}
     }
 
     return FALSE;

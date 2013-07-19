@@ -35,6 +35,8 @@
 /******************************************************************************
 **  Constants & Macros
 ******************************************************************************/
+/* Temporary FIX to handle Debug Events for Phone tool */
+extern uint16_t Phonetool_enable;
 
 #ifndef FALSE
 #define FALSE  0
