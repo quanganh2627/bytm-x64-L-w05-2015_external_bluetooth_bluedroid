@@ -551,8 +551,6 @@ static int out_set_format(struct audio_stream *stream, audio_format_t format)
 static int out_standby(struct audio_stream *stream)
 {
     struct a2dp_stream_out *out = (struct a2dp_stream_out *)stream;
-    int retval = 0;
-
     int retVal = 0;
 
     FNLOG();
