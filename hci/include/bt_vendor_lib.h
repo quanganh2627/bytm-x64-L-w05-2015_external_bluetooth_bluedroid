@@ -1,4 +1,14 @@
-/******************************************************************************
+/*****************************************************************************
+ * Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -265,8 +275,20 @@ typedef void (*tINT_CMD_CBACK)(void *p_mem);
  *  The opcode parameter gives the HCI OpCode (combination of OGF and OCF) of
  *  HCI Command packet. For example, opcode = 0x0c03 for the HCI_RESET command
  *  packet.
+ *
+ *  The compl_evt_code parameter denotes the event code which denotes the completion
+ *  of the event sequence for this command. In some commands controller responds with
+ *  more than one hci events. So all the events will be sent by the p_cback function
+ *  untill the compl_evt_code is received. At that point the command info will be
+ *  dequeued from the internal array of outstanding command buffer.
  */
-typedef uint8_t (*cmd_xmit_cb)(uint16_t opcode, void *p_buf, tINT_CMD_CBACK p_cback);
+typedef uint8_t (*cmd_xmit_cb)(uint16_t opcode, uint8_t compl_evt_code, void *p_buf, tINT_CMD_CBACK p_cback);
+
+/* Registers aync event callback function */
+typedef uint8_t (*cfg_int_async_evt_callback_reg_cb)(tINT_CMD_CBACK p_cb);
+
+/* De-registers aync event callback function */
+typedef uint8_t (*cfg_int_async_evt_callback_dereg_cb)();
 
 typedef struct {
     /** set to sizeof(bt_vendor_callbacks_t) */
@@ -297,6 +319,13 @@ typedef struct {
 
     /* notifies caller completion of epilog process */
     cfg_result_cb epilog_cb;
+
+    /* Register event callback for async event */
+    cfg_int_async_evt_callback_reg_cb int_evt_callback_reg_cb;
+
+    /* De-register event callback for async event */
+    cfg_int_async_evt_callback_dereg_cb int_evt_callback_dereg_cb;
+
 } bt_vendor_callbacks_t;
 
 /*

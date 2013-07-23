@@ -1,4 +1,14 @@
-/******************************************************************************
+/*****************************************************************************
+ * Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -47,6 +57,7 @@ void lpm_vnd_cback(uint8_t vnd_result);
 ******************************************************************************/
 
 bt_vendor_interface_t *bt_vnd_if=NULL;
+tINT_CMD_CBACK p_int_evt_cb=NULL;
 
 /******************************************************************************
 **  Functions
@@ -160,9 +171,48 @@ static void dealloc(void *p_buf)
 ** Returns          TRUE/FALSE
 **
 ******************************************************************************/
-static uint8_t xmit_cb(uint16_t opcode, void *p_buf, tINT_CMD_CBACK p_cback)
+static uint8_t xmit_cb(uint16_t opcode, uint8_t compl_evt_code, void *p_buf, tINT_CMD_CBACK p_cback)
 {
-    return p_hci_if->send_int_cmd(opcode, (HC_BT_HDR *)p_buf, p_cback);
+    return p_hci_if->send_int_cmd(opcode, compl_evt_code, (HC_BT_HDR *)p_buf, p_cback);
+}
+
+/******************************************************************************
+**
+** Function         int_evt_callback_reg_cb
+**
+** Description      HOST/CONTROLLER VEDNOR LIB CALLBACK API - This function is
+**                  called from the libbt-vendor to configure callback function
+**                  to send out anyc events. This is used by libbt to get first
+**                  default bd data event after turning on BT IP.
+**
+** Returns          TRUE/FALSE
+**
+******************************************************************************/
+static uint8_t int_evt_callback_reg_cb(tINT_CMD_CBACK p_cb)
+{
+	if (p_cb)
+	{
+	    p_int_evt_cb = p_cb;
+	    ALOGI("%s register DONE", __func__);
+		return BT_HC_STATUS_SUCCESS;
+	}
+	return BT_HC_STATUS_FAIL;
+}
+
+/******************************************************************************
+**
+** Function         int_evt_callback_dereg_cb
+**
+** Description      HOST/CONTROLLER VEDNOR LIB CALLBACK API - This function is
+**                  called from the libbt-vendor to de-register async event
+**                  callback.
+**
+** Returns          TRUE/FALSE
+**
+******************************************************************************/
+static void int_evt_callback_dereg_cb()
+{
+    p_int_evt_cb = NULL;
 }
 
 /******************************************************************************
@@ -192,7 +242,9 @@ static const bt_vendor_callbacks_t vnd_callbacks = {
     alloc,
     dealloc,
     xmit_cb,
-    epilog_cb
+    epilog_cb,
+    int_evt_callback_reg_cb,
+    int_evt_callback_dereg_cb
 };
 
 /******************************************************************************

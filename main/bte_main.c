@@ -1,4 +1,14 @@
-/******************************************************************************
+/*****************************************************************************
+ * Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -300,9 +310,10 @@ static void bte_hci_enable(void)
 #else
         /* toggle chip power to ensure we will reset chip in case
            a previous stack shutdown wasn't completed gracefully */
-        bt_hc_if->set_power(BT_HC_CHIP_PWR_OFF);
+        //bt_hc_if->set_power(BT_HC_CHIP_PWR_OFF);
 #endif
-        bt_hc_if->set_power(BT_HC_CHIP_PWR_ON);
+        /* Power on will be done from hci library. */
+        //bt_hc_if->set_power(BT_HC_CHIP_PWR_ON);
 
         bt_hc_if->preload(NULL);
     }

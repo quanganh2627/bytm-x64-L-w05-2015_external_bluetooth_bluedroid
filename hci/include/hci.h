@@ -1,4 +1,14 @@
-/******************************************************************************
+/*****************************************************************************
+ * Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -53,7 +63,8 @@ typedef uint16_t (*tHCI_RCV)(void);
 typedef void (*tINT_CMD_CBACK)(void *p_mem);
 
 /* Handler for sending HCI command from the local module */
-typedef uint8_t (*tHCI_SEND_INT)(uint16_t opcode, HC_BT_HDR *p_buf, \
+typedef uint8_t (*tHCI_SEND_INT)(uint16_t opcode, uint8_t compl_evt_code, \
+                                  HC_BT_HDR *p_buf, \
                                   tINT_CMD_CBACK p_cback);
 
 /* Handler for getting acl data length */
