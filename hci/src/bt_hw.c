@@ -1,14 +1,14 @@
 /*****************************************************************************
- * Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -51,6 +51,7 @@
 extern tHCI_IF *p_hci_if;
 extern uint8_t fwcfg_acked;
 void lpm_vnd_cback(uint8_t vnd_result);
+void lpm_host_wake_handler(uint8_t state);
 
 /******************************************************************************
 **  Variables
@@ -190,13 +191,13 @@ static uint8_t xmit_cb(uint16_t opcode, uint8_t compl_evt_code, void *p_buf, tIN
 ******************************************************************************/
 static uint8_t int_evt_callback_reg_cb(tINT_CMD_CBACK p_cb)
 {
-	if (p_cb)
-	{
-	    p_int_evt_cb = p_cb;
-	    ALOGI("%s register DONE", __func__);
-		return BT_HC_STATUS_SUCCESS;
-	}
-	return BT_HC_STATUS_FAIL;
+    if (p_cb)
+    {
+        p_int_evt_cb = p_cb;
+        ALOGI("%s register DONE", __func__);
+        return BT_HC_STATUS_SUCCESS;
+    }
+    return BT_HC_STATUS_FAIL;
 }
 
 /******************************************************************************
@@ -231,6 +232,22 @@ static void epilog_cb(bt_vendor_op_result_t result)
     bthc_signal_event(HC_EVENT_EXIT);
 }
 
+/******************************************************************************
+**
+** Function         set_host_wake_state
+**
+** Description      HOST/CONTROLLER VEDNOR LIB CALLBACK API - This function is
+**                  called from the libbt-vendor to notify the host wake state
+**                  to hci library. LPMM module will take necessary action.
+**
+** Returns          TRUE/FALSE
+**
+******************************************************************************/
+static void set_host_wake_state_cb(uint8_t state)
+{
+    lpm_host_wake_handler(state);
+}
+
 /*****************************************************************************
 **   The libbt-vendor Callback Functions Table
 *****************************************************************************/
@@ -244,7 +261,8 @@ static const bt_vendor_callbacks_t vnd_callbacks = {
     xmit_cb,
     epilog_cb,
     int_evt_callback_reg_cb,
-    int_evt_callback_dereg_cb
+    int_evt_callback_dereg_cb,
+    set_host_wake_state_cb
 };
 
 /******************************************************************************

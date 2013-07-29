@@ -1,14 +1,14 @@
 /*****************************************************************************
- * Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -479,11 +479,11 @@ static void *bt_hc_worker_thread(void *arg)
 
         if (events & HC_EVENT_PRELOAD)
         {
-            /* This should be after userial open. */
-            set_power(BT_HC_CHIP_PWR_ON);
 
             if (userial_open(USERIAL_PORT_1) == FALSE)
                 break;
+
+            lpm_enable(TRUE);
 
             /* Calling vendor-specific part */
             if (bt_vnd_if)
@@ -562,10 +562,6 @@ static void *bt_hc_worker_thread(void *arg)
 
         }
 
-        if (events & HC_EVENT_LPM_ENABLE)
-        {
-            lpm_enable(TRUE);
-        }
 
         if (events & HC_EVENT_LPM_DISABLE)
         {

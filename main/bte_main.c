@@ -1,14 +1,14 @@
 /*****************************************************************************
- * Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -101,6 +101,7 @@ static bt_hc_interface_t *bt_hc_if=NULL;
 static const bt_hc_callbacks_t hc_callbacks;
 static BOOLEAN lpm_enabled = FALSE;
 static bt_preload_retry_cb_t preload_retry_cb;
+static uint8_t no_tx_flag = NO_TX;
 
 /*******************************************************************************
 **  Static functions
@@ -471,15 +472,16 @@ void bte_main_enable_lpm(BOOLEAN enable)
 ** Function         bte_main_lpm_allow_bt_device_sleep
 **
 ** Description      BTE MAIN API - Allow BT controller goest to sleep
+**                  cond: 0x0F: there is no ACL data
 **
 ** Returns          None
 **
 ******************************************************************************/
-void bte_main_lpm_allow_bt_device_sleep()
+void bte_main_lpm_allow_bt_device_sleep(uint8_t cond)
 {
     int result = -1;
-
-    if ((bt_hc_if) && (lpm_enabled == TRUE))
+    no_tx_flag |= cond;
+    if ((bt_hc_if) && (lpm_enabled == TRUE) && no_tx_flag == NO_TX)
         result = bt_hc_if->lpm(BT_HC_LPM_WAKE_DEASSERT);
 
     APPL_TRACE_DEBUG1("HC lib lpm deassertion return %d", result);
@@ -522,7 +524,16 @@ void bte_main_hci_send (BT_HDR *p_msg, UINT16 event)
     UINT16 sub_event = event & BT_SUB_EVT_MASK;  /* local controller ID */
 
     p_msg->event = event;
-
+    switch (event & BT_EVT_MASK)
+    {
+        case BT_EVT_TO_LM_HCI_ACL:
+        case BT_EVT_TO_LM_HCI_SCO:
+            no_tx_flag &= ~NO_TX_ACL_DATA;
+            break;
+        case BT_EVT_TO_LM_HCI_CMD:
+            no_tx_flag &= ~NO_TX_HCI_CMD;
+            break;
+    }
 
     if((sub_event == LOCAL_BR_EDR_CONTROLLER_ID) || \
        (sub_event == LOCAL_BLE_CONTROLLER_ID))

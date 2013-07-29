@@ -1,14 +1,14 @@
 /*****************************************************************************
  * Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -152,6 +152,55 @@ typedef enum {
  */
     BT_VND_OP_LPM_WAKE_SET_STATE,
 
+/* INTEL speciic */
+
+/*  [operation]
+ *      sets device state (d0, d0i2, d0i3, d3)
+ *  [input param]
+ *      A pointer to uint8_t containing the state.
+ *      Typecasting conversion: (uint8_t *) param.
+ *  [return]
+ *      0 - default, don't care.
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_LPM_SET_DEVICE_STATE,
+
+/*  [operation]
+ *      sets BT WAKE signal to high/low
+ *  [input param]
+ *      A pointer to uint8_t containing the bt wake state.
+ *      Typecasting conversion: (uint8_t *) param.
+ *  [return]
+ *      0 - default, don't care.
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_LPM_SET_BT_WAKE_STATE,
+
+/*  [operation]
+ *      gets CTS state
+ *  [input param]
+ *      None
+ *  [return]
+ *      cts state
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_LPM_GET_CTS_STATE,
+
+/*  [operation]
+ *      sets RTS state
+ *  [input param]
+ *      A pointer to uint8_t containing the state.
+ *      Typecasting conversion: (uint8_t *) param.
+ *  [return]
+ *      0 - default, don't care.
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_LPM_SET_RTS_STATE,
+
 /*  [operation]
  *      The epilog call to the vendor module so that it can perform any
  *      vendor-specific processes (e.g. send a HCI_RESET to BT Controller)
@@ -290,6 +339,9 @@ typedef uint8_t (*cfg_int_async_evt_callback_reg_cb)(tINT_CMD_CBACK p_cb);
 /* De-registers aync event callback function */
 typedef uint8_t (*cfg_int_async_evt_callback_dereg_cb)();
 
+/* Passes Host Wake signal to the hci library for further handling */
+typedef void (*cmd_set_host_wake_state)(uint8_t state);
+
 typedef struct {
     /** set to sizeof(bt_vendor_callbacks_t) */
     size_t         size;
@@ -325,6 +377,9 @@ typedef struct {
 
     /* De-register event callback for async event */
     cfg_int_async_evt_callback_dereg_cb int_evt_callback_dereg_cb;
+
+    /* Sets host wake state in the hci library */
+    cmd_set_host_wake_state set_host_wake_state_cb;
 
 } bt_vendor_callbacks_t;
 

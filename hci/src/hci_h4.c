@@ -1,14 +1,14 @@
 /*****************************************************************************
- * Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -183,7 +183,7 @@ uint8_t hci_h4_send_int_cmd(uint16_t opcode, uint8_t compl_evt_code, \
                                   tINT_CMD_CBACK p_cback);
 void lpm_wake_assert(void);
 void lpm_tx_done(uint8_t is_tx_done);
-
+void lpm_increase_pkt_count();
 /******************************************************************************
 **  Variables
 ******************************************************************************/
@@ -1081,6 +1081,8 @@ uint16_t hci_h4_receive_msg(void)
                                        (char *) (p_cb->p_rcv_msg + 1), \
                                        p_cb->p_rcv_msg->len + BT_HC_HDR_SIZE);
             }
+            /* Let know LPM module that there is a RX pkt */
+            lpm_increase_pkt_count();
             p_cb->p_rcv_msg = NULL;
         }
     }
@@ -1163,8 +1165,8 @@ void hci_h4_get_acl_data_length(void)
         UINT16_TO_STREAM(p, HCI_READ_BUFFER_SIZE);
         *p = 0;
 
-        if ((ret = hci_h4_send_int_cmd(HCI_READ_BUFFER_SIZE, p_buf, \
-										HCI_COMMAND_COMPLETE_EVT, \
+        if ((ret = hci_h4_send_int_cmd(HCI_READ_BUFFER_SIZE, \
+                                        HCI_COMMAND_COMPLETE_EVT, p_buf, \
                                        get_acl_data_length_cback)) == FALSE)
         {
             bt_hc_cbacks->dealloc((TRANSAC) p_buf, (char *) (p_buf + 1));

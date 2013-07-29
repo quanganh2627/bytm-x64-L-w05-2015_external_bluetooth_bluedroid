@@ -1,4 +1,14 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
@@ -747,7 +757,7 @@ extern "C" {
 BT_API extern void bte_main_hci_send (BT_HDR *p_msg, UINT16 event);
 BT_API extern void bte_main_sco_trigger_send(int state, UINT16 sco_handle);
 #if (HCISU_H4_INCLUDED == TRUE)
-BT_API extern void bte_main_lpm_allow_bt_device_sleep(void);
+BT_API extern void bte_main_lpm_allow_bt_device_sleep(UINT8 cond);
 #endif
 
 #ifdef __cplusplus
@@ -783,7 +793,10 @@ BT_API extern void bte_main_lpm_allow_bt_device_sleep(void);
 
 /* Send HCISU a message to allow BT sleep */
 #ifndef HCI_LP_ALLOW_BT_DEVICE_SLEEP
-#define HCI_LP_ALLOW_BT_DEVICE_SLEEP()       bte_main_lpm_allow_bt_device_sleep()
+#define NO_TX_ACL_DATA  0x0F
+#define NO_TX_HCI_CMD   0xF0
+#define NO_TX           0xFF
+#define HCI_LP_ALLOW_BT_DEVICE_SLEEP(x)       bte_main_lpm_allow_bt_device_sleep(x)
 #endif
 
 /* If nonzero, the upper-layer sends at most this number of HCI commands to the lower-layer. */
