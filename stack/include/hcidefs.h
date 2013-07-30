@@ -1,4 +1,14 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
@@ -85,6 +95,8 @@
 #define HCI_REM_OOB_DATA_REQ_REPLY      (0x0030 | HCI_GRP_LINK_CONTROL_CMDS)
 #define HCI_REM_OOB_DATA_REQ_NEG_REPLY  (0x0033 | HCI_GRP_LINK_CONTROL_CMDS)
 #define HCI_IO_CAP_REQ_NEG_REPLY        (0x0034 | HCI_GRP_LINK_CONTROL_CMDS)
+/* For WBS enabled sco connection */
+#define HCI_ENHANCED_SETUP_SCO_CONNECTION (0x003D | HCI_GRP_LINK_CONTROL_CMDS)
 
 /* AMP HCI */
 #define HCI_CREATE_PHYSICAL_LINK        (0x0035 | HCI_GRP_LINK_CONTROL_CMDS)
@@ -2401,6 +2413,14 @@ typedef struct
 
 
 
+/*
+Intel Vendor specific commands
+*/
+#if INTEL_IBT == TRUE
+#define HCI_INTEL_WRITE_PCM_MODE                (0x0004 | HCI_GRP_VENDOR_SPECIFIC)
+#define HCI_INTEL_SIGNAL_PROC_CONFIG            (0x002C | HCI_GRP_VENDOR_SPECIFIC)
+#define HCI_INTEL_CONFIG_SYNCHRONUS_INTERFACE   (0x0039 | HCI_GRP_VENDOR_SPECIFIC)
+#endif
 /*
 Commands of HCI_GRP_VENDOR_SPECIFIC group for WIDCOMM SW LM Simulator
 */

@@ -1,4 +1,14 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
@@ -696,6 +706,158 @@ BOOLEAN btsnd_hcic_setup_esco_conn (UINT16 handle, UINT32 tx_bw,
     btu_hcif_send_cmd (LOCAL_BR_EDR_CONTROLLER_ID,  p);
     return (TRUE);
 }
+
+/* Enhaned setup SCO connnection. New enhanced commands in core spec Addendum 2 */
+BOOLEAN btsnd_hcic_enhanced_setup_sco_conn (UINT16 handle, UINT32     tx_bw,
+                                            UINT32     rx_bw,
+                                            UINT8      tx_coding_fmt[5],
+                                            UINT8      rx_coding_fmt[5],
+                                            UINT16     tx_codec_frm_size,
+                                            UINT16     rx_codec_frm_size,
+                                            UINT32     input_bw,
+                                            UINT32     output_bw,
+                                            UINT8      input_coding_fmt[5],
+                                            UINT8      output_coding_fmt[5],
+                                            UINT16     input_codec_data_size,
+                                            UINT16     output_codec_data_size,
+                                            UINT8      input_pcm_data_fmt,
+                                            UINT8      output_pcm_data_fmt,
+                                            UINT8      input_pcm_sample_msbc_pos,
+                                            UINT8      output_pcm_sample_msbc_pos,
+                                            UINT8      input_data_path,
+                                            UINT8      output_data_path,
+                                            UINT8      input_transport_unit_size,
+                                            UINT8      output_tansport_unit_size,
+                                            UINT16     max_latency,
+                                            UINT16     packet_types,
+                                            UINT8      retrans_effort)
+{
+    BT_HDR *p;
+    UINT8 *pp;
+    UINT8 *temp_p;
+
+    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_ENHANCED_SETUP_SCO)) == NULL)
+        return (FALSE);
+
+    pp = (UINT8 *)(p + 1);
+    temp_p = (UINT8 *)(p + 1);
+    bzero(pp, HCIC_PARAM_SIZE_ENHANCED_SETUP_SCO);
+
+    p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_ENHANCED_SETUP_SCO;
+    p->offset = 0;
+
+    UINT16_TO_STREAM (pp, HCI_ENHANCED_SETUP_SCO_CONNECTION);
+    UINT8_TO_STREAM  (pp, HCIC_PARAM_SIZE_ENHANCED_SETUP_SCO);
+
+    UINT16_TO_STREAM (pp, handle);
+    UINT32_TO_STREAM (pp, tx_bw);
+    UINT32_TO_STREAM (pp, rx_bw);
+    ARRAY5_TO_STREAM (pp, tx_coding_fmt);
+    ARRAY5_TO_STREAM (pp, rx_coding_fmt);
+    UINT16_TO_STREAM (pp, tx_codec_frm_size);
+    UINT16_TO_STREAM (pp, rx_codec_frm_size);
+    UINT32_TO_STREAM (pp, input_bw);
+    UINT32_TO_STREAM (pp, output_bw);
+    ARRAY5_TO_STREAM (pp, input_coding_fmt);
+    ARRAY5_TO_STREAM (pp, output_coding_fmt);
+    UINT16_TO_STREAM (pp, input_codec_data_size);
+    UINT16_TO_STREAM (pp, output_codec_data_size);
+    UINT8_TO_STREAM     (pp, input_pcm_data_fmt);
+    UINT8_TO_STREAM     (pp, output_pcm_data_fmt);
+    UINT8_TO_STREAM  (pp, input_pcm_sample_msbc_pos);
+    UINT8_TO_STREAM  (pp, output_pcm_sample_msbc_pos);
+    UINT8_TO_STREAM  (pp, input_data_path);
+    UINT8_TO_STREAM  (pp, output_data_path);
+    UINT8_TO_STREAM     (pp, input_transport_unit_size);
+    UINT8_TO_STREAM     (pp, output_tansport_unit_size);
+    UINT16_TO_STREAM (pp, max_latency);
+    UINT16_TO_STREAM (pp, packet_types);
+    UINT8_TO_STREAM     (pp, retrans_effort);
+
+    btu_hcif_send_cmd (LOCAL_BR_EDR_CONTROLLER_ID,  p);
+    return (TRUE);
+}
+
+#if (INTEL_IBT == TRUE)
+BOOLEAN btsnd_hcic_config_sync_iface(UINT16 handle,
+                                     UINT8 sync_iface)
+{
+    BT_HDR *p;
+    UINT8 *pp;
+
+    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_INTEL_CONFIG_SYNCHRONUS_INTERFACE)) == NULL)
+        return (FALSE);
+
+    pp = (UINT8 *)(p + 1);
+
+    p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_INTEL_CONFIG_SYNCHRONUS_INTERFACE;
+    p->offset = 0;
+
+    UINT16_TO_STREAM (pp, HCI_INTEL_CONFIG_SYNCHRONUS_INTERFACE);
+    UINT8_TO_STREAM  (pp, HCIC_PARAM_SIZE_INTEL_CONFIG_SYNCHRONUS_INTERFACE);
+
+    UINT16_TO_STREAM (pp, handle);
+    UINT8_TO_STREAM (pp, sync_iface);
+
+    btu_hcif_send_cmd (LOCAL_BR_EDR_CONTROLLER_ID,  p);
+    return (TRUE);
+}
+
+BOOLEAN btsnd_hcic_signal_proc_config(UINT16 handle, UINT16 configbits_AIR2AUDIO,
+                                                    UINT16 configbits_AUDIO2AIR)
+{
+    BT_HDR *p;
+    UINT8 *pp;
+
+    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_INTEL_SIGNAL_PROC_CONFIG)) == NULL)
+        return (FALSE);
+
+    pp = (UINT8 *)(p + 1);
+
+    p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_INTEL_SIGNAL_PROC_CONFIG;
+    p->offset = 0;
+
+    UINT16_TO_STREAM (pp, HCI_INTEL_SIGNAL_PROC_CONFIG);
+    UINT8_TO_STREAM  (pp, HCIC_PARAM_SIZE_INTEL_SIGNAL_PROC_CONFIG);
+
+    UINT16_TO_STREAM (pp, handle);
+    UINT16_TO_STREAM (pp, configbits_AIR2AUDIO);
+    UINT16_TO_STREAM (pp, configbits_AUDIO2AIR);
+
+    btu_hcif_send_cmd (LOCAL_BR_EDR_CONTROLLER_ID,  p);
+    return (TRUE);
+}
+
+BOOLEAN btsnd_hcic_write_pcm_mode(UINT16 pcm_mode, UINT8 frame_length, UINT8 frame_signal_length,
+                                                    UINT8* channel_pos, UINT16 lpm_level)
+{
+    BT_HDR *p;
+    UINT8 *pp;
+
+    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_INTEL_WRITE_PCM_MODE)) == NULL)
+        return (FALSE);
+
+    pp = (UINT8 *)(p + 1);
+
+    p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_INTEL_WRITE_PCM_MODE;
+    p->offset = 0;
+
+    UINT16_TO_STREAM (pp, HCI_INTEL_WRITE_PCM_MODE);
+    UINT8_TO_STREAM  (pp, HCIC_PARAM_SIZE_INTEL_WRITE_PCM_MODE);
+
+    UINT16_TO_STREAM (pp, pcm_mode);
+    UINT8_TO_STREAM (pp, frame_length);
+    UINT8_TO_STREAM (pp, frame_signal_length);
+    UINT8_TO_STREAM (pp, channel_pos[0]);
+    UINT8_TO_STREAM (pp, channel_pos[1]);
+    UINT8_TO_STREAM (pp, channel_pos[2]);
+    UINT16_TO_STREAM (pp, lpm_level);
+
+    btu_hcif_send_cmd (LOCAL_BR_EDR_CONTROLLER_ID,  p);
+    return (TRUE);
+}
+
+#endif
 
 BOOLEAN btsnd_hcic_accept_esco_conn (BD_ADDR bd_addr, UINT32 tx_bw,
                                      UINT32 rx_bw, UINT16 max_latency,
@@ -2873,6 +3035,27 @@ BOOLEAN btsnd_hcic_read_bd_addr (void)
 
     UINT16_TO_STREAM (pp, HCI_READ_BD_ADDR);
     UINT8_TO_STREAM  (pp,  HCIC_PARAM_SIZE_READ_CMD);
+
+    btu_hcif_send_cmd (LOCAL_BR_EDR_CONTROLLER_ID,  p);
+    return (TRUE);
+}
+
+BOOLEAN btsnd_hcic_read_local_supported_codecs (void)
+{
+    BT_HDR *p;
+    UINT8 *pp, *tempp;
+
+    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_READ_CMD)) == NULL)
+        return (FALSE);
+
+    pp = (UINT8 *)(p + 1);
+    tempp = (UINT8 *)(p + 1);
+
+    p->len    = HCIC_PREAMBLE_SIZE + HCI_PARAM_SIZE_READ_LOCAL_SUPPORTED_CODECS;
+    p->offset = 0;
+
+    UINT16_TO_STREAM (pp, HCI_READ_LOCAL_SUPPORTED_CODECS);
+    UINT8_TO_STREAM  (pp,  HCI_PARAM_SIZE_READ_LOCAL_SUPPORTED_CODECS);
 
     btu_hcif_send_cmd (LOCAL_BR_EDR_CONTROLLER_ID,  p);
     return (TRUE);

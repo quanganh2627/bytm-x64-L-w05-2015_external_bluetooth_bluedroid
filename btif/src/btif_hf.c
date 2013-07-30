@@ -1,4 +1,14 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -64,6 +74,17 @@
 #endif
 
 #ifndef BTIF_HF_FEATURES
+#if (BTM_WBS_INCLUDED == TRUE)
+#define BTIF_HF_FEATURES   ( BTA_AG_FEAT_3WAY | \
+                             BTA_AG_FEAT_ECNR   | \
+                             BTA_AG_FEAT_REJECT | \
+                             BTA_AG_FEAT_ECS    | \
+                             BTA_AG_FEAT_EXTERR | \
+                             BTA_AG_FEAT_BTRH   | \
+                             BTA_AG_FEAT_VREC   | \
+                             BTA_AG_FEAT_UNAT   | \
+                             BTA_AG_FEAT_CODEC)
+#else
 #define BTIF_HF_FEATURES   ( BTA_AG_FEAT_3WAY | \
                              BTA_AG_FEAT_ECNR   | \
                              BTA_AG_FEAT_REJECT | \
@@ -72,6 +93,7 @@
                              BTA_AG_FEAT_BTRH   | \
                              BTA_AG_FEAT_VREC   | \
                              BTA_AG_FEAT_UNAT)
+#endif
 #endif
 
 #define BTIF_HF_ID_1        0
@@ -319,6 +341,13 @@ static void btif_hf_upstreams_evt(UINT16 event, char* p_param)
             break;
 
         case BTA_AG_AUDIO_OPEN_EVT:
+#if (BTM_WBS_INCLUDED == TRUE)
+            if (p_data->audio_open.codec == 1) /* MSBC */
+            {
+                HAL_CBACK(bt_hf_callbacks, audio_state_cb, BTHF_AUDIO_STATE_CONNECTED_MSBC, &btif_hf_cb.connected_bda);
+                break;
+            }
+#endif
             HAL_CBACK(bt_hf_callbacks, audio_state_cb, BTHF_AUDIO_STATE_CONNECTED, &btif_hf_cb.connected_bda);
             break;
 

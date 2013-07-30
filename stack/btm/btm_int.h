@@ -1,4 +1,14 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
@@ -213,7 +223,10 @@ typedef struct
 #define BTM_DEV_STATE_WAIT_RESET_CMPLT  0
 #define BTM_DEV_STATE_WAIT_AFTER_RESET  1
 #define BTM_DEV_STATE_READY             2
-
+#define BTM_DEV_MAX_NUMBER_OF_CODEC		6
+	UINT8				enhanced_hci_cmds;	/* bitmap for enhanced sco hci commands */
+	BOOLEAN				enhanced_hci_sco;
+    UINT8				available_codecs[BTM_DEV_MAX_NUMBER_OF_CODEC];
     UINT8                state;
     tBTM_IO_CAP          loc_io_caps;       /* IO capability of the local device */
     BOOLEAN              loc_auth_req;      /* the auth_req flag  */
@@ -398,10 +411,11 @@ typedef void (tBTM_SCO_IND_CBACK) (UINT16 sco_inx) ;
 /* Define the structure that contains (e)SCO data */
 typedef struct
 {
-    tBTM_ESCO_CBACK    *p_esco_cback;   /* Callback for eSCO events     */
-    tBTM_ESCO_PARAMS    setup;
-    tBTM_ESCO_DATA      data;           /* Connection complete information */
-    UINT8               hci_status;
+    tBTM_ESCO_CBACK    			*p_esco_cback;   /* Callback for eSCO events     */
+    tBTM_ESCO_PARAMS    		setup;
+    tBTM_ENHANCED_ESCO_PARAMS	enhanced_setup;
+    tBTM_ESCO_DATA      		data;           /* Connection complete information */
+    UINT8               		hci_status;
 } tBTM_ESCO_INFO;
 
 /* Define the structure used for SCO Management
@@ -424,22 +438,26 @@ typedef struct
 /* SCO Management control block */
 typedef struct
 {
-    tBTM_SCO_IND_CBACK  *app_sco_ind_cb;
+    tBTM_SCO_IND_CBACK  		*app_sco_ind_cb;
 #if BTM_SCO_HCI_INCLUDED == TRUE
-    tBTM_SCO_DATA_CB     *p_data_cb;        /* Callback for SCO data over HCI */
-    UINT32               xmit_window_size; /* Total SCO window in bytes  */
+    tBTM_SCO_DATA_CB     		*p_data_cb;        /* Callback for SCO data over HCI */
+    UINT32               		xmit_window_size; /* Total SCO window in bytes  */
 #endif
-    tSCO_CONN            sco_db[BTM_MAX_SCO_LINKS];
-    tBTM_ESCO_PARAMS     def_esco_parms;
-    BD_ADDR              xfer_addr;
-    UINT16               sco_disc_reason;
-    BOOLEAN              esco_supported;    /* TRUE if 1.2 cntlr AND supports eSCO links */
-    tBTM_SCO_TYPE        desired_sco_mode;
-    tBTM_SCO_TYPE        xfer_sco_type;
-    tBTM_SCO_PCM_PARAM   sco_pcm_param;
-    tBTM_SCO_CODEC_TYPE  codec_in_use;      /* None, CVSD, MSBC, etc. */
+    tSCO_CONN            		sco_db[BTM_MAX_SCO_LINKS];
+    tBTM_ESCO_PARAMS     		def_esco_parms;
+    tBTM_ENHANCED_ESCO_PARAMS	def_enhanced_esco_params;
+    BD_ADDR              		xfer_addr;
+    UINT16               		sco_disc_reason;
+    BOOLEAN              		esco_supported;    /* TRUE if 1.2 cntlr AND supports eSCO links */
+    tBTM_SCO_TYPE        		desired_sco_mode;
+    tBTM_SCO_TYPE        		xfer_sco_type;
+    tBTM_SCO_PCM_PARAM   		sco_pcm_param;
+    tBTM_SCO_CODEC_TYPE  		codec_in_use;      /* None, CVSD, MSBC, etc. */
 #if BTM_SCO_HCI_INCLUDED == TRUE
-	tBTM_SCO_ROUTE_TYPE	 sco_path;
+	tBTM_SCO_ROUTE_TYPE	 		sco_path;
+#endif
+#if INTEL_IBT == TRUE
+	UINT16						acl_handle; /* needed to be accessed from different location*/
 #endif
 
 } tSCO_CB;
@@ -757,6 +775,7 @@ typedef BOOLEAN CONNECTION_TYPE;
 /* Define a structure to hold all the BTM data
 */
 
+#define BTM_ENHANCED_HCI_CMD_SUPPORT(x) ((x[28]>>2)&0x07)
 #define BTM_STATE_BUFFER_SIZE  5                  /* size of state buffer */
 
 #if (BTM_PCM2_INCLUDED == TRUE)
@@ -1060,6 +1079,7 @@ extern void btm_read_local_addr_complete (UINT8 *p, UINT16 evt_len);
 extern  void btm_reset_ctrlr_complete (void);
 extern void btm_write_simple_paring_mode_complete (UINT8 *p);
 extern void btm_write_le_host_supported_complete (UINT8 *p);
+extern void btm_read_local_supported_codecs_complete (UINT8 *P, UINT16 evt_len);
 
 #if (BLE_INCLUDED == TRUE)
 extern void btm_read_ble_buf_size_complete (UINT8 *p, UINT16 evt_len);

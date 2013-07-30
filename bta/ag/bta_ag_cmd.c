@@ -1,4 +1,14 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 2004-2012 Broadcom Corporation
  *
@@ -1188,7 +1198,8 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB *p_scb, UINT16 cmd, UINT8 arg_type,
                 p_scb->peer_codecs = bta_ag_parse_bac(p_scb, p_arg);
                 p_scb->codec_updated = TRUE;
 
-                if (p_scb->peer_codecs & BTA_AG_CODEC_MSBC)
+                /* peer device supports MSBC and Local device supports MSBC then use MSBC */
+                if ((p_scb->peer_codecs & BTA_AG_CODEC_MSBC) && BTM_IsMsbcCodecLocalSupport())
                 {
                     p_scb->sco_codec = UUID_CODEC_MSBC;
                     APPL_TRACE_DEBUG0("Received AT+BAC, updating sco codec to MSBC");

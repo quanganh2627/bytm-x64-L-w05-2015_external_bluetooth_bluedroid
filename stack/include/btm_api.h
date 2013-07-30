@@ -1,4 +1,14 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
@@ -1012,10 +1022,28 @@ typedef UINT8 tBTM_SCO_DATA_FLAG;
 typedef void (tBTM_SCO_CB) (UINT16 sco_inx);
 typedef void (tBTM_SCO_DATA_CB) (UINT16 sco_inx, BT_HDR *p_data, tBTM_SCO_DATA_FLAG status);
 
-/******************
-**  eSCO Constants
-*******************/
-#define BTM_64KBITS_RATE            0x00001f40  /* 64 kbits/sec data rate */
+/******************************
+**  Enhanced eSCO Constants: T2
+******************************/
+#define BTM_64KBITS_RATE            0x00001f40
+#define BTM_T2_64KBITS_RATE         0x00001f40                  /* 64 kbits/sec data rate */
+#define BTM_T2_CODING_FMT_MSBC      {0x00,0x00,0x00,0x02,0x05}  /* msbc */
+#define BTM_T2_CODEC_FRM_SIZE       0x003C                      /* 60 bytes */
+#define BTM_T2_IO_BW                0x00007D00                    /* 32000 Bytes/Sec */
+#define BTM_T2_CODING_FMT           {0X00,0X00,0X00,0x02,0x04}  /* Linear PCM */
+#define BTM_T2_CODED_DATA_SIZE      0x0010                        /* (16 bits) */
+#define BTM_T2_PCM_DATA_FMT         0x02                        /* 2's complement */
+#define BTM_T2_PCM_SAMPLE_PAYLOAD_MSB_POS 0X00
+#define BTM_T2_DATA_PATH            0X01                        /* Logical channel No */
+#define BTM_T2_UNIT_SIZE            0X10                        /* 16 bits */
+#define BTM_T2_MAX_LATENCY          0x000D                        /* 13 ms */
+
+/******************************
+**  Enhanced eSCO Constants: S3
+******************************/
+#define BTM_S3_CODING_FMT_CVSD      {0x00,0x00,0x00,0x02,0x02}  /* cvsd */
+#define BTM_S3_IO_BW                0x00003E80                    /* 16000 Bytes/sec */
+#define BTM_S3_MAX_LATENCY          0x000A                        /* 10 ms */
 
 /* Retransmission effort */
 #define BTM_ESCO_RETRANS_OFF        0
@@ -1051,6 +1079,34 @@ typedef struct
     UINT16 packet_types;
     UINT8  retrans_effort;
 } tBTM_CHG_ESCO_PARAMS;
+
+/* EnhancedSetupSyncConnection parameters */
+typedef struct
+{
+    UINT32     tx_bw;
+    UINT32     rx_bw;
+    UINT8     tx_coding_fmt[5];
+    UINT8     rx_coding_fmt[5];
+    UINT16     tx_codec_frm_size;
+    UINT16     rx_codec_frm_size;
+    UINT32     input_bw;
+    UINT32     output_bw;
+    UINT8      input_coding_fmt[5];
+    UINT8      output_coding_fmt[5];
+    UINT16     input_codec_data_size;
+    UINT16     output_codec_data_size;
+    UINT8      input_pcm_data_fmt;
+    UINT8      output_pcm_data_fmt;
+    UINT8      input_pcm_sample_msbc_pos;
+    UINT8      output_pcm_sample_msbc_pos;
+    UINT8      input_data_path;
+    UINT8      output_data_path;
+    UINT8      input_transport_unit_size;
+    UINT8      output_tansport_unit_size;
+    UINT16     max_latency;
+    UINT16     packet_types;
+    UINT8      retrans_effort;
+} tBTM_ENHANCED_ESCO_PARAMS;
 
 /* Returned by BTM_ReadEScoLinkParms() */
 typedef struct
@@ -3379,11 +3435,8 @@ BTM_API extern BOOLEAN BTM_TryAllocateSCN(UINT8 scn);
 **                                   with the sco index used for the connection.
 **
 *******************************************************************************/
-    BTM_API extern tBTM_STATUS BTM_CreateSco (BD_ADDR remote_bda, BOOLEAN is_orig,
-                                              UINT16 pkt_types, UINT16 *p_sco_inx,
-                                              tBTM_SCO_CB *p_conn_cb,
-                                              tBTM_SCO_CB *p_disc_cb);
-
+    tBTM_STATUS BTM_CreateSco (BD_ADDR remote_bda, BOOLEAN is_orig, UINT16 pkt_types,
+                           UINT16 *p_sco_inx, tBTM_SCO_CB *p_conn_cb, tBTM_SCO_CB *p_disc_cb);
 
 /*******************************************************************************
 **
@@ -3509,7 +3562,7 @@ BTM_API extern BOOLEAN BTM_TryAllocateSCN(UINT8 scn);
 *******************************************************************************/
     BTM_API extern tBTM_STATUS BTM_SetEScoMode (tBTM_SCO_TYPE sco_mode,
                                                 tBTM_ESCO_PARAMS *p_parms);
-
+#if (BTM_WBS_INCLUDED == TRUE)
 /*******************************************************************************
 **
 ** Function         BTM_SetWBSCodec
@@ -3521,7 +3574,20 @@ BTM_API extern BOOLEAN BTM_TryAllocateSCN(UINT8 scn);
 **
 **
 *******************************************************************************/
-BTM_API extern tBTM_STATUS BTM_SetWBSCodec (tBTM_SCO_CODEC_TYPE codec_type);
+    BTM_API extern tBTM_STATUS BTM_SetWBSCodec (tBTM_SCO_CODEC_TYPE codec_type);
+
+/*******************************************************************************
+**
+** Function         BTM_GetCodecConnected()
+**
+** Description        Returns codec id for the codec being used for the current
+**                    SCO connection
+**
+** Returns          0: CVSD, 1: MSBC
+**
+*******************************************************************************/
+    BTM_API extern UINT8 BTM_GetCodecConnected();
+#endif
 
 /*******************************************************************************
 **
@@ -4668,6 +4734,53 @@ BTM_API extern void BTM_SetARCMode (UINT8 iface, UINT8 arc_mode, tBTM_VSC_CMPL_C
 **
 *******************************************************************************/
 BTM_API extern void BTM_PCM2Setup_Write (BOOLEAN clk_master, tBTM_VSC_CMPL_CB *p_arc_cb);
+
+#if (BTM_WBS_INCLUDED == TRUE )
+#define BTM_HCI_U_LAW_CODEC                    0X00
+#define BTM_HCI_A_LAW_CODEC                    0X01
+#define BTM_HCI_CVSD_CODEC                    0X02
+#define BTM_HCI_TRANSPARENT_CODEC            0X03
+#define BTM_HCI_LINEAR_PCM                    0X04
+#define BTM_HCI_MSBC_CODEC                    0X05
+
+#define BTM_ENHANCED_SETUP_SYNC_CON_MASK    0x01
+#define BTM_ENHANCED_ACCEPT_SYNC_CON_MASK    0x02
+#define BTM_READ_LOCAL_SUPPORTED_CODEC_MASK    0x04
+
+/*******************************************************************************
+**
+** Function         BTM_SetCodecInUse
+**
+** Description      Sets codec type in btm_cb.sco_cb.codec_in_use global variable
+**
+** Returns          void
+**
+*******************************************************************************/
+extern void BTM_SetCodecInUse(UINT16 codec);
+
+/*******************************************************************************
+**
+** Function         BTM_IsMsbcCodecLocalSupport
+**
+** Description        Determines if the local controller supports msbc
+**
+** Returns          TRUE: Local controller supports msbc
+**
+*******************************************************************************/
+extern BOOLEAN BTM_IsMsbcCodecLocalSupport();
+
+/*******************************************************************************
+**
+** Function         BTM_IsEnhancedSCOSupported
+**
+** Description        Determines if the local controller supports enhanced sco setup
+**                    command
+**
+** Returns          TRUE: Local controller supports enhanced sco setup cmd
+**
+*******************************************************************************/
+extern BOOLEAN BTM_IsEnhancedSCOSupported();
+#endif
 
 #ifdef __cplusplus
 }

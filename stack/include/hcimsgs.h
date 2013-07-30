@@ -1,4 +1,14 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
@@ -294,6 +304,47 @@ HCI_API extern BOOLEAN btsnd_hcic_setup_esco_conn (UINT16 handle,
                                                    UINT16 max_latency, UINT16 voice,
                                                    UINT8 retrans_effort,
                                                    UINT16 packet_types);
+/*
+    Param detail is available in tBTM_ENHANCEDSETUPSCO_PARAMS in btm_api.h
+*/
+#define HCIC_PARAM_SIZE_ENHANCED_SETUP_SCO                59
+HCI_API extern BOOLEAN btsnd_hcic_enhanced_setup_sco_conn (UINT16 handle, UINT32     tx_bw,
+                                            UINT32     rx_bw,
+                                            UINT8      tx_coding_fmt[5],
+                                            UINT8      rx_coding_fmt[5],
+                                            UINT16     tx_codec_frm_size,
+                                            UINT16     rx_codec_frm_size,
+                                            UINT32     input_bw,
+                                            UINT32     output_bw,
+                                            UINT8      input_coding_fmt[5],
+                                            UINT8      output_coding_fmt[5],
+                                            UINT16     input_codec_data_size,
+                                            UINT16     output_codec_data_size,
+                                            UINT8      input_pcm_data_fmt,
+                                            UINT8      output_pcm_data_fmt,
+                                            UINT8      input_pcm_sample_msbc_pos,
+                                            UINT8      output_pcm_sample_msbc_pos,
+                                            UINT8      input_data_path,
+                                            UINT8      output_data_path,
+                                            UINT8      input_transport_unit_size,
+                                            UINT8      output_tansport_unit_size,
+                                            UINT16     max_latency,
+                                            UINT16     packet_types,
+                                            UINT8      retrans_effort);
+
+#if INTEL_IBT == TRUE
+#define HCIC_PARAM_SIZE_INTEL_CONFIG_SYNCHRONUS_INTERFACE        3
+HCI_API extern BOOLEAN btsnd_hcic_config_sync_iface(UINT16 handle, UINT8 sync_iface);
+
+#define HCIC_PARAM_SIZE_INTEL_SIGNAL_PROC_CONFIG                6
+HCI_API extern BOOLEAN btsnd_hcic_signal_proc_config(UINT16 handle, UINT16 configbits_AIR2AUDIO,
+                                                    UINT16 configbits_AUDIO2AIR);
+#define HCIC_PARAM_SIZE_INTEL_WRITE_PCM_MODE                    9
+HCI_API extern BOOLEAN btsnd_hcic_write_pcm_mode(UINT16 pcm_mode, UINT8 frame_length, UINT8 frame_signal_length,
+                                                    UINT8* channel_pos, UINT16 lpm_level);
+#endif
+
+
 #define HCIC_PARAM_SIZE_SETUP_ESCO      17
 
 #define HCI_SETUP_ESCO_HANDLE_OFF       0
@@ -451,7 +502,7 @@ HCI_API extern BOOLEAN btsnd_hcic_flow_specification(UINT16 handle, UINT8 flags,
 #if BTM_SSR_INCLUDED == TRUE
                                                                     /* Sniff Subrating */
 HCI_API extern BOOLEAN btsnd_hcic_sniff_sub_rate(UINT16 handle, UINT16 max_lat,
-						                         UINT16 min_remote_lat,
+                                                 UINT16 min_remote_lat,
                                                  UINT16 min_local_lat);
 
 #define HCIC_PARAM_SIZE_SNIFF_SUB_RATE             8
@@ -867,6 +918,8 @@ HCI_API extern BOOLEAN btsnd_hcic_read_clock (UINT16 handle, UINT8 which_clock);
 
 #endif
 
+#define HCI_PARAM_SIZE_READ_LOCAL_SUPPORTED_CODECS    0
+
 HCI_API extern BOOLEAN btsnd_hcic_read_page_scan_per (void);                   /* Read Page Scan Period Mode */
 HCI_API extern BOOLEAN btsnd_hcic_write_page_scan_per (UINT8 mode);            /* Write Page Scan Period Mode */
 HCI_API extern BOOLEAN btsnd_hcic_read_page_scan_mode (void);                  /* Read Page Scan Mode */
@@ -877,6 +930,7 @@ HCI_API extern BOOLEAN btsnd_hcic_read_local_features (void);                  /
 HCI_API extern BOOLEAN btsnd_hcic_read_buffer_size (void);                     /* Read Local buffer sizes */
 HCI_API extern BOOLEAN btsnd_hcic_read_country_code (void);                    /* Read Country Code */
 HCI_API extern BOOLEAN btsnd_hcic_read_bd_addr (void);                         /* Read Local BD_ADDR */
+HCI_API extern BOOLEAN btsnd_hcic_read_local_supported_codecs (void);                         /* Read Local BD_ADDR */
 HCI_API extern BOOLEAN btsnd_hcic_read_fail_contact_count (UINT8 local_controller_id, UINT16 handle); /* Read Failed Contact Counter */
 HCI_API extern BOOLEAN btsnd_hcic_reset_fail_contact_count (UINT8 local_controller_id, UINT16 handle);/* Reset Failed Contact Counter */
 HCI_API extern BOOLEAN btsnd_hcic_get_link_quality (UINT16 handle);            /* Get Link Quality */
@@ -1021,7 +1075,7 @@ HCI_API extern void btsnd_hcie_read_rmt_features (void *buffer, UINT8 status, UI
 
 /* Read Remote Extended Features Complete Event */
 HCI_API extern void btsnd_hcie_read_rmt_ext_features (void *buffer, UINT8 status, UINT16 handle, UINT8 page_num,
-													  UINT8 max_page_num, UINT8 *features);
+                                                      UINT8 max_page_num, UINT8 *features);
 
 #define EXT_LMP_FEATURES_SIZE   8
 #define HCIE_PARAM_SIZE_READ_RMT_EXT_FEATURES  13

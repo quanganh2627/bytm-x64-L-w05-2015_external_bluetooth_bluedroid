@@ -1,4 +1,14 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 2003-2012 Broadcom Corporation
  *
@@ -292,6 +302,22 @@ typedef struct
     UINT8               idx;    /* call number used by CLCC and CHLD */
 } tBTA_AG_VAL;
 
+/* enum of codec used for audio open */
+typedef enum
+{
+    BTA_CODEC_INVALID = -1,
+    BTA_CODEC_CVSD,
+    BTA_CODEC_MSBC
+} tBTA_AG_CODEC;
+
+/* data associated AUDIO_OPEN callback */
+typedef struct
+{
+    UINT16              handle;
+    UINT8               app_id;
+    tBTA_AG_CODEC        codec;
+} tBTA_AG_AUDIO_OPEN;
+
 /* union of data associated with AG callback */
 typedef union
 {
@@ -300,6 +326,7 @@ typedef union
     tBTA_AG_OPEN        open;
     tBTA_AG_CONN        conn;
     tBTA_AG_VAL         val;
+    tBTA_AG_AUDIO_OPEN    audio_open;
 } tBTA_AG;
 
 /* AG callback */
