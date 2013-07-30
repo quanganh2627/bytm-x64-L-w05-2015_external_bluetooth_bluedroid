@@ -546,10 +546,8 @@ void lpm_enable(uint8_t turn_on)
         bt_lpm_cb.pkt_rate_params.pkt_rate_threshold_correction = 1;
         bt_lpm_cb.pkt_rate_params.timeout_ms = 30;
         bt_lpm_cb.pkt_rate_params.timer_created = FALSE;
-        /* FIXME:Change this to LOW. This is a work around for
-         * modem control issue
-         */
-        bt_lpm_cb.cts_state = HIGH;
+
+        bt_lpm_cb.cts_state = LOW;
         bt_lpm_cb.host_wake_state = LOW;
         bt_lpm_cb.start_transport_idle_timer = START_TRANSPORT_IDLE_TIMER;
 
