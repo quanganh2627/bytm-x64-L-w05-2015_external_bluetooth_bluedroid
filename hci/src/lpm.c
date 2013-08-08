@@ -528,6 +528,7 @@ void lpm_cleanup(void)
 *******************************************************************************/
 void lpm_enable(uint8_t turn_on)
 {
+    uint8_t state = LOW;
     BTLPMDBG("%s turn_on:%d", __func__, turn_on);
 
     if (bt_vnd_if)
@@ -547,7 +548,7 @@ void lpm_enable(uint8_t turn_on)
         bt_lpm_cb.pkt_rate_params.timeout_ms = 30;
         bt_lpm_cb.pkt_rate_params.timer_created = FALSE;
 
-        bt_lpm_cb.cts_state = LOW;
+        bt_lpm_cb.cts_state = HIGH;
         bt_lpm_cb.host_wake_state = LOW;
         bt_lpm_cb.start_transport_idle_timer = START_TRANSPORT_IDLE_TIMER;
 
@@ -557,6 +558,11 @@ void lpm_enable(uint8_t turn_on)
     else if (turn_on == BT_VND_LPM_DISABLE)
     {
         lpm_periodic_pkt_rate_stop_timer();
+        lpm_set_bt_wake_state(LOW);
+
+        if (bt_vnd_if)
+            bt_vnd_if->op(BT_VND_OP_LPM_SET_RTS_STATE, &state);
+
         /* FIXME: PRH issue will cause Hyperviser panik */
         lpm_set_device_state(D3);
     }
