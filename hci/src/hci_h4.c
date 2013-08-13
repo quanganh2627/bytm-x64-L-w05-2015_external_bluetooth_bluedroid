@@ -696,6 +696,9 @@ void hci_h4_send_msg(HC_BT_HDR *p_msg)
     *p = type;
     bytes_to_send = p_msg->len + 1;     /* message_size + message type */
 
+    /* generate snoop trace message */
+    btsnoop_capture(p_msg, FALSE);
+
     bytes_sent = userial_write(event,(uint8_t *) p, bytes_to_send);
 
     p_msg->layer_specific = lay_spec;
@@ -711,9 +714,6 @@ void hci_h4_send_msg(HC_BT_HDR *p_msg)
          p++;
         STREAM_TO_UINT16(lay_spec, p);
     }
-
-    /* generate snoop trace message */
-    btsnoop_capture(p_msg, FALSE);
 
     if (bt_hc_cbacks)
     {
