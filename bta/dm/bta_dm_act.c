@@ -1,4 +1,14 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
  *  Copyright (C) 2003-2012 Broadcom Corporation
  *
@@ -38,6 +48,8 @@
 #include "wbt_api.h"
 #include "utl.h"
 #include <string.h>
+#include "bta_fm.h"
+#include "gap_api.h"
 
 static void bta_dm_inq_results_cb (tBTM_INQ_RESULTS *p_inq, UINT8 *p_eir);
 static void bta_dm_inq_cmpl_cb (void * p_result);
@@ -114,6 +126,11 @@ static void bta_dm_observe_cmpl_cb (void * p_result);
 static void bta_dm_remove_sec_dev_entry(BD_ADDR remote_bd_addr);
 
 extern void sdpu_uuid16_to_uuid128(UINT16 uuid16, UINT8* p_uuid128);
+
+#ifdef BT_FM_MITIGATION
+void bta_dm_btfm_set_afh_channels(UINT8 ch_mask[]);
+#endif
+
 
 const UINT16 bta_service_id_to_uuid_lkup_tbl [BTA_MAX_SERVICE_ID] =
 {
@@ -4543,6 +4560,21 @@ void bta_dm_set_encryption (tBTA_DM_MSG *p_data)
     bta_dm_cb.sec_act         = p_data->set_encryption.sec_act;
     BTM_SetEncryption(p_data->set_encryption.bd_addr, bta_dm_encrypt_cback, &bta_dm_cb.sec_act);
 }
+
+#ifdef BT_FM_MITIGATION
+/*******************************************************************************
+** Function         bta_dm_btfm_set_afh_channels
+**
+** Description      set afh channels for frequency Manager
+**
+** Returns          void
+********************************************************************************/
+void bta_dm_btfm_set_afh_channels( UINT8 ch_mask[])
+{
+    APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
+    BTM_btfm_SetAfhChannels(ch_mask);
+}
+#endif
 
 /*******************************************************************************
 **

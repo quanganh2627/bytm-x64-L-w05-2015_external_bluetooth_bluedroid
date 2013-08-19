@@ -43,6 +43,9 @@
 #include "btu.h"
 #include "btm_int.h"
 #include "l2c_int.h"
+#include "bta_fm.h"
+
+
 
 #if BLE_INCLUDED == TRUE
 #include "gatt_int.h"
@@ -316,6 +319,35 @@ BOOLEAN BTM_IsDeviceUp (void)
 {
     return ((BOOLEAN) (btm_cb.devcb.state == BTM_DEV_STATE_READY));
 }
+
+#ifdef BT_FM_MITIGATION
+/*******************************************************************************
+**
+** Function         BTM_btfm_SetAfhChannels
+**
+** Description      This function is called to pass channel mask to HCI.
+**
+** Returns          tBTM_STATUS
+**
+*******************************************************************************/
+
+tBTM_STATUS BTM_btfm_SetAfhChannels ( UINT8 ch_mask[])
+{
+    BTM_TRACE_DEBUG1("%s : ", __FUNCTION__);
+
+    if (!BTM_IsDeviceUp())
+    return (BTM_WRONG_MODE);
+
+    if ( btsnd_hcic_set_afh_btfm_channels(ch_mask))
+    {
+        return (BTM_SUCCESS);
+    }
+    else{
+    return (BTM_NO_RESOURCES);
+    }
+}
+
+#endif
 
 /*******************************************************************************
 **
@@ -2559,4 +2591,23 @@ void btm_report_device_status (tBTM_DEV_STATUS status)
         (*p_cb)(status);
 }
 
+#ifdef BT_FM_MITIGATION
+/*******************************************************************************
+**
+** Function         btm_btfm_set_afh_channels_complete
+**
+** Description      This function is called when the command complete message
+**                  is received from the HCI for btfm set afh channels complete.
+**
+** Returns          void
+**
+*******************************************************************************/
 
+void btm_btfm_set_afh_channels_complete (UINT8 *p)
+{
+    BTM_TRACE_DEBUG1("%s : ", __FUNCTION__);
+
+    UINT8  afh_status=(UINT8)(*(p));
+    (*bta_btfm_set_afh_channels_evt_cb)(afh_status);
+}
+#endif

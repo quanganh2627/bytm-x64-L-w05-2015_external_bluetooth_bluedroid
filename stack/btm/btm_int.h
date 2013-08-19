@@ -38,6 +38,7 @@
 #include "bt_target.h"
 #include "gki.h"
 #include "hcidefs.h"
+#include "bta_fm.h"
 
 #if RFCOMM_INCLUDED == TRUE
 #include "rfcdefs.h"
@@ -1101,6 +1102,10 @@ extern void btm_write_stored_link_key_complete (UINT8 *p);
 extern void btm_delete_stored_link_key_complete (UINT8 *p);
 extern void btm_return_link_keys_evt (tBTM_RETURN_LINK_KEYS_EVT *result);
 extern void btm_report_device_status (tBTM_DEV_STATUS status);
+#ifdef BT_FM_MITIGATION
+extern void btm_btfm_set_afh_channels_complete(UINT8 *p);
+#endif
+
 
 
 /* Internal functions provided by btm_dev.c

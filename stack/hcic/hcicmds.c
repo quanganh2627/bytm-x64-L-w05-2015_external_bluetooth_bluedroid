@@ -39,6 +39,7 @@
 #include "hcimsgs.h"
 #include "hcidefs.h"
 #include "btu.h"
+#include "bta_fm.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -48,6 +49,10 @@
 #define btu_hcif_send_cmd(p1, p2) HCI_CMD_TO_LOWER((p2))
 #else
 #include "btm_int.h"    /* Included for UIPC_* macro definitions */
+#endif
+
+#ifdef BT_FM_MITIGATION
+#define CHANNEL_BLOCKS 10
 #endif
 
 BOOLEAN btsnd_hcic_inquiry(const LAP inq_lap, UINT8 duration, UINT8 response_cnt)
@@ -3252,6 +3257,37 @@ BOOLEAN btsnd_hcic_read_afh_channel_assessment_mode(void)
     btu_hcif_send_cmd (LOCAL_BR_EDR_CONTROLLER_ID,  p);
     return (TRUE);
 }
+
+#ifdef BT_FM_MITIGATION
+
+/* Here we got channel bit mask from upper layer, same channel bit mask putting in a buffer and sending to controller*/
+
+BOOLEAN btsnd_hcic_set_afh_btfm_channels ( UINT8 ch_mask[])
+{
+    BT_HDR *p;
+    UINT8  *pp;
+    UINT8  channels[CHANNEL_BLOCKS] = {0};
+    int    i;
+    for(i=0;i<CHANNEL_BLOCKS;i++)
+        channels[i]=ch_mask[i];
+
+    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_SET_AFH_CHANNELS)) == NULL)
+    return (FALSE);
+
+    pp = (UINT8 *)(p + 1);
+
+    p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_SET_AFH_CHANNELS;
+    p->offset = 0;
+
+    UINT16_TO_STREAM (pp, HCI_SET_AFH_CHANNELS);
+    UINT8_TO_STREAM  (pp, HCIC_PARAM_SIZE_SET_AFH_CHANNELS);
+    for (i = 0; i < CHANNEL_BLOCKS; i++)
+        *pp++ = channels[i];
+
+    btu_hcif_send_cmd (LOCAL_BR_EDR_CONTROLLER_ID,  p);
+    return (TRUE);
+}
+#endif
 
 BOOLEAN btsnd_hcic_set_afh_channels (UINT8 first, UINT8 last)
 {

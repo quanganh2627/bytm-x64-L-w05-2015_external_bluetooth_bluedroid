@@ -38,6 +38,7 @@
 #include "bt_target.h"
 #include "sdp_api.h"
 #include "hcidefs.h"
+#include "bta_fm.h"
 
 #if BLE_INCLUDED == TRUE && SMP_INCLUDED == TRUE
 #include "smp_api.h"
@@ -1928,6 +1929,13 @@ typedef struct
 
 } tBTM_DELETE_STORED_LINK_KEY_COMPLETE;
 
+#ifdef BT_FM_MITIGATION
+/* This structure element store controler event for btfm set afh*/
+typedef struct
+{
+    UINT8  status;
+} tBTM_BTFM_SET_AFH_CHANELLS_COMPLETE;
+#endif
 
 /* These macros are defined to check the Broadcom features supported in controller
  * (the return value for BTM_ReadBrcmFeatures() */
@@ -2097,6 +2105,19 @@ extern "C" {
 /*****************************************************************************
 **  DEVICE CONTROL and COMMON FUNCTIONS
 *****************************************************************************/
+
+#ifdef BT_FM_MITIGATION
+/*******************************************************************************
+**
+** Function         tBTM_STATUS BTM_btfm_SetAfhChannels
+**
+** Description      This function is called to disable channels
+**
+** Returns          status
+**
+*******************************************************************************/
+    BTM_API extern tBTM_STATUS BTM_btfm_SetAfhChannels (UINT8  bt_arr[]);
+#endif
 
 /*******************************************************************************
 **

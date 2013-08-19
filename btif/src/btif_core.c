@@ -60,6 +60,9 @@
 #include "btif_pan.h"
 #include "btif_profile_queue.h"
 #include "btif_config.h"
+
+#include "bta_fm.h"
+
 /************************************************************************************
 **  Constants & Macros
 ************************************************************************************/
@@ -154,10 +157,46 @@ void btif_dm_load_local_oob(void);
 #endif
 void bte_main_config_hci_logging(BOOLEAN enable, BOOLEAN bt_disabled);
 
+
+#ifdef BT_FM_MITIGATION
+
+void btif_bta_btfm_init(void);
+void btif_bta_btfm_deinit(void);
+
+#endif
+
 /************************************************************************************
 **  Functions
 ************************************************************************************/
 
+#ifdef BT_FM_MITIGATION
+/*******************************************************************************
+**
+** Function         btif_bta_btfm_init
+**
+** Description      used to get enabled state of bluetooth core.
+**
+*******************************************************************************/
+
+void btif_bta_btfm_init(void)
+{
+    APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
+    bta_fm_init();
+}
+
+/*******************************************************************************
+**
+** Function         btif_bta_btfm_deinit
+**
+** Description      used to get state of bluetooth core.
+**
+*******************************************************************************/
+void btif_bta_btfm_deinit(void)
+{
+    APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
+    bta_fm_deinit();
+}
+#endif
 
 /*****************************************************************************
 **   Context switching functions
@@ -635,6 +674,10 @@ void btif_enable_bluetooth_evt(tBTA_STATUS status, BD_ADDR local_bd)
         btif_dm_load_local_oob();
 #endif
         /* now fully enabled, update state */
+/* init btfm module*/
+#ifdef BT_FM_MITIGATION
+        btif_bta_btfm_init();
+#endif
         btif_core_state = BTIF_CORE_STATE_ENABLED;
 
         HAL_CBACK(bt_hal_cbacks, adapter_state_changed_cb, BT_STATE_ON);
@@ -678,7 +721,9 @@ bt_status_t btif_disable_bluetooth(void)
 
     btif_dm_on_disable();
     btif_core_state = BTIF_CORE_STATE_DISABLING;
-
+#ifdef BT_FM_MITIGATION
+    btif_bta_btfm_deinit();
+#endif
     /* cleanup rfcomm & l2cap api */
     btif_sock_cleanup();
 

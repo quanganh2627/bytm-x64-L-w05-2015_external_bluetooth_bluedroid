@@ -46,7 +46,7 @@
 #include "l2c_int.h"
 #include "btm_api.h"
 #include "btm_int.h"
-
+#include "bta_fm.h"
 // btla-specific ++
 #define LOG_TAG "BTLD"
 #if (defined(ANDROID_APP_INCLUDED) && (ANDROID_APP_INCLUDED == TRUE) && (!defined(LINUX_NATIVE)) )
@@ -1092,7 +1092,11 @@ static void btu_hcif_hdl_command_complete (UINT16 opcode, UINT8 *p, UINT16 evt_l
         case HCI_CREATE_CONNECTION_CANCEL:
             btm_create_conn_cancel_complete(p);
             break;
-
+#ifdef BT_FM_MITIGATION
+        case HCI_SET_AFH_CHANNELS:
+            btm_btfm_set_afh_channels_complete(p);
+        break;
+#endif
         case HCI_READ_LOCAL_OOB_DATA:
 #if BTM_OOB_INCLUDED == TRUE
             btm_read_local_oob_complete(p);

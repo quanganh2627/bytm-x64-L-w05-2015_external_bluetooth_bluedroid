@@ -32,6 +32,7 @@
 #include "bt_target.h"
 #include "hcidefs.h"
 #include "bt_types.h"
+#include "bta_fm.h"
 
 
 #ifdef __cplusplus
@@ -953,6 +954,10 @@ HCI_API extern BOOLEAN btsnd_hcic_nop(void);                               /* NO
 
                                                               /* Send HCI Data */
 HCI_API extern void btsnd_hcic_data (BT_HDR *p_buf, UINT16 len, UINT16 handle, UINT8 boundary, UINT8 broadcast);
+
+#ifdef BT_FM_MITIGATION
+HCI_API extern BOOLEAN btsnd_hcic_set_afh_btfm_channels (UINT8 ch_mask[]);
+#endif
 
 #define HCI_DATA_HANDLE_MASK 0x0FFF
 
