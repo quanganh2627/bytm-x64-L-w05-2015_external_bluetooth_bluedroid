@@ -123,6 +123,8 @@ static const uint16_t msg_evt_table[] =
 #define HCI_READ_BUFFER_SIZE        0x1005
 #define HCI_LE_READ_BUFFER_SIZE     0x2002
 #define HCI_RESET                   0x0C03
+/* OPCODE Array reset for CMD complete */
+#define HCI_CMD_INVALID             0x1111
 
 #define IGNORE_EVENT                3
 
@@ -386,6 +388,7 @@ uint8_t internal_event_intercept(void)
             {
                 HCIDBG("%s COMPLETION EVENT RECV. DEQUEUE. opcode:0x%02X", __func__, opcode);
                 //p_cb->int_cmd[p_cb->int_cmd_rd_idx].opcode = 0;
+                p_cb->int_cmd[p_cb->int_cmd_rd_idx].opcode = HCI_CMD_INVALID;
                 p_cb->int_cmd_rd_idx = ((p_cb->int_cmd_rd_idx+1) & \
                                                 INT_CMD_PKT_IDX_MASK);
                 p_cb->int_cmd_rsp_pending--;
