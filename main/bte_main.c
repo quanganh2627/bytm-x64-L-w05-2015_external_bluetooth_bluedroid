@@ -41,6 +41,10 @@
 **  Constants & Macros
 *******************************************************************************/
 
+#ifndef BT_CLEAN_TURN_ON_DISABLED
+#define BT_CLEAN_TURN_ON_DISABLED TRUE
+#endif
+
 /* Run-time configuration file */
 #ifndef BTE_STACK_CONF_FILE
 #define BTE_STACK_CONF_FILE "/etc/bluetooth/bt_stack.conf"
@@ -319,8 +323,8 @@ static void bte_hci_disable(void)
 
     if (bt_hc_if)
     {
-        bt_hc_if->cleanup();
         bt_hc_if->set_power(BT_HC_CHIP_PWR_OFF);
+	bt_hc_if->cleanup();
         if (hci_logging_enabled == TRUE ||  hci_logging_config == TRUE)
             bt_hc_if->logging(BT_HC_LOGGING_OFF, hci_logfile);
     }
