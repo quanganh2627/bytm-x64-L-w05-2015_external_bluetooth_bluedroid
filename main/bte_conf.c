@@ -43,12 +43,14 @@
 extern BOOLEAN hci_logging_enabled;
 extern char hci_logfile[256];
 extern BOOLEAN trace_conf_enabled;
+extern BOOLEAN wbs_enabled;
 void bte_trace_conf(char *p_name, char *p_conf_value);
 int device_name_cfg(char *p_conf_name, char *p_conf_value);
 int device_class_cfg(char *p_conf_name, char *p_conf_value);
 int logging_cfg_onoff(char *p_conf_name, char *p_conf_value);
 int logging_set_filepath(char *p_conf_name, char *p_conf_value);
 int trace_cfg_onoff(char *p_conf_name, char *p_conf_value);
+int wbs_cfg_onoff(char *p_conf_name, char *p_conf_value);
 
 BD_NAME local_device_default_name = BTM_DEF_LOCAL_NAME;
 DEV_CLASS local_device_default_class = {0x40, 0x02, 0x0C};
@@ -110,6 +112,7 @@ static const conf_entry_t conf_table[] = {
     {"BtSnoopLogOutput", logging_cfg_onoff},
     {"BtSnoopFileName", logging_set_filepath},
     {"TraceConf", trace_cfg_onoff},
+    {"bt.hfp.WideBandSpeechEnabled", wbs_cfg_onoff},
     {(const char *) NULL, NULL}
 };
 
@@ -171,6 +174,19 @@ int logging_set_filepath(char *p_conf_name, char *p_conf_value)
 int trace_cfg_onoff(char *p_conf_name, char *p_conf_value)
 {
     trace_conf_enabled = (strcmp(p_conf_value, "true") == 0) ? TRUE : FALSE;
+    return 0;
+}
+
+int wbs_cfg_onoff(char *p_conf_name, char *p_conf_value)
+{
+    if (strcmp(p_conf_value, "true") == 0) {
+        wbs_enabled = TRUE;
+        ALOGI("Wide Band Speech Support enabled");
+    }
+    else {
+        wbs_enabled = FALSE;
+        ALOGI("Wide Band Speech Support disabled");
+    }
     return 0;
 }
 
@@ -451,7 +467,7 @@ void bte_load_did_conf (const char *p_path)
 /*****************************************************************************
 **   PROPERTIES INTERFACE FUNCTIONS
 *****************************************************************************/
-char *bt_trace_properties_name[] = {
+char *bt_properties_name[] = {
     "BtSnoopLogOutput",
     "BtSnoopFileName",
     "TraceConf",
@@ -470,6 +486,7 @@ char *bt_trace_properties_name[] = {
     "TRC_GATT",
     "TRC_SMP",
     "TRC_BTAPP",
+    "bt.hfp.WideBandSpeechEnabled",
     NULL
 };
 
@@ -485,7 +502,7 @@ char *bt_trace_properties_name[] = {
 *******************************************************************************/
 void bte_load_prop()
 {
-    char         **p_name = bt_trace_properties_name;
+    char         **p_name = bt_properties_name;
     char         value[PROPERTY_VALUE_MAX];
     BOOLEAN      name_matched;
     conf_entry_t *p_entry;
