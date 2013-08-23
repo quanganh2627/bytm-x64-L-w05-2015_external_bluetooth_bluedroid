@@ -66,6 +66,7 @@
                              BTA_AG_FEAT_REJECT | \
                              BTA_AG_FEAT_ECS    | \
                              BTA_AG_FEAT_EXTERR | \
+                             BTA_AG_FEAT_CODEC  | \
                              BTA_AG_FEAT_BTRH   | \
                              BTA_AG_FEAT_VREC   | \
                              BTA_AG_FEAT_UNAT)
@@ -398,6 +399,13 @@ static void btif_hf_upstreams_evt(UINT16 event, char* p_param)
             send_at_result(BTA_AG_OK_ERROR, BTA_AG_ERR_OP_NOT_SUPPORTED);
             break;
 
+        case BTA_AG_WBS_ON_EVT:
+            HAL_CBACK(bt_hf_callbacks, wbs_config_cb, BTHF_WBS_CONFIG_ON);
+            break;
+
+        case BTA_AG_WBS_OFF_EVT:
+            HAL_CBACK(bt_hf_callbacks, wbs_config_cb, BTHF_WBS_CONFIG_OFF);
+            break;
 
         default:
             BTIF_TRACE_WARNING2("%s: Unhandled event: %d", __FUNCTION__, event);
