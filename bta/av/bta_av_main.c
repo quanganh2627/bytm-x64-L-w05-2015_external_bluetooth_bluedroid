@@ -1013,7 +1013,7 @@ BOOLEAN bta_av_link_role_ok(tBTA_AV_SCB *p_scb, UINT8 bits)
 
     if (BTM_GetRole(p_scb->peer_addr, &role) == BTM_SUCCESS)
     {
-        APPL_TRACE_ERROR5("bta_av_link_role_ok hndl:x%x role:%d, conn_audio:x%x, bits:%d, features:x%x", p_scb->hndl, role, bta_av_cb.conn_audio, bits, bta_av_cb.features);
+        APPL_TRACE_EVENT5("bta_av_link_role_ok hndl:x%x role:%d, conn_audio:x%x, bits:%d, features:x%x", p_scb->hndl, role, bta_av_cb.conn_audio, bits, bta_av_cb.features);
         if (BTM_ROLE_MASTER != role && (A2D_BitsSet(bta_av_cb.conn_audio) > bits || (bta_av_cb.features & BTA_AV_FEAT_MASTER)))
         {
             if (bta_av_cb.features & BTA_AV_FEAT_MASTER)
@@ -1191,9 +1191,9 @@ BOOLEAN bta_av_hdl_event(BT_HDR *p_msg)
     if(event >= first_event)
     {
 #if (defined(BTA_AV_DEBUG) && BTA_AV_DEBUG == TRUE)
-        APPL_TRACE_EVENT2("AV nsm event=0x%x(%s)", event, bta_av_evt_code(event));
+        APPL_TRACE_VERBOSE2("AV nsm event=0x%x(%s)", event, bta_av_evt_code(event));
 #else
-        APPL_TRACE_EVENT1("AV nsm event=0x%x", event);
+        APPL_TRACE_VERBOSE1("AV nsm event=0x%x", event);
 #endif
         /* non state machine events */
         (*bta_av_nsm_act[event - BTA_AV_FIRST_NSM_EVT]) ((tBTA_AV_DATA *) p_msg);
@@ -1201,16 +1201,16 @@ BOOLEAN bta_av_hdl_event(BT_HDR *p_msg)
     else if (event >= BTA_AV_FIRST_SM_EVT && event <= BTA_AV_LAST_SM_EVT)
     {
 #if (defined(BTA_AV_DEBUG) && BTA_AV_DEBUG == TRUE)
-        APPL_TRACE_EVENT2("AV sm event=0x%x(%s)", event, bta_av_evt_code(event));
+        APPL_TRACE_VERBOSE2("AV sm event=0x%x(%s)", event, bta_av_evt_code(event));
 #else
-        APPL_TRACE_EVENT1("AV sm event=0x%x", event);
+        APPL_TRACE_VERBOSE1("AV sm event=0x%x", event);
 #endif
         /* state machine events */
         bta_av_sm_execute(&bta_av_cb, p_msg->event, (tBTA_AV_DATA *) p_msg);
     }
     else
     {
-        APPL_TRACE_EVENT1("handle=0x%x", p_msg->layer_specific);
+        APPL_TRACE_VERBOSE1("handle=0x%x", p_msg->layer_specific);
         /* stream state machine events */
         bta_av_ssm_execute( bta_av_hndl_to_scb(p_msg->layer_specific),
                                 p_msg->event, (tBTA_AV_DATA *) p_msg);

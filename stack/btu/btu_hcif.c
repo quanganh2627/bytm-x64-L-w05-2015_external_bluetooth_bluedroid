@@ -150,10 +150,17 @@ static void btu_hcif_encyption_key_refresh_cmpl_evt (UINT8 *p, UINT16 evt_len);
 *******************************************************************************/
 static void btu_hcif_store_cmd (UINT8 controller_id, BT_HDR *p_buf)
 {
-    tHCI_CMD_CB * p_hci_cmd_cb = &(btu_cb.hci_cmd_cb[controller_id]);
+    tHCI_CMD_CB *p_hci_cmd_cb;
     UINT16  opcode;
     BT_HDR  *p_cmd;
-    UINT8   *p = (UINT8 *)(p_buf + 1) + p_buf->offset;
+    UINT8   *p;
+
+    /* Validate controller ID */
+    if (controller_id >= BTU_MAX_LOCAL_CTRLS)
+        return;
+
+    p_hci_cmd_cb = &(btu_cb.hci_cmd_cb[controller_id]);
+    p = (UINT8 *)(p_buf + 1) + p_buf->offset;
 
     /* get command opcode */
     STREAM_TO_UINT16 (opcode, p);
@@ -863,11 +870,19 @@ static void btu_hcif_read_rmt_features_comp_evt (UINT8 *p, UINT16 evt_len)
 *******************************************************************************/
 static void btu_hcif_read_rmt_ext_features_comp_evt (UINT8 *p, UINT16 evt_len)
 {
-    /* Status is in first byte of stream */
-    if (*p == HCI_SUCCESS)
+    UINT8 *p_cur = p;
+    UINT8 status;
+    UINT16 handle;
+
+    STREAM_TO_UINT8 (status, p_cur);
+
+    if (status == HCI_SUCCESS)
         btm_read_remote_ext_features_complete(p);
     else
-        btm_read_remote_ext_features_failed(*p);
+    {
+        STREAM_TO_UINT16 (handle, p_cur);
+        btm_read_remote_ext_features_failed(status, handle);
+    }
 }
 
 /*******************************************************************************
@@ -1029,8 +1044,16 @@ static void btu_hcif_hdl_command_complete (UINT16 opcode, UINT8 *p, UINT16 evt_l
             btm_read_hci_buf_size_complete (p, evt_len);
             break;
 
+        case HCI_READ_LOCAL_SUPPORTED_CMDS:
+            btm_read_local_supported_cmds_complete (p);
+            break;
+
         case HCI_READ_LOCAL_FEATURES:
             btm_read_local_features_complete (p, evt_len);
+            break;
+
+        case HCI_READ_LOCAL_EXT_FEATURES:
+            btm_read_local_ext_features_complete (p, evt_len);
             break;
 
         case HCI_READ_LOCAL_NAME:
@@ -1068,6 +1091,14 @@ static void btu_hcif_hdl_command_complete (UINT16 opcode, UINT8 *p, UINT16 evt_l
             btm_read_linq_tx_power_complete (p);
             break;
 
+        case HCI_WRITE_SIMPLE_PAIRING_MODE:
+            btm_write_simple_paring_mode_complete (p);
+            break;
+
+        case HCI_WRITE_LE_HOST_SUPPORTED:
+            btm_write_le_host_supported_complete (p);
+            break;
+
 #if (BLE_INCLUDED == TRUE)
 /* BLE Commands */
         case HCI_BLE_READ_WHITE_LIST_SIZE :
@@ -1075,7 +1106,7 @@ static void btu_hcif_hdl_command_complete (UINT16 opcode, UINT8 *p, UINT16 evt_l
             break;
 
         case HCI_BLE_ADD_WHITE_LIST:
-            btm_ble_add_2_white_list_complete(p, evt_len);
+            btm_ble_add_2_white_list_complete(*p);
             break;
 
         case HCI_BLE_CLEAR_WHITE_LIST:
@@ -1095,6 +1126,10 @@ static void btu_hcif_hdl_command_complete (UINT16 opcode, UINT8 *p, UINT16 evt_l
             btm_read_ble_buf_size_complete(p, evt_len);
             break;
 
+        case HCI_BLE_READ_LOCAL_SPT_FEAT:
+            btm_read_ble_local_supported_features_complete(p, evt_len);
+            break;
+
         case HCI_BLE_READ_ADV_CHNL_TX_POWER:
             btm_read_tx_power_complete(p, TRUE);
             break;
@@ -1103,6 +1138,11 @@ static void btu_hcif_hdl_command_complete (UINT16 opcode, UINT8 *p, UINT16 evt_l
             btm_ble_write_adv_enable_complete(p);
             break;
 
+        case HCI_BLE_TRANSMITTER_TEST:
+        case HCI_BLE_RECEIVER_TEST:
+        case HCI_BLE_TEST_END:
+            btm_ble_test_command_complete(p);
+            break;
 #endif /* (BLE_INCLUDED == TRUE) */
 
         default:
@@ -1313,10 +1353,16 @@ static void btu_hcif_hdl_command_status (UINT16 opcode, UINT8 status, UINT8 *p_c
                         }
                         break;
 
-                    case HCI_READ_RMT_EXT_FEATURES_COMP_EVT:
-// btla-specific ++
-		                btu_hcif_read_rmt_ext_features_comp_evt (p_cmd - 3, 0);
-// btla-specific --
+                    case HCI_READ_RMT_EXT_FEATURES:
+                        if (p_cmd != NULL)
+                        {
+                            p_cmd++; /* skip command length */
+                            STREAM_TO_UINT16 (handle, p_cmd);
+                        }
+                        else
+                            handle = HCI_INVALID_HANDLE;
+
+                        btm_read_remote_ext_features_failed(status, handle);
                         break;
 
                     case HCI_AUTHENTICATION_REQUESTED:
@@ -1383,8 +1429,8 @@ static void btu_hcif_command_status_evt (UINT8 controller_id, UINT8 *p, UINT16 e
     tHCI_CMD_CB * p_hci_cmd_cb = &(btu_cb.hci_cmd_cb[controller_id]);
     UINT8       status;
     UINT16      opcode;
-    BT_HDR      *p_cmd = NULL;
     UINT16      cmd_opcode;
+    BT_HDR      *p_cmd = NULL;
     UINT8       *p_data = NULL;
     void        *p_vsc_status_cback = NULL;
 
@@ -1402,23 +1448,30 @@ static void btu_hcif_command_status_evt (UINT8 controller_id, UINT8 *p, UINT16 e
     if ((opcode != HCI_RESET) && (opcode != HCI_HOST_NUM_PACKETS_DONE) &&
         (opcode != HCI_COMMAND_NONE))
     {
-        /* dequeue stored command */
-        if ((p_cmd = (BT_HDR *) GKI_dequeue (&(p_hci_cmd_cb->cmd_cmpl_q))) != NULL)
+        /*look for corresponding command in cmd_queue*/
+        p_cmd = (BT_HDR *) GKI_getfirst(&(p_hci_cmd_cb->cmd_cmpl_q));
+        while (p_cmd)
         {
-            /* verify event opcode matches command opcode */
             p_data = (UINT8 *)(p_cmd + 1) + p_cmd->offset;
             STREAM_TO_UINT16 (cmd_opcode, p_data);
 
+            /* Make sure this  command is for the command_status received */
             if (cmd_opcode != opcode)
             {
-                p_data = NULL;
-                BT_TRACE_2 (TRACE_LAYER_HCI, TRACE_TYPE_WARNING,
-                            "Event mismatch opcode=%X cmd opcode=%X", opcode, cmd_opcode);
+                /* opcode does not match, check next command in the queue */
+                p_cmd = (BT_HDR *) GKI_getnext(p_cmd);
+                continue;
             }
-            /* If command was a VSC, then extract command_status callback */
-            else if ((cmd_opcode & HCI_GRP_VENDOR_SPECIFIC) == HCI_GRP_VENDOR_SPECIFIC)
+            else
             {
-                p_vsc_status_cback = *((void **)(p_cmd + 1));
+                GKI_remove_from_queue(&p_hci_cmd_cb->cmd_cmpl_q, p_cmd);
+
+                /* If command was a VSC, then extract command_status callback */
+                 if ((cmd_opcode & HCI_GRP_VENDOR_SPECIFIC) == HCI_GRP_VENDOR_SPECIFIC)
+                {
+                    p_vsc_status_cback = *((void **)(p_cmd + 1));
+                }
+                break;
             }
         }
 
@@ -1449,6 +1502,11 @@ static void btu_hcif_command_status_evt (UINT8 controller_id, UINT8 *p, UINT16 e
     {
         GKI_freebuf (p_cmd);
     }
+    else
+    {
+        BT_TRACE_1 (TRACE_LAYER_HCI, TRACE_TYPE_WARNING,
+                    "No command in queue matching opcode %d", opcode);
+    }
 
     /* See if we can forward any more commands */
     btu_hcif_send_cmd (controller_id, NULL);
@@ -1470,9 +1528,7 @@ void btu_hcif_cmd_timeout (UINT8 controller_id)
     UINT8   *p;
     void    *p_cplt_cback = NULL;
     UINT16  opcode;
-// btla-specific ++
     UINT16  event;
-// btla-specific --
 
 #if (defined(BTU_CMD_CMPL_TOUT_DOUBLE_CHECK) && BTU_CMD_CMPL_TOUT_DOUBLE_CHECK == TRUE)
     if (!(p_hci_cmd_cb->checked_hcisu))
@@ -1558,7 +1614,7 @@ void btu_hcif_cmd_timeout (UINT8 controller_id)
         case HCI_CREATE_CONNECTION:
         case HCI_CHANGE_CONN_LINK_KEY:
         case HCI_SWITCH_ROLE:
-        case HCI_READ_RMT_EXT_FEATURES_COMP_EVT:
+        case HCI_READ_RMT_EXT_FEATURES:
         case HCI_AUTHENTICATION_REQUESTED:
         case HCI_SET_CONN_ENCRYPTION:
 #if BTM_SCO_INCLUDED == TRUE
@@ -1586,10 +1642,8 @@ void btu_hcif_cmd_timeout (UINT8 controller_id)
             }
 
             /* fake a command complete; first create a fake event */
-// btla-specific ++
             event = HCI_ERR_UNSPECIFIED;
             btu_hcif_hdl_command_complete (opcode, (UINT8 *)&event, 1, p_cplt_cback, controller_id);
-// btla-specific --
             break;
     }
 
@@ -2202,51 +2256,9 @@ static void btu_ble_process_adv_pkt (UINT8 *p, UINT16 evt_len)
     btm_ble_process_adv_pkt(p);
 }
 
-
 static void btu_ble_ll_conn_complete_evt ( UINT8 *p, UINT16 evt_len)
 {
-    UINT8       role, status, bda_type;
-    UINT16      handle;
-    BD_ADDR     bda;
-    UINT16      conn_interval, conn_latency, conn_timeout;
-	UINT16      combined_mode;
-
-    STREAM_TO_UINT8   (status, p);
-    STREAM_TO_UINT16   (handle, p);
-    STREAM_TO_UINT8    (role, p);
-    STREAM_TO_UINT8    (bda_type, p);
-    STREAM_TO_BDADDR   (bda, p);
-    STREAM_TO_UINT16   (conn_interval, p);
-    STREAM_TO_UINT16   (conn_latency, p);
-    STREAM_TO_UINT16   (conn_timeout, p);
-
-    handle = HCID_GET_HANDLE (handle);
-
-    if (status == 0)
-    {
-        btm_ble_connected(bda, handle, HCI_ENCRYPT_MODE_DISABLED, role);
-
-        l2cble_conn_comp (handle, role, bda, bda_type, conn_interval,
-                          conn_latency, conn_timeout);
-    }
-    else
-    {
-        /* If we are LE connectable, check if we need to start advertising again */
-        if (btm_cb.ble_ctr_cb.inq_var.connectable_mode != BTM_BLE_NON_CONNECTABLE)
-        {
-            tACL_CONN   *pa = &btm_cb.acl_db[0];
-            UINT16       xx;
-
-            for (xx = 0; xx < MAX_L2CAP_LINKS; xx++, pa++)
-            {
-                /* If any other LE link is up, we are still not connectable */
-                if (pa->in_use && pa->is_le_link)
-                    return;
-            }
-			combined_mode = (btm_cb.ble_ctr_cb.inq_var.connectable_mode | btm_cb.btm_inq_vars.connectable_mode);
-            btm_ble_set_connectability ( combined_mode );
-        }
-    }
+    btm_ble_conn_complete(p, evt_len);
 }
 
 static void btu_ble_ll_conn_param_upd_evt (UINT8 *p, UINT16 evt_len)
@@ -2267,7 +2279,7 @@ static void btu_ble_proc_ltk_req (UINT8 *p, UINT16 evt_len)
     STREAM_TO_UINT16(handle, p);
     pp = p + 8;
     STREAM_TO_UINT16(ediv, pp);
-#if SMP_INCLUDED == TRUE
+#if BLE_INCLUDED == TRUE && SMP_INCLUDED == TRUE
     btm_ble_ltk_request(handle, p, ediv);
 #endif
     /* This is empty until an upper layer cares about returning event */

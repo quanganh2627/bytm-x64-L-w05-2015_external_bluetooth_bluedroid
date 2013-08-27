@@ -27,6 +27,7 @@
 #include "bta_sys.h"
 #include "bta_api.h"
 #include "bta_dm_int.h"
+#include "bta_jv_api.h"
 
 #ifndef BTA_DM_LINK_POLICY_SETTINGS
 #define BTA_DM_LINK_POLICY_SETTINGS    (HCI_ENABLE_MASTER_SLAVE_SWITCH | HCI_ENABLE_HOLD_MODE | HCI_ENABLE_SNIFF_MODE | HCI_ENABLE_PARK_MODE)
@@ -124,8 +125,8 @@ tBTA_DM_PM_TYPE_QUALIFIER tBTA_DM_PM_CFG bta_dm_pm_cfg[] =
   {BTA_ID_OPC, BTA_ALL_APP_ID,      6},  /* reuse ftc spec table */
   {BTA_ID_OPS, BTA_ALL_APP_ID,      7},  /* reuse fts spec table */
   {BTA_ID_MSE, BTA_ALL_APP_ID,      7},  /* reuse fts spec table */
-  {BTA_ID_JV1, BTA_ALL_APP_ID,      7},  /* reuse fts spec table */
-  {BTA_ID_JV2, BTA_ALL_APP_ID,      7},  /* reuse fts spec table */
+  {BTA_ID_JV,  BTA_JV_PM_ID_1,      6},  /* app BTA_JV_PM_ID_1, reuse ftc spec table */
+  {BTA_ID_JV,  BTA_ALL_APP_ID,      7},  /* reuse fts spec table */
   {BTA_ID_HL,  BTA_ALL_APP_ID,      8}   /* reuse fts spec table */
 };
 
@@ -240,14 +241,14 @@ tBTA_DM_PM_TYPE_QUALIFIER tBTA_DM_PM_SPEC bta_dm_pm_spec[BTA_DM_NUM_PM_SPEC] =
   (BTA_DM_PM_SSR1),                                              /* the SSR entry */
 #endif
   {
-      {{BTA_DM_PM_SNIFF2, 7000},   {BTA_DM_PM_NO_ACTION, 0}},    /* conn open  sniff */
+      {{BTA_DM_PM_SNIFF2, 30000},   {BTA_DM_PM_NO_ACTION, 0}},    /* conn open  sniff */
       {{BTA_DM_PM_NO_PREF,   0},   {BTA_DM_PM_NO_ACTION, 0}},    /* conn close  */
       {{BTA_DM_PM_NO_ACTION, 0},   {BTA_DM_PM_NO_ACTION, 0}},    /* app open */
       {{BTA_DM_PM_NO_ACTION, 0},   {BTA_DM_PM_NO_ACTION, 0}},    /* app close */
       {{BTA_DM_PM_NO_ACTION, 0},   {BTA_DM_PM_NO_ACTION, 0}},    /* sco open  */
       {{BTA_DM_PM_NO_ACTION, 0},   {BTA_DM_PM_NO_ACTION, 0}},    /* sco close, used for HH suspend   */
-      {{BTA_DM_PM_SNIFF2, 7000},   {BTA_DM_PM_NO_ACTION, 0}},    /* idle */
-      {{BTA_DM_PM_SNIFF2, 7000},   {BTA_DM_PM_NO_ACTION, 0}},    /* busy */
+      {{BTA_DM_PM_SNIFF2, 30000},   {BTA_DM_PM_NO_ACTION, 0}},    /* idle */
+      {{BTA_DM_PM_SNIFF2, 30000},   {BTA_DM_PM_NO_ACTION, 0}},    /* busy */
       {{BTA_DM_PM_NO_ACTION, 0},   {BTA_DM_PM_NO_ACTION, 0}}     /* mode change retry */
   }
  },
@@ -358,7 +359,9 @@ tBTA_DM_SSR_SPEC bta_dm_ssr_spec[] =
 {
     /*max_lat, min_rmt_to, min_loc_to*/
     {0,      0, 0},     /* BTA_DM_PM_SSR0 - do not use SSR */
-    {1600,   2, 2},     /* BTA_DM_PM_SSR1 - HH */
+    {0,      0, 2},     /* BTA_DM_PM_SSR1 - HH, can NOT share entry with any other profile,
+                           seting default max latency and min remote timeout as 0,
+                           and always read individual device preference from HH module */
     {1200,   2, 2},     /* BTA_DM_PM_SSR2 - others (as long as sniff is allowed)*/
     {360,  160, 2}      /* BTA_DM_PM_SSR3 - HD */
 };

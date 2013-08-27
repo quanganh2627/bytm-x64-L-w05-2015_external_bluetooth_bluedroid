@@ -350,11 +350,20 @@ tBTA_STATUS BTA_DmVendorSpecificCommand (UINT16 opcode, UINT8 param_len,
         {
             p_msg->hdr.event = BTA_DM_API_VENDOR_SPECIFIC_COMMAND_EVT;
             p_msg->opcode = opcode;
-            p_msg->param_len = param_len;
             p_msg->p_param_buf = (UINT8 *)(p_msg + 1);
             p_msg->p_cback = p_cback;
 
-            memcpy (p_msg->p_param_buf, p_param_buf, param_len);
+            if (p_param_buf && param_len)
+            {
+                memcpy (p_msg->p_param_buf, p_param_buf, param_len);
+                p_msg->param_len = param_len;
+            }
+            else
+            {
+                p_msg->param_len = 0;
+                p_msg->p_param_buf = NULL;
+
+            }
 
             bta_sys_sendmsg(p_msg);
         }
@@ -726,7 +735,7 @@ void BTA_DmAddDevice(BD_ADDR bd_addr, DEV_CLASS dev_class, LINK_KEY link_key,
         }
 
         memset (p_msg->bd_name, 0, BD_NAME_LEN);
-        memset (p_msg->features, 0, BD_FEATURES_LEN);
+        memset (p_msg->features, 0, sizeof (p_msg->features));
 
         bta_sys_sendmsg(p_msg);
     }
@@ -776,7 +785,7 @@ tBTA_STATUS BTA_DmRemoveDevice(BD_ADDR bd_addr)
 **
 *******************************************************************************/
 void BTA_DmAddDevWithName (BD_ADDR bd_addr, DEV_CLASS dev_class,
-                                      BD_NAME bd_name, BD_FEATURES features,
+                                      BD_NAME bd_name, UINT8 *features,
                                       LINK_KEY link_key, tBTA_SERVICE_MASK trusted_mask,
                                       BOOLEAN is_trusted, UINT8 key_type, tBTA_IO_CAP io_cap)
 {
@@ -810,7 +819,7 @@ void BTA_DmAddDevWithName (BD_ADDR bd_addr, DEV_CLASS dev_class,
             memcpy(p_msg->bd_name, bd_name, BD_NAME_LEN);
 
         if (features)
-            memcpy(p_msg->features, features, BD_FEATURES_LEN);
+            memcpy(p_msg->features, features, sizeof(p_msg->features));
 
         bta_sys_sendmsg(p_msg);
     }
@@ -1572,6 +1581,42 @@ void BTA_DmSearchExt(tBTA_DM_INQ *p_dm_inq, tBTA_SERVICE_MASK_EXT *p_services, t
 #endif
 }
 
+/*******************************************************************************
+**
+** Function         BTA_DmBleEnableRemotePrivacy
+**
+** Description      Enable/disable privacy on a remote device
+**
+** Parameters:      bd_addr          - BD address of the peer
+**                  privacy_enable   - enable/disabe privacy on remote device.
+**
+** Returns          void
+**
+*******************************************************************************/
+void BTA_DmBleEnableRemotePrivacy(BD_ADDR bd_addr, BOOLEAN privacy_enable)
+{
+#if BLE_INCLUDED == TRUE
+#endif
+}
+
+
+/*******************************************************************************
+**
+** Function         BTA_DmBleConfigLocalPrivacy
+**
+** Description      Enable/disable privacy on the local device
+**
+** Parameters:      privacy_enable   - enable/disabe privacy on remote device.
+**
+** Returns          void
+**
+*******************************************************************************/
+void BTA_DmBleConfigLocalPrivacy(BOOLEAN privacy_enable)
+{
+#if BLE_INCLUDED == TRUE
+#endif
+}
+
 
 /*******************************************************************************
 **
@@ -1613,4 +1658,75 @@ void BTA_DmSetEncryption(BD_ADDR bd_addr, tBTA_DM_ENCRYPT_CBACK *p_callback,
         bta_sys_sendmsg(p_msg);
     }
 }
+
+/*******************************************************************************
+**
+** Function         BTA_DmCloseACL
+**
+** Description      This function force to close an ACL connection and remove the
+**                  device from the security database list of known devices.
+**
+** Parameters:      bd_addr       - Address of the peer device
+**                  remove_dev    - remove device or not after link down
+**
+** Returns          void
+**
+*******************************************************************************/
+void BTA_DmCloseACL(BD_ADDR bd_addr, BOOLEAN remove_dev)
+{
+    tBTA_DM_API_REMOVE_ACL   *p_msg;
+
+    APPL_TRACE_API0("BTA_DmCloseACL");
+
+    if ((p_msg = (tBTA_DM_API_REMOVE_ACL *) GKI_getbuf(sizeof(tBTA_DM_API_REMOVE_ACL))) != NULL)
+    {
+        memset(p_msg, 0, sizeof(tBTA_DM_API_REMOVE_ACL));
+
+        p_msg->hdr.event = BTA_DM_API_REMOVE_ACL_EVT;
+
+        memcpy(p_msg->bd_addr, bd_addr, BD_ADDR_LEN);
+        p_msg->remove_dev      = remove_dev;
+
+        bta_sys_sendmsg(p_msg);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         BTA_DmBleObserve
+**
+** Description      This procedure keep the device listening for advertising
+**                  events from a broadcast device.
+**
+** Parameters       start: start or stop observe.
+**
+** Returns          void
+
+**
+** Returns          void.
+**
+*******************************************************************************/
+BTA_API extern void BTA_DmBleObserve(BOOLEAN start, UINT8 duration,
+                                     tBTA_DM_SEARCH_CBACK *p_results_cb)
+{
+#if BLE_INCLUDED == TRUE
+
+    tBTA_DM_API_BLE_OBSERVE   *p_msg;
+
+    APPL_TRACE_API1("BTA_DmBleObserve:start = %d ", start);
+
+    if ((p_msg = (tBTA_DM_API_BLE_OBSERVE *) GKI_getbuf(sizeof(tBTA_DM_API_BLE_OBSERVE))) != NULL)
+    {
+        memset(p_msg, 0, sizeof(tBTA_DM_API_BLE_OBSERVE));
+
+        p_msg->hdr.event = BTA_DM_API_BLE_OBSERVE_EVT;
+        p_msg->start = start;
+        p_msg->duration = duration;
+        p_msg->p_cback = p_results_cb;
+
+        bta_sys_sendmsg(p_msg);
+    }
+#endif
+}
+
 

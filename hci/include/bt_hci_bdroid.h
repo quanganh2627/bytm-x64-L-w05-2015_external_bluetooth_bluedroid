@@ -63,7 +63,8 @@
 #endif  // (BTHC_LINUX_BASE_POLICY != SCHED_NORMAL)
 
 #ifndef BTHC_USERIAL_READ_MEM_SIZE
-#define BTHC_USERIAL_READ_MEM_SIZE (1024)
+/* Buffer size value fixed for supporting any possible chip */
+#define BTHC_USERIAL_READ_MEM_SIZE (1026 + BT_HC_HDR_SIZE)
 #endif
 
 #ifndef BTSNOOPDISP_INCLUDED
@@ -86,6 +87,7 @@
 #define HC_EVENT_LPM_ALLOW_SLEEP       0x0080
 #define HC_EVENT_LPM_IDLE_TIMEOUT      0x0100
 #define HC_EVENT_EXIT                  0x0200
+#define HC_EVENT_EPILOG                0x0400
 
 /* Message event mask across Host/Controller lib and stack */
 #define MSG_EVT_MASK                    0xFF00 /* eq. BT_EVT_MASK */
