@@ -372,6 +372,17 @@ int le_test_mode(uint16_t opcode, uint8_t* buf, uint8_t len)
 }
 #endif
 
+int set_channel_classification(uint8_t *bt_channel, uint8_t *le_channel)
+{
+    ALOGI("set_channel_classification");
+
+    /* sanity check */
+    if (interface_ready() == FALSE)
+        return BT_STATUS_NOT_READY;
+
+    return btif_set_channel_classification(bt_channel, le_channel);
+}
+
 static const bt_interface_t bluetoothInterface = {
     sizeof(bluetoothInterface),
     init,
@@ -397,10 +408,11 @@ static const bt_interface_t bluetoothInterface = {
     dut_mode_configure,
     dut_mode_send,
 #if BLE_INCLUDED == TRUE
-    le_test_mode
+    le_test_mode,
 #else
-    NULL
+    NULL,
 #endif
+    set_channel_classification
 };
 
 const bt_interface_t* bluetooth__get_bluetooth_interface ()
