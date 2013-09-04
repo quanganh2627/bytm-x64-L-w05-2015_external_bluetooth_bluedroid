@@ -407,6 +407,33 @@ typedef struct {
     void  (*cleanup)(void);
 } bt_vendor_interface_t;
 
+/* Bluetooth LPM configuration value */
+typedef struct {
+    /*
+     * HCI inactivity time after which device would go to deep sleep (in ms)
+     */
+    uint32_t idle_timeout;
+
+    /*
+     * periodicity of packet rate monitoring period (in ms)
+     */
+    uint32_t pkt_rate_monitor_period;
+
+    /*
+     * Packet rate (HCI pkt / period) to go to D0I2
+     */
+    uint32_t pkt_rate_monitor_threshold;
+
+    /*
+     * Packet rate monitor correction factor to broaden the threshold boundery
+     */
+    uint8_t pkt_rate_monitor_correction_factor;
+
+    /*
+     * Wake up time from deep sleep
+     */
+     uint32_t wakeup_time;
+} bt_vendor_lpm_param_t;
 
 /*
  * External shared lib functions/data

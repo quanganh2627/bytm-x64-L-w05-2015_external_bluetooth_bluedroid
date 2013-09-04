@@ -79,7 +79,8 @@ static void fwcfg_cb(bt_vendor_op_result_t result)
 {
     bt_hc_postload_result_t status = (result == BT_VND_OP_RESULT_SUCCESS) ? \
                                      BT_HC_PRELOAD_SUCCESS : BT_HC_PRELOAD_FAIL;
-
+    if (status == BT_HC_PRELOAD_SUCCESS)
+        lpm_periodic_pkt_rate_init_timer();
     fwcfg_acked = TRUE;
 
     if (bt_hc_cbacks)

@@ -1,5 +1,16 @@
 /******************************************************************************
  *
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ *
+ *  This software is licensed under the terms of the GNU General Public
+ *  License version 2, as published by the Free Software Foundation, and
+ *  may be copied, distributed, and modified under those terms.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,6 +58,8 @@
 #include <hardware/bluetooth.h>
 #include <hardware/bt_sock.h>
 
+#include "stack.h"
+
 /************************************************************************************
 **  Constants & Macros
 ************************************************************************************/
@@ -58,18 +71,23 @@
 #endif
 
 #define CASE_RETURN_STR(const) case const: return #const;
-
+typedef enum
+{
+    RESULT_SUCCESS,
+    RESULT_TIMEOUT,
+    RESULT_UNKNOWN
+};
+#define WAIT_TIME_SECONDS 30 /* 5 sec */
 /************************************************************************************
 **  Local type definitions
 ************************************************************************************/
-//@Ajith
 /************************************************************************************
-**  Forward Declarations
+**  Static Declarations
 ************************************************************************************/
-void adapter_properties_cb(bt_status_t status,int num_properties,bt_property_t *properties);
-void device_found_cb(int num_properties,bt_property_t *properties);
-void remote_device_properties_cb(bt_status_t status,bt_bdaddr_t *bd_addr,int num_properties,bt_property_t *properties);
-void bond_state_changed_cb(bt_status_t status,bt_bdaddr_t *bd_addr,bt_bond_state_t state);
+static void adapter_properties_cb(bt_status_t status,int num_properties,bt_property_t *properties);
+static void device_found_cb(int num_properties,bt_property_t *properties);
+static void remote_device_properties_cb(bt_status_t status,bt_bdaddr_t *bd_addr,int num_properties,bt_property_t *properties);
+static void bond_state_changed_cb(bt_status_t status,bt_bdaddr_t *bd_addr,bt_bond_state_t state);
 /************************************************************************************
 **  Static variables
 ************************************************************************************/
@@ -78,6 +96,7 @@ static int listen_on=0;
 static unsigned char main_done = 0;
 static bt_status_t status;
 static btsock_interface_t *btsock_if=NULL;
+static bt_bdaddr_t *local_bd_addr;
 /* Main API */
 static bluetooth_device_t* bt_device;
 typedef struct
@@ -86,7 +105,6 @@ typedef struct
     char name[256];
 } bt_dev;
 
-bt_dev bt_device_list[512];
 int num_device=0;
 
 const bt_interface_t* sBtInterface = NULL;
@@ -98,7 +116,13 @@ static gid_t groups[] = { AID_NET_BT, AID_INET, AID_NET_BT_ADMIN,
 
 /* Set to 1 when the Bluedroid stack is enabled */
 static unsigned char bt_enabled = 0;
-
+static pthread_mutex_t mutex     = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  condition_var   = PTHREAD_COND_INITIALIZER;
+static struct timespec   ts;
+static struct timeval    tp;
+static int test_result;
+static node_t *stack = NULL;
+static FILE *file;
 /************************************************************************************
 **  Static functions
 ************************************************************************************/
@@ -111,7 +135,7 @@ static void bdt_log(const char *fmt_str, ...);
 /************************************************************************************
 **  Externs
 ************************************************************************************/
-
+extern int adb_send(char *param);
 /************************************************************************************
 **  Functions
 ************************************************************************************/
@@ -181,6 +205,42 @@ void bdt_log(const char *fmt_str, ...)
 /*******************************************************************************
  ** Misc helper functions
  *******************************************************************************/
+static void cond_wait()
+{
+    int rc;
+    test_result = RESULT_UNKNOWN;
+    rc = pthread_mutex_lock(&mutex);
+    rc =  gettimeofday(&tp, NULL);
+    ts.tv_sec  = tp.tv_sec;
+    ts.tv_nsec = tp.tv_usec * 1000;
+    ts.tv_sec += WAIT_TIME_SECONDS;
+    rc = pthread_cond_timedwait(&condition_var, &mutex, &ts);
+    if (rc == ETIMEDOUT)
+    {
+        printf("Operation timed out! FAIL");
+        test_result = RESULT_TIMEOUT;
+    }
+    else
+        test_result = RESULT_SUCCESS;
+    pthread_mutex_unlock(&mutex);
+}
+
+static void cond_wait_without_timeout()
+{
+    int rc;
+    test_result = RESULT_UNKNOWN;
+    rc = pthread_mutex_lock(&mutex);
+    pthread_cond_wait(&condition_var, &mutex );
+    pthread_mutex_unlock(&mutex);
+}
+
+static void cond_signal()
+{
+    pthread_mutex_lock(&mutex);
+        pthread_cond_signal(&condition_var);
+    pthread_mutex_unlock(&mutex);
+}
+
 static const char* dump_bt_status(bt_status_t status)
 {
     switch(status)
@@ -500,14 +560,15 @@ static void adapter_state_changed(bt_state_t state)
     {
         bt_enabled = 0;
     }
+    cond_signal();
 }
 
 static void dut_mode_recv(uint16_t opcode, uint8_t *buf, uint8_t len)
 {
     bdt_log("DUT MODE RECV : NOT IMPLEMENTED");
 }
-//@Ajith : New callbacks added
-void adapter_properties_cb(bt_status_t status,int num_properties,bt_property_t *properties)
+
+static void adapter_properties_cb(bt_status_t status,int num_properties,bt_property_t *properties)
 {
     int i;
     bt_bdaddr_t *bd_addr;
@@ -523,9 +584,9 @@ void adapter_properties_cb(bt_status_t status,int num_properties,bt_property_t *
         }
         else if(properties[i].type==BT_PROPERTY_BDADDR)
         {
-            bd_addr = (bt_bdaddr_t*)properties[i].val;
-            bdt_log("BT Address = %x:%x:%x:%x:%x:%x",bd_addr->address[0],bd_addr->address[1],
-                    bd_addr->address[2],bd_addr->address[3],bd_addr->address[4],bd_addr->address[5]);
+            local_bd_addr = (bt_bdaddr_t*)properties[i].val;
+            bdt_log("BT Address = %x:%x:%x:%x:%x:%x",local_bd_addr->address[0],local_bd_addr->address[1],
+                    local_bd_addr->address[2],local_bd_addr->address[3],local_bd_addr->address[4],local_bd_addr->address[5]);
         }
         else if(properties[i].type==BT_PROPERTY_ADAPTER_BONDED_DEVICES)
         {
@@ -537,7 +598,8 @@ void adapter_properties_cb(bt_status_t status,int num_properties,bt_property_t *
     }
     return;
 }
-void device_found_cb(int num_properties,bt_property_t *properties)
+
+static void device_found_cb(int num_properties,bt_property_t *properties)
 {
     int i=0;
     int j=0;
@@ -551,7 +613,6 @@ void device_found_cb(int num_properties,bt_property_t *properties)
             name = (char*)properties[i].val;
             while(name[j]!='\0')
             {
-                bt_device_list[num_device].name[j]=name[j];
                 j++;
             }
 
@@ -559,13 +620,15 @@ void device_found_cb(int num_properties,bt_property_t *properties)
         if(properties[i].type==BT_PROPERTY_BDADDR)
         {
             bt_bdaddr_t *bd_addr = (bt_bdaddr_t*)properties[i].val;
-            bdt_log("BT Address = %x:%x:%x:%x:%x:%x",bd_addr->address[0],bd_addr->address[1],
-                    bd_addr->address[2],bd_addr->address[3],bd_addr->address[4],bd_addr->address[5]);
-            bt_device_list[num_device].bd_addr = *bd_addr;
+            if (bd_addr)
+            {
+                bdt_log("BT Address = %x:%x:%x:%x:%x:%x",bd_addr->address[0],bd_addr->address[1],
+                        bd_addr->address[2],bd_addr->address[3],bd_addr->address[4],bd_addr->address[5]);
+            }
         }
     }
     num_device++;
-
+    cond_signal();
     bdt_log("\n");
 
 }
@@ -586,11 +649,14 @@ void remote_device_properties_cb(bt_status_t status,bt_bdaddr_t *bd_addr,int num
     }
 }
 */
-void bond_state_changed_cb(bt_status_t status,bt_bdaddr_t *bd_addr,bt_bond_state_t state)
+
+static void bond_state_changed_cb(bt_status_t status,bt_bdaddr_t *bd_addr,bt_bond_state_t state)
 {
     bdt_log("%s",__func__);
     bdt_log("Status = %d",status);
     bdt_log("State = %d",state);
+    if (state == 2)
+        cond_signal();
 }
 
 static void le_test_mode(bt_status_t status, uint16_t packet_count)
@@ -598,7 +664,7 @@ static void le_test_mode(bt_status_t status, uint16_t packet_count)
     bdt_log("LE TEST MODE END status:%s number_of_packets:%d", dump_bt_status(status), packet_count);
 }
 
-void ssp_request_cb(bt_bdaddr_t *remote_bd_addr,bt_bdname_t *bd_name,uint32_t cod,
+static void ssp_request_cb(bt_bdaddr_t *remote_bd_addr,bt_bdname_t *bd_name,uint32_t cod,
                     bt_ssp_variant_t pairing_variant,uint32_t pass_key)
 {
     bdt_log("%s",__func__);
@@ -613,7 +679,8 @@ void ssp_request_cb(bt_bdaddr_t *remote_bd_addr,bt_bdname_t *bd_name,uint32_t co
     sBtInterface->ssp_reply(remote_bd_addr,0,1,pass_key);
 
 }
-void acl_state_changed_cb(bt_status_t status,bt_bdaddr_t *bd_addr,bt_acl_state_t state)
+
+static void acl_state_changed_cb(bt_status_t status,bt_bdaddr_t *bd_addr,bt_acl_state_t state)
 {
     bdt_log("%s",__func__);
     bdt_log("%d",status);
@@ -621,7 +688,8 @@ void acl_state_changed_cb(bt_status_t status,bt_bdaddr_t *bd_addr,bt_acl_state_t
             bd_addr->address[2],bd_addr->address[3],bd_addr->address[4],bd_addr->address[5]);
     bdt_log("acl_state %d",state);
 }
-void pin_request_cb(bt_bdaddr_t *remote_bdaddr,bt_bdname_t *bd_name,uint32_t cod)
+
+static void pin_request_cb(bt_bdaddr_t *remote_bdaddr,bt_bdname_t *bd_name,uint32_t cod)
 {
     bdt_log("%s",__func__);
 }
@@ -766,14 +834,19 @@ void bdt_get_profile_interface(char *profile)
     btsock_if=(btsock_interface_t*) sBtInterface->get_profile_interface(profile);
     return;
 }
-//@Ajith New Functionalities added
+
 int bdt_start_discovery(void)
 {
     bdt_log("Start Discovery");
     bdt_log("List of Devices\n");
     return sBtInterface->start_discovery();
-
 }
+
+int bdt_discovery_cancel()
+{
+    return sBtInterface->cancel_discovery();
+}
+
 int bdt_get_adapter_property(bt_property_type_t type)
 {
 
@@ -871,11 +944,13 @@ void do_init(char *p)
 void do_enable(char *p)
 {
     bdt_enable();
+    cond_wait();
 }
 
 void do_disable(char *p)
 {
     bdt_disable();
+    cond_wait();
 }
 void do_dut_mode_configure(char *p)
 {
@@ -892,25 +967,29 @@ void do_cleanup(char *p)
     bdt_cleanup();
 }
 
-//@Ajith : additional functions added
 void do_start_discovery()
 {
     bdt_start_discovery();
+    cond_wait();
 }
-void do_connect()
+
+void do_discovery_cancel()
+{
+    bdt_discovery_cancel();
+}
+
+void do_connect(char* param)
 {
     int i=0;
-    bdt_log("List of devices are : \n");
-    for(i=0; i<num_device; i++)
+    bt_bdaddr_t remote_bd_addr;
+    bdt_log("%s OUTSIDE remote_bd_addr:%s", __func__, param);
+    if (strcmp(param, "") != 0)
     {
-        bdt_log("%d.Device Name = %s",i,bt_device_list[i].name);
-        bdt_log("BT Address = %x:%x:%x:%x:%x:%x",bt_device_list[i].bd_addr.address[0],bt_device_list[i].bd_addr.address[1],
-                bt_device_list[i].bd_addr.address[2],bt_device_list[i].bd_addr.address[3],
-                bt_device_list[i].bd_addr.address[4],bt_device_list[i].bd_addr.address[5]);
+        bdt_log("%s remote_bd_addr:%s", __func__, param);
+        get_bdaddr(param, &remote_bd_addr);
+        bdt_create_bond(&remote_bd_addr);
     }
-    bdt_log("please enter the device number you want to connect to");
-    scanf("%d",&i);
-    bdt_create_bond(&bt_device_list[i].bd_addr);
+    cond_wait();
     return;
 
 }
@@ -1013,7 +1092,7 @@ void do_read_thread()
                     if (fp == NULL)
                     {
                         printf("File not found!\n");
-                        return NULL;
+                        return;
                     }
                     else
                     {
@@ -1073,14 +1152,18 @@ void do_read_thread()
             }
         }
     }
-
+    cond_signal();
 }
 void do_listen()
 {
+    char cmd[128];
     listen_on=1;
     pthread_t thread_id;
     pthread_create(&thread_id,NULL,(void*)do_read_thread,NULL);
-
+    sprintf(cmd,"file_RX %x:%x:%x:%x:%x:%x",local_bd_addr->address[0],local_bd_addr->address[1],
+                    local_bd_addr->address[2],local_bd_addr->address[3],local_bd_addr->address[4],local_bd_addr->address[5]);
+    //adb_send(cmd);
+    cond_wait_without_timeout();
 }
 
 void do_discoverable()
@@ -1098,7 +1181,86 @@ void do_bonded_device()
     bt_property_t property;
     property.type=BT_PROPERTY_ADAPTER_BONDED_DEVICES;
     bdt_get_adapter_property(property.type);
+}
 
+void do_file (char* param)
+{
+    char name_file[100];
+    int iteration;
+    char line[1024], arg[64];
+    int i;
+
+    bzero(name_file, 100);
+    sscanf(param,"%s %d", name_file, &iteration);
+    bdt_log("%s %d", name_file, iteration);
+    if (strncmp (name_file, "", 100) != 0)
+    {
+        for (i=0; i < iteration; i++)
+        {
+            file = fopen (name_file, "r");
+            if (file != NULL)
+            {
+                while (fgets (line, sizeof(line), file) != NULL)
+                {
+                    //sleep (1);
+                    if (line[0] == ' ')
+                        sscanf(line,"%[* ]%[^\n]", arg, line);
+                    else
+                        sscanf(line,"%[^\n]", line);
+                    printf("line:%s:\n", line, arg);
+                    process_cmd(line, 0);
+                    if (test_result != RESULT_SUCCESS)
+                    {
+                        printf("Failed!!!!");
+                        fclose (file);
+                        exit(0);
+                    }
+                }
+                fclose (file);
+            }
+        }
+    }
+}
+
+void do_delay(char* param)
+{
+    int time;
+    sscanf(param,"%d", &time);
+    if (time > 0)
+        sleep(time);
+}
+
+void do_repeat(char* param)
+{
+    node_t* temp;
+    long int offset;
+    int it_count = atoi(param);
+    bdt_log("%s it_count:%d", __func__, it_count);
+    if (it_count != 0)
+    {
+        offset = ftell(file);
+        bdt_log("repeat call: offset:%ld it_count:%d\n", offset, it_count);
+        push(&stack, create_node(offset, it_count));
+    }
+    else if (strcmp(param, " end") == 0)
+    {
+        temp = pop(&stack);
+        if (temp != NULL)
+        {
+            if (temp->it_count > 1)
+            {
+                printf("repeat end call. seek to:%ld it_count:%d\n", temp->offset, temp->it_count);
+                fseek (file, temp->offset, SEEK_SET);
+                push(&stack, create_node(temp->offset, temp->it_count-1));
+            }
+            free(temp);
+        }
+    }
+}
+
+void do_async(char* param)
+{
+    //TODO: implement multiprofile scenarios
 }
 
 /*******************************************************************
@@ -1125,18 +1287,23 @@ const t_cmd console_cmd_list[] =
     { "disable", do_disable, ":: disables bluetooth", 0 },
     { "dut_mode_configure", do_dut_mode_configure, ":: DUT mode - 1 to enter,0 to exit", 0 },
     { "scan", do_start_discovery,"::starts discovery",0},
+    { "scan_cancel", do_discovery_cancel,"::Cancels ongoing discovery",0},
     { "connect",do_connect,"::connect to a device",0},
+    { "file",do_file,"::Run stress test",0},
+    { "delay",do_delay,"::To be used in Script only",0},
+    { "repeat",do_repeat,"::To be used in Script only",0},
+    { "async",do_async,"::To be used in Script only",0},
 #ifdef DYNAMIC_HCI_LOGGING
+/*
     { "hci_log_enable",do_hci_enable,"::enables hci logging",0},
     { "hci_log_disable",do_hci_disable,"::disables hci logging",0},
     { "hci_trace_enable",do_set_hci_enable,"::enables hci traces",0},
     { "hci_trace_disable",do_set_hci_disable,"::disables hci traces",0},
-    { "listen",do_listen,"::listen to our custom communication",0},
+*/
+#endif
+    { "file_RX",do_listen,"::listen to our custom communication",0},
     { "discoverable",do_discoverable,":: make our device discoverable",0},
     { "bonded_devices",do_bonded_device,"::display bonded devices",0},
-
-#endif
-
 
     { "le_test_mode", do_le_test_mode, ":: LE Test Mode - RxTest - 1 <rx_freq>, \n\t \
                       TxTest - 2 <tx_freq> <test_data_len> <payload_pattern>, \n\t \
@@ -1154,11 +1321,14 @@ const t_cmd console_cmd_list[] =
 static void process_cmd(char *p, unsigned char is_job)
 {
 
-    char cmd[64];
+    char cmd[1024], dummy[10];
     int i = 0;
     char *p_saved = p;
 
     get_str(&p, cmd);
+    //sscanf(p,"%[* ]%s", dummy, p);
+
+    bdt_log("%s command:%s: p:%s:", __func__, cmd, p);
 
     /* table commands */
     while (console_cmd_list[i].name != NULL)
@@ -1182,9 +1352,10 @@ static void process_cmd(char *p, unsigned char is_job)
 int main (int argc, char * argv[])
 {
     int opt;
-    char cmd[128];
+    char line[1024];
     int args_processed = 0;
     int pid = -1;
+    int i;
 
     config_permissions();
     bdt_log("\n:::::::::::::::::::::::::::::::::::::::::::::::::::");
@@ -1204,10 +1375,24 @@ int main (int argc, char * argv[])
     bdt_get_profile_interface(BT_PROFILE_SOCKETS_ID);
     bdt_get_adapter_property(0x02);
     bdt_get_adapter_property(0x01);
+    init_stack(&stack);
+    if (argc >= 2)
+    {
+        sleep(2);
+        bzero(line, 1024);
+        for (i=1; i<argc; i++)
+        {
+            if (i == 1)
+                sprintf(line, "%s", argv[i]);
+            else
+                sprintf(line, "%s %s", line, argv[i]);
+        }
+        bdt_log("bdt cmd line argument:%s:\n", line);
+        process_cmd(line, 0);
+        exit(0);
+    }
     while(!main_done)
     {
-        char line[128];
-
         /* command prompt */
         printf( ">" );
         fflush(stdout);

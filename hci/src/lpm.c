@@ -70,6 +70,7 @@
 ******************************************************************************/
 
 extern bt_vendor_interface_t *bt_vnd_if;
+extern bt_hc_callbacks_t *bt_hc_cbacks;
 
 /******************************************************************************
 **  Local type definitions
@@ -170,11 +171,12 @@ static pthread_mutex_t pkt_count_mutex = PTHREAD_MUTEX_INITIALIZER;
 **   LPM Function declaration
 ******************************************************************************/
 static void lpm_periodic_pkt_rate_timeout(union sigval arg);
-static void lpm_periodic_pkt_rate_start_timer(void);
 static void lpm_periodic_pkt_rate_stop_timer(void);
 static void lpm_idle_timeout(union sigval arg);
 static void lpm_start_transport_idle_timer(void);
 static void lpm_stop_transport_idle_timer(void);
+static void lpm_periodic_pkt_rate_start_timer(void);
+void lpm_periodic_pkt_rate_init_timer(void);
 void lpm_increase_pkt_count();
 void lpm_init(void);
 void lpm_cleanup(void);
@@ -201,22 +203,18 @@ void lpm_host_wake_handler(uint8_t state);
 *******************************************************************************/
 static void lpm_periodic_pkt_rate_timeout(union sigval arg)
 {
-    BTLPMDBG("%s", __func__);
-
+    //BTLPMDBG("%s", __func__);
     if (bt_lpm_cb.state == LPM_ENABLED)
     {
         /* calculate packet rate */
-        bt_lpm_cb.pkt_rate_params.pkt_rate = \
-                   (uint8_t)(bt_lpm_cb.pkt_rate_params.pkt_count \
-                            / bt_lpm_cb.pkt_rate_params.timeout_ms);
+        bt_lpm_cb.pkt_rate_params.pkt_rate = bt_lpm_cb.pkt_rate_params.pkt_count;
         if(bt_lpm_cb.pkt_rate_params.pkt_rate <= \
             bt_lpm_cb.pkt_rate_params.pkt_rate_threshold + \
             bt_lpm_cb.pkt_rate_params.pkt_rate_threshold_correction)
         {
             /* go to D0I2 */
             pthread_mutex_lock(&device_state_mutex);
-            if (bt_lpm_cb.device_state != D0I3 || \
-                bt_lpm_cb.device_state != D0I2)
+            if (bt_lpm_cb.device_state == D0)
             {
                 pthread_mutex_unlock(&device_state_mutex);
                 lpm_set_device_state(D0I2);
@@ -232,7 +230,7 @@ static void lpm_periodic_pkt_rate_timeout(union sigval arg)
         {
             /* go to D0 */
             pthread_mutex_lock(&device_state_mutex);
-            if (bt_lpm_cb.device_state != D0)
+            if (bt_lpm_cb.device_state == D0I2)
             {
                 pthread_mutex_unlock(&device_state_mutex);
                 lpm_set_device_state(D0);
@@ -246,7 +244,6 @@ static void lpm_periodic_pkt_rate_timeout(union sigval arg)
         pthread_mutex_lock(&pkt_count_mutex);
         bt_lpm_cb.pkt_rate_params.pkt_count = 0;
         pthread_mutex_unlock(&pkt_count_mutex);
-        /* start the timer again */
         lpm_periodic_pkt_rate_start_timer();
     }
 }
@@ -268,7 +265,7 @@ static void lpm_periodic_pkt_rate_start_timer(void)
     int status;
     struct itimerspec ts;
     struct sigevent se;
-    BTLPMDBG("%s", __func__);
+    //BTLPMDBG("%s", __func__);
     if (bt_lpm_cb.state != LPM_ENABLED)
         return;
 
@@ -288,6 +285,7 @@ static void lpm_periodic_pkt_rate_start_timer(void)
 
     if (bt_lpm_cb.pkt_rate_params.timer_created == TRUE)
     {
+        //BTLPMDBG("%s bt_lpm_cb.pkt_rate_params.timeout_ms: %d", __func__, bt_lpm_cb.pkt_rate_params.timeout_ms);
         ts.it_value.tv_sec = bt_lpm_cb.pkt_rate_params.timeout_ms/1000;
         ts.it_value.tv_nsec = 1000*(bt_lpm_cb.pkt_rate_params.timeout_ms%1000);
         ts.it_interval.tv_sec = 0;
@@ -297,6 +295,21 @@ static void lpm_periodic_pkt_rate_start_timer(void)
         if (status == -1)
             ALOGE("[START] Failed to set LPM idle timeout");
     }
+}
+
+/*******************************************************************************
+**
+** Function        lpm_periodic_pkt_rate_init_timer
+**
+** Description     Launch periodic packet rate monitor timer.
+**
+** Returns         None
+**
+*******************************************************************************/
+void lpm_periodic_pkt_rate_init_timer(void)
+{
+    bt_lpm_cb.start_transport_idle_timer = START_TRANSPORT_IDLE_TIMER;
+    lpm_periodic_pkt_rate_start_timer();
 }
 
 /*******************************************************************************
@@ -455,7 +468,11 @@ static void lpm_stop_transport_idle_timer(void)
 *******************************************************************************/
 void lpm_vnd_cback(uint8_t vnd_result)
 {
-    /* Nothing to do */
+    if (bt_hc_cbacks)
+    {
+        BTLPMDBG("%s call bte_main lpm_cb to notify that lpm is enabled.", __func__);
+        bt_hc_cbacks->lpm_cb(1);
+    }
 }
 
 /*****************************************************************************
@@ -491,10 +508,21 @@ void lpm_increase_pkt_count()
 void lpm_init(void)
 {
     memset(&bt_lpm_cb, 0, sizeof(bt_lpm_cb_t));
+    static bt_vendor_lpm_param_t lpm_param;
     BTLPMDBG("%s", __func__);
     /* Calling vendor-specific part */
     if (bt_vnd_if)
-        bt_vnd_if->op(BT_VND_OP_GET_LPM_IDLE_TIMEOUT, &(bt_lpm_cb.timeout_ms));
+    {
+        bt_vnd_if->op(BT_VND_OP_GET_LPM_IDLE_TIMEOUT, &lpm_param);
+        bt_lpm_cb.timeout_ms = lpm_param.idle_timeout;
+        bt_lpm_cb.pkt_rate_params.timeout_ms =
+                    lpm_param.pkt_rate_monitor_period;
+        bt_lpm_cb.pkt_rate_params.pkt_rate_threshold =
+                    lpm_param.pkt_rate_monitor_threshold;
+        bt_lpm_cb.pkt_rate_params.pkt_rate_threshold_correction =
+                    lpm_param.pkt_rate_monitor_correction_factor;
+        bt_lpm_cb.D0I3_wake_time = lpm_param.wakeup_time;
+    }
     else
         bt_lpm_cb.timeout_ms = DEFAULT_LPM_IDLE_TIMEOUT;
 }
@@ -529,29 +557,27 @@ void lpm_cleanup(void)
 void lpm_enable(uint8_t turn_on)
 {
     uint8_t state = LOW;
+    uint8_t lpm_cmd;
     BTLPMDBG("%s turn_on:%d", __func__, turn_on);
 
-    if (bt_vnd_if)
-    {
-        uint8_t lpm_cmd = (turn_on) ? BT_VND_LPM_ENABLE : \
-                                                    BT_VND_LPM_DISABLE;
-        BTLPMDBG("%s lpm_cmd:%d", __func__, lpm_cmd);
-        bt_vnd_if->op(BT_VND_OP_LPM_SET_MODE, &lpm_cmd);
-        bt_lpm_cb.state = lpm_cmd;
-    }
     if (turn_on == BT_VND_LPM_ENABLE)
     {
+        lpm_cmd = BT_VND_LPM_ENABLE;
+        if (bt_vnd_if->op(BT_VND_OP_LPM_SET_MODE, &lpm_cmd) == -1)
+        {
+            BTLPMDBG("%s lpm is disabled in conf file", __func__);
+            bt_lpm_cb.state = LPM_DISABLED;
+            return;
+        }
+        bt_lpm_cb.state = lpm_cmd;
         bt_lpm_cb.pkt_rate_params.pkt_count = 0;
         bt_lpm_cb.pkt_rate_params.pkt_rate = 0;
-        bt_lpm_cb.pkt_rate_params.pkt_rate_threshold = 10;
-        bt_lpm_cb.pkt_rate_params.pkt_rate_threshold_correction = 1;
-        bt_lpm_cb.pkt_rate_params.timeout_ms = 30;
         bt_lpm_cb.pkt_rate_params.timer_created = FALSE;
-
         bt_lpm_cb.cts_state = HIGH;
+        bt_lpm_cb.device_state = -1;
+        bt_lpm_cb.bt_wake_state = HIGH;
         bt_lpm_cb.host_wake_state = LOW;
         bt_lpm_cb.start_transport_idle_timer = START_TRANSPORT_IDLE_TIMER;
-
         //lpm_periodic_pkt_rate_start_timer();
         lpm_set_device_state(D0);
     }
@@ -559,12 +585,19 @@ void lpm_enable(uint8_t turn_on)
     {
         lpm_periodic_pkt_rate_stop_timer();
         lpm_set_bt_wake_state(LOW);
-
+        BTLPMDBG("%s Sending D3", __func__);
+        lpm_set_device_state(D3);
         if (bt_vnd_if)
             bt_vnd_if->op(BT_VND_OP_LPM_SET_RTS_STATE, &state);
 
-        /* FIXME: PRH issue will cause Hyperviser panik */
-        lpm_set_device_state(D3);
+        lpm_cmd = BT_VND_LPM_DISABLE;
+        if (bt_vnd_if->op(BT_VND_OP_LPM_SET_MODE, &lpm_cmd) == -1)
+        {
+            /* LPM is disabled by configuration file */
+            bt_lpm_cb.state = LPM_DISABLED;
+            return;
+        }
+        bt_lpm_cb.state = lpm_cmd;
     }
 }
 
@@ -605,12 +638,11 @@ void lpm_wake_assert(void)
 {
     /* Increase the pkt count */
     lpm_increase_pkt_count();
-    BTLPMDBG("%s", __func__);
     if (bt_lpm_cb.state != LPM_DISABLED)
     {
-        BTLPMDBG("LPM WAKE assert");
         /* Change device state if required */
         pthread_mutex_lock(&device_state_mutex);
+        BTLPMDBG("%s device state:%d", __func__, bt_lpm_cb.device_state);
         if (bt_lpm_cb.device_state == D0I3)
         {
             pthread_mutex_unlock(&device_state_mutex);
@@ -624,13 +656,14 @@ void lpm_wake_assert(void)
         pthread_mutex_lock(&cts_state_mutex);
         if (bt_lpm_cb.cts_state == LOW)
         {
-            BTLPMDBG("%s CTS LOW " ,__func__);
+            BTLPMDBG("%s CTS LOW. Turn bt_wake HIGH" ,__func__);
             pthread_mutex_unlock(&cts_state_mutex);
             /* Set BT WAKE state to HIGH */
             lpm_set_bt_wake_state(HIGH);
         }
         else
         {
+            BTLPMDBG("%s CTS is HIGH no need to set BT WAKE." ,__func__);
             pthread_mutex_unlock(&cts_state_mutex);
         }
     }
@@ -672,9 +705,9 @@ void lpm_allow_bt_device_sleep(void)
 void lpm_wake_deassert(void)
 {
     pthread_mutex_lock(&device_state_mutex);
-    BTLPMDBG("%s", __func__);
-    if (bt_lpm_cb.device_state != D0I3 && bt_lpm_cb.min_profile_latency > \
-                                                    bt_lpm_cb.D0I3_wake_time)
+    // FIXME: Profile latency requirement is not considered for now.
+    if (bt_lpm_cb.device_state != D0I3/* && bt_lpm_cb.min_profile_latency > \
+                                                    bt_lpm_cb.D0I3_wake_time*/)
     {
         /* Change D state to D0I2 if current state is not D0I2. Because
          * D0->D0I3 is not possible. So we will go D0->D0I2->D0I3
@@ -711,12 +744,16 @@ void lpm_set_device_state(uint8_t state)
     pthread_mutex_lock(&device_state_mutex);
     if ((bt_lpm_cb.state == LPM_ENABLED))
     {
-        BTLPMDBG("%s", __func__);
         if (bt_lpm_cb.device_state != state)
         {
             if (bt_vnd_if)
             {
+                BTLPMDBG("%s PREV STATE:%d", __func__, bt_lpm_cb.device_state);
+                //FIXME: D0I3 is not enabled
+                //if (state != D0I3)
                 bt_vnd_if->op(BT_VND_OP_LPM_SET_DEVICE_STATE, &state);
+                bt_lpm_cb.device_state = state;
+                BTLPMDBG("%s NEXT STATE:%d", __func__, bt_lpm_cb.device_state);
             }
         }
     }
@@ -739,11 +776,11 @@ void lpm_set_bt_wake_state(uint8_t state)
     pthread_mutex_lock(&bt_wake_mutex);
     if ((bt_lpm_cb.state == LPM_ENABLED))
     {
-        BTLPMDBG("%s", __func__);
         if (bt_lpm_cb.bt_wake_state != state)
         {
-            /* Store CTS state */
+            /* Set BT WKAE state and store CTS state */
             pthread_mutex_lock(&cts_state_mutex);
+            //BTLPMDBG("%s Calling vendor to set state:%d", __func__, state);
             bt_lpm_cb.cts_state = \
                         bt_vnd_if->op(BT_VND_OP_LPM_SET_BT_WAKE_STATE, &state);
             if (bt_lpm_cb.cts_state != state)
@@ -755,6 +792,7 @@ void lpm_set_bt_wake_state(uint8_t state)
                 return;
 
             }
+            bt_lpm_cb.bt_wake_state = state;
             pthread_mutex_unlock(&cts_state_mutex);
         }
         pthread_mutex_lock(&start_transport_idle_timer_mutex);
@@ -766,11 +804,13 @@ void lpm_set_bt_wake_state(uint8_t state)
             if (bt_lpm_cb.start_transport_idle_timer == \
                                         START_TRANSPORT_IDLE_TIMER)
             {
+                BTLPMDBG("%s start transport_idle_timer", __func__);
                 lpm_start_transport_idle_timer();
             }
         }
         else
         {
+            BTLPMDBG("%s stop transport_idle_timer", __func__);
             bt_lpm_cb.start_transport_idle_timer &= \
                                     ~START_TRANSPORT_IDLE_TIMER_BT_WAKE;
             /* Data to send. Stop transport idle timer */
@@ -795,7 +835,6 @@ void lpm_set_bt_wake_state(uint8_t state)
 void lpm_host_wake_handler(uint8_t state)
 {
     pthread_mutex_lock(&host_wake_mutex);
-    BTLPMDBG("%s", __func__);
     if (bt_lpm_cb.host_wake_state == state)
         return; /* Redundent notify. Should never happen */
 

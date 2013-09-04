@@ -757,7 +757,7 @@ extern "C" {
 BT_API extern void bte_main_hci_send (BT_HDR *p_msg, UINT16 event);
 BT_API extern void bte_main_sco_trigger_send(int state, UINT16 sco_handle);
 #if (HCISU_H4_INCLUDED == TRUE)
-BT_API extern void bte_main_lpm_allow_bt_device_sleep(UINT8 cond);
+BT_API extern void bte_main_lpm_allow_bt_device_sleep();
 #endif
 
 #ifdef __cplusplus
@@ -793,10 +793,7 @@ BT_API extern void bte_main_lpm_allow_bt_device_sleep(UINT8 cond);
 
 /* Send HCISU a message to allow BT sleep */
 #ifndef HCI_LP_ALLOW_BT_DEVICE_SLEEP
-#define NO_TX_ACL_DATA  0x0F
-#define NO_TX_HCI_CMD   0xF0
-#define NO_TX           0xFF
-#define HCI_LP_ALLOW_BT_DEVICE_SLEEP(x)       bte_main_lpm_allow_bt_device_sleep(x)
+#define HCI_LP_ALLOW_BT_DEVICE_SLEEP()       bte_main_lpm_allow_bt_device_sleep()
 #endif
 
 /* If nonzero, the upper-layer sends at most this number of HCI commands to the lower-layer. */

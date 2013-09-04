@@ -531,6 +531,22 @@ void btu_hcif_send_cmd (UINT8 controller_id, BT_HDR *p_buf)
 
 }
 
+/*******************************************************************************
+**
+** Function         btu_hcif_cmd_window_mgmt
+**
+** Description      This function is called to report the HCI credit value of
+**                  the events generated from the command sent from HCI lib.
+**
+** Returns          void
+**
+*******************************************************************************/
+void  btu_hcif_cmd_window_mgmt(UINT8 cmd_window)
+{
+    tHCI_CMD_CB * p_hci_cmd_cb = &(btu_cb.hci_cmd_cb[LOCAL_BR_EDR_CONTROLLER_ID]);
+    //ALOGE("%s cmd_window:%d", __func__, cmd_window);
+    p_hci_cmd_cb->cmd_window = cmd_window;
+}
 
 /*******************************************************************************
 **
@@ -1219,6 +1235,9 @@ static void btu_hcif_command_complete_evt (UINT8 controller_id, UINT8 *p, UINT16
             {
                 /* opcode does not match, check next command in the queue */
                 p_cmd = (BT_HDR *) GKI_getnext(p_cmd);
+                BT_TRACE_2 (TRACE_LAYER_HCI, TRACE_TYPE_WARNING,\
+                        "event mismatch. opcode_dequeued:0x%x cc_opcode:0x%x",
+                        opcode_dequeued, cc_opcode);
                 continue;
             }
             GKI_remove_from_queue(&p_hci_cmd_cb->cmd_cmpl_q, p_cmd);

@@ -890,7 +890,7 @@ void btu_check_bt_sleep (void)
         if (l2cb.controller_xmit_window == l2cb.num_lm_acl_bufs)
         {
             /* enable dev to sleep  in the cmd cplt and cmd status only and num cplt packet */
-            HCI_LP_ALLOW_BT_DEVICE_SLEEP(NO_TX_HCI_CMD);
+            HCI_LP_ALLOW_BT_DEVICE_SLEEP();
         }
     }
 }

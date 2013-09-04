@@ -298,6 +298,7 @@ BTU_API extern void  btu_hcif_process_event (UINT8 controller_id, BT_HDR *p_buf)
 BTU_API extern void  btu_hcif_send_cmd (UINT8 controller_id, BT_HDR *p_msg);
 BTU_API extern void  btu_hcif_send_host_rdy_for_data(void);
 BTU_API extern void  btu_hcif_cmd_timeout (UINT8 controller_id);
+BTU_API extern void  btu_hcif_cmd_window_mgmt(UINT8 cmd_window);
 
 /* Functions provided by btu_core.c
 ************************************

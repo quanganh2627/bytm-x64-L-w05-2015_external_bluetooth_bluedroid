@@ -19,7 +19,8 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:=     \
-    bluedroidtest.c
+    bluedroidtest.c \
+    tcp_client.c
 
 LOCAL_C_INCLUDES :=
 

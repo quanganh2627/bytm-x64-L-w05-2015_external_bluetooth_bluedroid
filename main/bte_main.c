@@ -101,7 +101,6 @@ static bt_hc_interface_t *bt_hc_if=NULL;
 static const bt_hc_callbacks_t hc_callbacks;
 static BOOLEAN lpm_enabled = FALSE;
 static bt_preload_retry_cb_t preload_retry_cb;
-static uint8_t no_tx_flag = NO_TX;
 
 /*******************************************************************************
 **  Static functions
@@ -461,8 +460,7 @@ void bte_main_enable_lpm(BOOLEAN enable)
 
     if (bt_hc_if)
         result = bt_hc_if->lpm( \
-        (enable == TRUE) ? BT_HC_LPM_ENABLE : BT_HC_LPM_DISABLE \
-        );
+        (enable == TRUE) ? BT_HC_LPM_ENABLE : BT_HC_LPM_DISABLE);
 
     APPL_TRACE_EVENT2("HC lib lpm enable=%d return %d", enable, result);
 }
@@ -477,14 +475,13 @@ void bte_main_enable_lpm(BOOLEAN enable)
 ** Returns          None
 **
 ******************************************************************************/
-void bte_main_lpm_allow_bt_device_sleep(uint8_t cond)
+void bte_main_lpm_allow_bt_device_sleep()
 {
     int result = -1;
-    no_tx_flag |= cond;
-    if ((bt_hc_if) && (lpm_enabled == TRUE) && no_tx_flag == NO_TX)
+    if ((bt_hc_if) && (lpm_enabled == TRUE))
+    {
         result = bt_hc_if->lpm(BT_HC_LPM_WAKE_DEASSERT);
-
-    APPL_TRACE_DEBUG1("HC lib lpm deassertion return %d", result);
+    }
 }
 
 /******************************************************************************
@@ -524,17 +521,6 @@ void bte_main_hci_send (BT_HDR *p_msg, UINT16 event)
     UINT16 sub_event = event & BT_SUB_EVT_MASK;  /* local controller ID */
 
     p_msg->event = event;
-    switch (event & BT_EVT_MASK)
-    {
-        case BT_EVT_TO_LM_HCI_ACL:
-        case BT_EVT_TO_LM_HCI_SCO:
-            no_tx_flag &= ~NO_TX_ACL_DATA;
-            break;
-        case BT_EVT_TO_LM_HCI_CMD:
-            no_tx_flag &= ~NO_TX_HCI_CMD;
-            break;
-    }
-
     if((sub_event == LOCAL_BR_EDR_CONTROLLER_ID) || \
        (sub_event == LOCAL_BLE_CONTROLLER_ID))
     {
@@ -615,7 +601,11 @@ static void preload_cb(TRANSAC transac, bt_hc_preload_result_t result)
 ******************************************************************************/
 static void postload_cb(TRANSAC transac, bt_hc_postload_result_t result)
 {
-    APPL_TRACE_EVENT1("HC postload_cb %d", result);
+    uint8_t* p;
+    BT_HDR* transac_hdr = (BT_HDR*) transac;
+    if (transac != NULL)
+        p = (uint8_t*) (transac_hdr + 1);
+    btu_hcif_cmd_window_mgmt(p[2]);
 }
 
 /******************************************************************************

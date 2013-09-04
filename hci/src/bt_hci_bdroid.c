@@ -499,18 +499,10 @@ static void *bt_hc_worker_thread(void *arg)
 
         if (events & HC_EVENT_POSTLOAD)
         {
-            /* Start from SCO related H/W configuration, if SCO configuration
-             * is required. Then, follow with reading requests of getting
+            /* Read requests of getting
              * ACL data length for both BR/EDR and LE.
              */
-            int result = -1;
-
-            /* Calling vendor-specific part */
-            if (bt_vnd_if)
-                result = bt_vnd_if->op(BT_VND_OP_SCO_CFG, NULL);
-
-            if (result == -1)
-                p_hci_if->get_acl_max_len();
+            p_hci_if->get_acl_max_len();
         }
 
         if (events & HC_EVENT_TX)

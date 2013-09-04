@@ -49,7 +49,7 @@
 ******************************************************************************/
 
 #ifndef HCI_DBG
-#define HCI_DBG FALSE
+#define HCI_DBG TRUE
 #endif
 
 #if (HCI_DBG == TRUE)
@@ -246,8 +246,9 @@ void get_acl_data_length_cback(void *p_mem)
                                            HCI_COMMAND_COMPLETE_EVT, p_buf, \
                                            get_acl_data_length_cback)) == FALSE)
         {
+            bt_hc_cbacks->postload_cb((TRANSAC) p_buf, BT_HC_POSTLOAD_SUCCESS);
             bt_hc_cbacks->dealloc((TRANSAC) p_buf, (char *) (p_buf + 1));
-            bt_hc_cbacks->postload_cb(NULL, BT_HC_POSTLOAD_SUCCESS);
+            ALOGE("vendor lib postload read buffer completed.");
         }
     }
     else if (opcode == HCI_LE_READ_BUFFER_SIZE)
@@ -257,9 +258,9 @@ void get_acl_data_length_cback(void *p_mem)
 
         if (bt_hc_cbacks)
         {
+            bt_hc_cbacks->postload_cb((TRANSAC) p_buf, BT_HC_POSTLOAD_SUCCESS);
             bt_hc_cbacks->dealloc((TRANSAC) p_buf, (char *) (p_buf + 1));
             ALOGE("vendor lib postload completed");
-            bt_hc_cbacks->postload_cb(NULL, BT_HC_POSTLOAD_SUCCESS);
         }
     }
 }
@@ -737,6 +738,7 @@ void hci_h4_send_msg(HC_BT_HDR *p_msg)
             p = ((uint8_t *)(p_msg + 1)) + p_msg->offset - 1;
             *p = type;
             bytes_to_send = acl_pkt_size + 1; /* packet_size + message type */
+            HCIDBG("%s opcode:0x%02x%02x", __func__, p[1], p[2]);
 
             bytes_sent = userial_write(event,(uint8_t *) p,bytes_to_send);
 
