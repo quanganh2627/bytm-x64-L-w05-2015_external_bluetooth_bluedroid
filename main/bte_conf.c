@@ -43,12 +43,14 @@
 extern BOOLEAN hci_logging_enabled;
 extern char hci_logfile[256];
 extern BOOLEAN trace_conf_enabled;
+extern BOOLEAN wbs_enabled;
 void bte_trace_conf(char *p_name, char *p_conf_value);
 int device_name_cfg(char *p_conf_name, char *p_conf_value);
 int device_class_cfg(char *p_conf_name, char *p_conf_value);
 int logging_cfg_onoff(char *p_conf_name, char *p_conf_value);
 int logging_set_filepath(char *p_conf_name, char *p_conf_value);
 int trace_cfg_onoff(char *p_conf_name, char *p_conf_value);
+int wbs_cfg_onoff(char *p_conf_name, char *p_conf_value);
 
 BD_NAME local_device_default_name = BTM_DEF_LOCAL_NAME;
 DEV_CLASS local_device_default_class = {0x40, 0x02, 0x0C};
@@ -110,6 +112,7 @@ static const conf_entry_t conf_table[] = {
     {"BtSnoopLogOutput", logging_cfg_onoff},
     {"BtSnoopFileName", logging_set_filepath},
     {"TraceConf", trace_cfg_onoff},
+    {"WBSEnabled", wbs_cfg_onoff},
     {(const char *) NULL, NULL}
 };
 
@@ -171,6 +174,15 @@ int logging_set_filepath(char *p_conf_name, char *p_conf_value)
 int trace_cfg_onoff(char *p_conf_name, char *p_conf_value)
 {
     trace_conf_enabled = (strcmp(p_conf_value, "true") == 0) ? TRUE : FALSE;
+    return 0;
+}
+
+int wbs_cfg_onoff(char *p_conf_name, char *p_conf_value)
+{
+    if (strcmp(p_conf_value, "true") == 0)
+        wbs_enabled = TRUE;
+    else
+        wbs_enabled = FALSE;
     return 0;
 }
 

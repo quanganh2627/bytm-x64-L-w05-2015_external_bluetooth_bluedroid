@@ -155,4 +155,15 @@ extern bt_hc_callbacks_t *bt_hc_cbacks;
 *******************************************************************************/
 extern void bthc_signal_event(uint16_t event);
 
+/*******************************************************************************
+**
+** Function        wbs_enable
+**
+** Description     Enable/Disable Wide Band Speech
+**
+** Returns         None
+**
+*******************************************************************************/
+extern void wbs_codec_config(uint8_t status);
+
 #endif /* BT_HCI_BDROID_H */
