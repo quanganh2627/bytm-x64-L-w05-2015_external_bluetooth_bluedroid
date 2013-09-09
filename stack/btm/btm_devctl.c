@@ -33,7 +33,6 @@
 #include "btu.h"
 #include "btm_int.h"
 #include "l2c_int.h"
-#include "bt_hci_bdroid.h"
 
 #if BLE_INCLUDED == TRUE
 #include "gatt_int.h"
@@ -2434,19 +2433,4 @@ void btm_report_device_status (tBTM_DEV_STATUS status)
         (*p_cb)(status);
 }
 
-/*******************************************************************************
-**
-** Function         BTM_SetWBSCodec
-**
-** Description      Enable/disable Wide Band Speech.
-**
-** Returns          tBTM_STATUS
-**
-*******************************************************************************/
-BTM_API extern tBTM_STATUS BTM_SetWBSCodec (tBTM_SCO_CODEC_TYPE codec_type) {
-    uint8_t status = 0;
-    if (codec_type == BTM_SCO_CODEC_MSBC)
-        status = 1;
-    wbs_codec_config(status);
-    return BTM_SUCCESS;
-}
+
