@@ -114,10 +114,6 @@ void bthc_signal_event(uint16_t event)
     pthread_mutex_unlock(&hc_cb.mutex);
 }
 
-void wbs_codec_config(uint8_t status) {
-    bt_vnd_if->op(BT_VND_OP_WBS_CFG, &status);
-}
-
 /*******************************************************************************
 **
 ** Function        epilog_wait_timeout
