@@ -337,7 +337,12 @@ uint8_t internal_event_intercept(void)
 
     else if (event_code == HCI_INTEL_DEBUG_EVT)
     {
-        //ignore the event
+        //Ignore the event and release p_rcv_msg buffer
+        if (bt_hc_cbacks)
+        {
+            bt_hc_cbacks->dealloc((TRANSAC) p_cb->p_rcv_msg, \
+                (char *) (p_cb->p_rcv_msg + 1));
+        }
         return IGNORE_EVENT;
     }
 
