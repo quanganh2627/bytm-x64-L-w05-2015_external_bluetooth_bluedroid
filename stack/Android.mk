@@ -29,6 +29,7 @@ LOCAL_C_INCLUDES:= . \
                    $(LOCAL_PATH)/../bta/sys \
                    $(LOCAL_PATH)/../brcm/include \
                    $(LOCAL_PATH)/../utils/include \
+                   $(LOCAL_PATH)/../hci/include \
                    $(bdroid_C_INCLUDES) \
 
 LOCAL_CFLAGS += $(bdroid_CFLAGS)

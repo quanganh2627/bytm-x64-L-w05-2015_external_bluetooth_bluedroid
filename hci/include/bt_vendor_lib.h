@@ -155,6 +155,19 @@ typedef enum {
  *      specific epilog process once it has been done.
  */
     BT_VND_OP_EPILOG,
+
+/*
+ *  [operation]
+ *      Enable or disable mSBC codec for Wide Band Speech
+ *  [input param]
+ *      A pointer to uint8_t type, different from 0 to enable WBS, 0 otherwise
+ *      Typecasting conversion: (uint8_t *) param.
+ *  [return]
+ *      0 - default, don't care.
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_WBS_CFG,
 } bt_vendor_opcode_t;
 
 /** Power on/off control states */

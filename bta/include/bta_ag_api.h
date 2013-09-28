@@ -249,6 +249,8 @@ typedef struct
 #define BTA_AG_AT_CBC_EVT       25 /* Battery Level report from HF */
 #define BTA_AG_AT_BAC_EVT       26 /* Codec select */
 #define BTA_AG_AT_BCS_EVT       27 /* Codec select */
+#define BTA_AG_WBS_ON_EVT       28 /* Enable WBS configuration */
+#define BTA_AG_WBS_OFF_EVT      29 /* Disable WBS configuration */
 
 typedef UINT8 tBTA_AG_EVT;
 
