@@ -116,17 +116,12 @@ BOOLEAN  BTM_SecRegister (tBTM_APPL_INFO *p_cb_info)
     BT_OCTET16      temp_value = {0};
 #endif
 
-    BTM_TRACE_EVENT0 ("BTM_Sec: application registered");
-
 #if BLE_INCLUDED == TRUE && SMP_INCLUDED == TRUE
-    BTM_TRACE_ERROR1 ("BTM_SecRegister:p_cb_info->p_le_callback == 0x%x ", p_cb_info->p_le_callback);
-
     if (p_cb_info->p_le_callback)
     {
-#if SMP_INCLUDED == TRUE
-        BTM_TRACE_EVENT0 ("BTM_Sec: SMP_Register( btm_proc_smp_cback )");
+        BTM_TRACE_EVENT0 ("BTM_SecRegister: SMP_Register( btm_proc_smp_cback )");
         SMP_Register(btm_proc_smp_cback);
-#endif
+
         /* if no IR is loaded, need to regenerate all the keys */
         if (memcmp(btm_cb.devcb.id_keys.ir, &temp_value, sizeof(BT_OCTET16)) == 0)
         {
@@ -139,13 +134,9 @@ BOOLEAN  BTM_SecRegister (tBTM_APPL_INFO *p_cb_info)
     }
 #endif
 
-
-
     btm_cb.api = *p_cb_info;
-#if BLE_INCLUDED == TRUE && SMP_INCLUDED == TRUE
-     BTM_TRACE_ERROR1 ("BTM_SecRegister: btm_cb.api.p_le_callback = 0x%x ", btm_cb.api.p_le_callback);
-#endif
-    BTM_TRACE_EVENT0 ("BTM_Sec: application registered");
+
+    BTM_TRACE_EVENT0 ("BTM_SecRegister: application registered");
     return(TRUE);
 }
 
