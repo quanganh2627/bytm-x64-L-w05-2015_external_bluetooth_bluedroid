@@ -1011,6 +1011,159 @@ bt_status_t btif_set_channel_classification(uint8_t *bt_channel, uint8_t *le_cha
     return BT_STATUS_SUCCESS;
 }
 
+/****************************************************************************
+**
+**   BTIF MWS Channel APIs
+**
+*****************************************************************************/
+/*******************************************************************************
+**
+** Function         btif_set_mws_channel_parameters_cback
+**
+** Description     Callback invoked on completion of MWS set Channel Parameters command
+**
+** Returns          None
+**
+*******************************************************************************/
+static void btif_set_mws_channel_parameters_cback( tBTM_VSC_CMPL *p )
+{
+    if (*p->p_param_buf == 0) {
+        BTIF_TRACE_DEBUG1("%s: MWS_set_Channel_Parameters OK", __FUNCTION__);
+    } else {
+        BTIF_TRACE_DEBUG1("%s: MWS_set_Channel_Parameters FAILED", __FUNCTION__);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         btif_set_mws_channel_parameters
+**
+** Description      Implement the set MWS channel Parameters command as described in
+**                  Core Spec Addendum 3 Rev 2
+**                  CHANGE #2 - VOLUME 2, PART E (HCI), SECTION 7
+**                  7.3.80 Set MWS Channel Parameters Command
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_set_mws_channel_parameters(uint8_t enable,
+                                            uint16_t rx_center_freq,
+                                            uint16_t tx_center_freq,
+                                            uint16_t rx_channel_bandwidth,
+                                            uint16_t tx_channel_bandwidth,
+                                            uint8_t channel_type)
+{
+    BT_HDR *p_msg;
+    UINT8 *pp;
+
+    BTIF_TRACE_DEBUG2("%s: enable = 0x%02x", __FUNCTION__, enable);
+
+    /* Send setMWSChannelParameters command */
+    if ((p_msg = HCI_GET_CMD_BUF(sizeof(BT_HDR) + sizeof (void *)
+                                + 10 + HCIC_PREAMBLE_SIZE)) == NULL)
+    {
+        BTIF_TRACE_ERROR1("%s: failed to allocate buffer.", __FUNCTION__);
+        return (BT_STATUS_FAIL);
+    }
+
+    pp = (UINT8 *)(p_msg + 1);
+
+    p_msg->event = BT_EVT_TO_BTU_HCI_CMD | LOCAL_BR_EDR_CONTROLLER_ID;
+    p_msg->len = HCIC_PREAMBLE_SIZE + 10;
+    p_msg->offset = sizeof(void *);
+
+    /* Store cmd complete cb in buffer */
+    *((void **)pp) = btif_set_mws_channel_parameters_cback;
+    pp += sizeof(void *);               /* Skip over callback pointer */
+
+    UINT16_TO_STREAM (pp, HCI_SET_MWS_CHANNEL_PARAMETERS);
+    UINT8_TO_STREAM (pp, 10);
+
+    UINT8_TO_STREAM (pp, enable);
+    UINT16_TO_STREAM (pp, rx_center_freq);
+    UINT16_TO_STREAM (pp, tx_center_freq);
+    UINT16_TO_STREAM (pp, rx_channel_bandwidth);
+    UINT16_TO_STREAM (pp, tx_channel_bandwidth);
+    UINT8_TO_STREAM (pp, channel_type);
+
+    /* Can not call BTM_VendorSpecificCommand directly, because we are not in BTU task context */
+    /* send message to BTU to process instead */
+    GKI_send_msg(BTU_TASK, BTU_HCI_RCV_MBOX, p_msg);
+
+    return BT_STATUS_SUCCESS;
+}
+
+/*******************************************************************************
+**
+** Function         btif_set_mws_channel_parameters_cback
+**
+** Description     Callback invoked on completion of MWS set Channel Parameters command
+**
+** Returns          None
+**
+*******************************************************************************/
+static void btif_set_mws_transport_layer_cback( tBTM_VSC_CMPL *p )
+{
+    if (*p->p_param_buf == 0) {
+        BTIF_TRACE_DEBUG1("%s: MWS_set_Transport_Layer OK", __FUNCTION__);
+    } else {
+        BTIF_TRACE_DEBUG1("%s: MWS_set_Transport_Layer FAILED", __FUNCTION__);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         btif_set_mws_transport_layer
+**
+** Description      Implement the set MWS Transport Layer command as described in
+**                  Core Spec Addendum 3 Rev 2
+**                  CHANGE #2 - VOLUME 2, PART E (HCI), SECTION 7
+**                  7.3.83 Set MWS Transport Layer Command
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_set_mws_transport_layer(uint8_t transport_layer,
+                                         uint32_t to_baud_rate,
+                                         uint32_t from_baud_rate)
+{
+    BT_HDR *p_msg;
+    UINT8 *pp;
+
+    BTIF_TRACE_DEBUG2("%s: Baud rate = %d MHz", __FUNCTION__, to_baud_rate);
+
+    /* Send setMWSChannelParameters command */
+    if ((p_msg = HCI_GET_CMD_BUF(sizeof(BT_HDR) + sizeof (void *)
+                                + 9 + HCIC_PREAMBLE_SIZE)) == NULL)
+    {
+        BTIF_TRACE_ERROR1("%s: failed to allocate buffer.", __FUNCTION__);
+        return (BT_STATUS_FAIL);
+    }
+
+    pp = (UINT8 *)(p_msg + 1);
+
+    p_msg->event = BT_EVT_TO_BTU_HCI_CMD | LOCAL_BR_EDR_CONTROLLER_ID;
+    p_msg->len = HCIC_PREAMBLE_SIZE + 9;
+    p_msg->offset = sizeof(void *);
+
+    /* Store cmd complete cb in buffer */
+    *((void **)pp) = btif_set_mws_channel_parameters_cback;
+    pp += sizeof(void *);               /* Skip over callback pointer */
+
+    UINT16_TO_STREAM (pp, HCI_SET_MWS_TRANSPORT_LAYER);
+    UINT8_TO_STREAM (pp, 9);
+
+    UINT8_TO_STREAM (pp, transport_layer);
+    UINT32_TO_STREAM (pp, to_baud_rate);
+    UINT32_TO_STREAM (pp, from_baud_rate);
+
+    /* Can not call BTM_VendorSpecificCommand directly, because we are not in BTU task context */
+    /* send message to BTU to process instead */
+    GKI_send_msg(BTU_TASK, BTU_HCI_RCV_MBOX, p_msg);
+
+    return BT_STATUS_SUCCESS;
+}
+
 /*****************************************************************************
 **
 **   btif api adapter property functions
