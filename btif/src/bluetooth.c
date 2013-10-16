@@ -393,6 +393,42 @@ int set_channel_classification(uint8_t *bt_channel, uint8_t *le_channel)
     return btif_set_channel_classification(bt_channel, le_channel);
 }
 
+int set_mws_channel_parameters(uint8_t enable,
+                               uint16_t rx_center_freq,
+                               uint16_t tx_center_freq,
+                               uint16_t rx_channel_bandwidth,
+                               uint16_t tx_channel_bandwidth,
+                               uint8_t channel_type)
+{
+    ALOGI("set_mws_channel_parameters");
+
+    /* sanity check */
+    if (interface_ready() == FALSE)
+        return BT_STATUS_NOT_READY;
+
+    return btif_set_mws_channel_parameters(enable,
+                                           rx_center_freq,
+                                           tx_center_freq,
+                                           rx_channel_bandwidth,
+                                           tx_channel_bandwidth,
+                                           channel_type);
+}
+
+int set_mws_transport_layer(uint8_t transport_layer,
+                            uint32_t to_baud_rate,
+                            uint32_t from_baud_rate)
+{
+    ALOGI("set_mws_transport_layer(");
+
+    /* sanity check */
+    if (interface_ready() == FALSE)
+        return BT_STATUS_NOT_READY;
+
+    return btif_set_mws_transport_layer(transport_layer,
+                                        to_baud_rate,
+                                        from_baud_rate);
+}
+
 static const bt_interface_t bluetoothInterface = {
     sizeof(bluetoothInterface),
     init,
@@ -422,8 +458,14 @@ static const bt_interface_t bluetoothInterface = {
 #else
     NULL,
 #endif
-    config_hci_snoop_log,
-    set_channel_classification
+    config_hci_snoop_log
+};
+
+static const bt_interface_intel_t bluetoothInterfaceIntel = {
+    sizeof(bluetoothInterfaceIntel),
+    set_channel_classification,
+    set_mws_channel_parameters,
+    set_mws_transport_layer
 };
 
 const bt_interface_t* bluetooth__get_bluetooth_interface ()
@@ -431,6 +473,11 @@ const bt_interface_t* bluetooth__get_bluetooth_interface ()
     /* fixme -- add property to disable bt interface ? */
 
     return &bluetoothInterface;
+}
+
+const bt_interface_intel_t* bluetooth__get_bluetooth_interface_intel ()
+{
+    return &bluetoothInterfaceIntel;
 }
 
 static int close_bluetooth_stack(struct hw_device_t* device)
@@ -449,6 +496,7 @@ struct hw_device_t** abstraction)
     stack->common.module = (struct hw_module_t*)module;
     stack->common.close = close_bluetooth_stack;
     stack->get_bluetooth_interface = bluetooth__get_bluetooth_interface;
+    stack->get_bluetooth_interface_intel = bluetooth__get_bluetooth_interface_intel;
     *abstraction = (struct hw_device_t*)stack;
     return 0;
 }
