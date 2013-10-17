@@ -705,7 +705,7 @@ static void bta_ag_api_disable(tBTA_AG_DATA *p_data)
 
     if (!bta_sys_is_register (BTA_ID_AG))
     {
-        APPL_TRACE_ERROR0("BTA AG is already disabled, ignoring ...");
+        APPL_TRACE_WARNING0("BTA AG is already disabled, ignoring ...");
         return;
     }
 
