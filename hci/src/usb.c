@@ -1225,6 +1225,7 @@ uint16_t usb_write(uint16_t msg_id, uint8_t *p_data, uint16_t len)
         }
     }
 
+    usb_xfer_status &= ~(XMITTED);
     while ((r = libusb_submit_transfer(xmit_transfer)) < 0)
     {
 
@@ -1242,7 +1243,6 @@ uint16_t usb_write(uint16_t msg_id, uint8_t *p_data, uint16_t len)
     {
         return xmited_len;
     }
-    usb_xfer_status &= ~(XMITTED);
 
     while (!(usb_xfer_status & XMITTED))
         libusb_handle_events_timeout(0, &tv);
