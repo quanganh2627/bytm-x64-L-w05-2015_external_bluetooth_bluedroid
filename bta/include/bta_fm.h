@@ -20,9 +20,18 @@
 /*FM Interface code is under flag BT_FM_MITIGATION. Using this flag we can enable or disable the FM Interface code.*/
 /*
 ******* Currently, disable this macro, because RPC APIs are not working, they wait for modem response.******
-#define BT_FM_MITIGATION
 */
-
+#define BT_FM_MITIGATION
+/*************************************************************************************************************
+**
+** Function    bta_fm_register
+**
+** Description    register Bluetooth FM module with Frequency Manager and obtain handle.
+**
+** Returns    void
+**
+****************************************************************************************************************/
+void bta_fm_register(void);
 /*************************************************************************************************************
 **
 ** Function    bta_fm_init

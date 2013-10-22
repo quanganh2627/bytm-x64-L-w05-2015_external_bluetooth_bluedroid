@@ -43,6 +43,7 @@
 
 #ifdef BT_FM_MITIGATION
 
+#define BTA_FM_RPC_UPPER_BITS 0x20000000
 extern void bta_dm_btfm_set_afh_channels(UINT8 ch_mask[]);
 
 static  IuiFmMitigationStatus    bt_iui_fm_mitigation_cb(const IuiFmMacroId macro_id, const IuiFmMitigation *mitigation, const IuiFmMitigationSequence sequence);
@@ -77,19 +78,60 @@ static IuiFmFreqNotification FmNotification_off;
 static IuiFmFreqNotification * const notification_off=&FmNotification_off;
 static IuiFmBtInfo *binfo_off=NULL;
 
+static bool bta_fm_registered = false;
+
 /********************************************************************************************************
 **             FUNCTIONS
 **
 **********************************************************************************************************/
+/*********************************************************************************************************
+**
+** Function    bta_fm_register
+**
+** Description    register bluetooth with frequency manager and obtain handle
+**
+** Returns    void
+**
+**************************************************************************************************************/
 
+void bta_fm_register()
+{
+    UtaUInt rpc_upper_bits = 0x0;
+    UtaContextId rpc_id = 0;
+    rpc_upper_bits = BTA_FM_RPC_UPPER_BITS;
+    UtaUInt32 RpcAppsID = 0x0;
+    APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
+    if(bta_fm_registered)
+    {
+        APPL_TRACE_DEBUG1("%s : Already registered", __FUNCTION__);
+        return;
+    }
+    /* creates queue and thread for listening to remote procedure calls,
+    and set up the RPC interface */
+    RpcAppsID = AppRPCIFHndlrInit();
+    APPL_TRACE_DEBUG2("%s : RpcAppsID = %d ", __FUNCTION__,RpcAppsID);
+    /* The client Id (Application Id) which is obtained from the
+    above function is set placed in the LSB. Clear the remaining values
+    and retain Client Id.*/
+    RpcAppsID = (RpcAppsID & 0x000000FF);
+    /* Shift client Id to the last but one byte, so that clients can
+    append context Id relevant to their implementation to the last byte.*/
+    rpc_upper_bits |= (RpcAppsID << 8);
+    rpc_id = rpc_upper_bits;
+    /* Set global variable in RPC for the current client. Not time dependent.*/
+    RPCSetClientId(rpc_id);
+    APPL_TRACE_DEBUG2("%s : rpc_id = %d ", __FUNCTION__,rpc_id);
+    bta_fm_registered = true;
+
+}
 
 /*********************************************************************************************************
 **
 ** Function    bta_fm_init
 **
 ** Description    register bluetooth with FM, This method is get called when Bluetooth core is enabled
-**	and it call to IuiFmNotifyFrequency to notify FM with Bluetooth status turn ON and	subsquently call
-**  to IuiFmRegisterMitigationCallback to register metigation callback.
+** and it call to IuiFmNotifyFrequency to notify FM with Bluetooth status turn ON and	subsquently call
+** to IuiFmRegisterMitigationCallback to register metigation callback.
 **
 ** Returns    void
 **
@@ -98,8 +140,9 @@ static IuiFmBtInfo *binfo_off=NULL;
 void  bta_fm_init()
 {
     APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
+    bta_fm_register();
     if(binfo_on==NULL)
-    {    binfo_on = (IuiFmBtInfo *) malloc(sizeof(IuiFmBtInfo));
+    {    binfo_on = (IuiFmBtInfo *) GKI_getbuf(sizeof(IuiFmBtInfo));
         if(!binfo_on)
         {
             APPL_TRACE_ERROR0("binfo_on is NULL: ");
@@ -110,8 +153,10 @@ void  bta_fm_init()
     FmNotification_on.info.bt_info = binfo_on;
     FmNotification_on.type=IUI_FM_FREQ_NOTIFICATION_TYPE_BT;
     UTA_REMOTE_CALL(IuiFmNotifyFrequency)(IUI_FM_MACRO_ID_BT,  notification_on );
+    APPL_TRACE_DEBUG1("%s : IuiFmNotifyFrequency - BT on notification ", __FUNCTION__);
     UTA_REMOTE_CALL(IuiFmRegisterMitigationCallback)( IUI_FM_MACRO_ID_BT, bt_iui_fm_mitigation_cb );
-    free(binfo_on);
+    APPL_TRACE_DEBUG1("%s : IuiFmRegisterMitigationCallback - BT mitigation cb registered ", __FUNCTION__);
+    GKI_freebuf(binfo_on);
     binfo_on=NULL;
 }
 
@@ -133,7 +178,7 @@ void bta_fm_deinit()
     APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
     if(binfo_off==NULL)
     {
-    binfo_off = (IuiFmBtInfo *) malloc(sizeof(IuiFmBtInfo));
+    binfo_off = (IuiFmBtInfo *) GKI_getbuf(sizeof(IuiFmBtInfo));
         if(!binfo_off)
         {
             APPL_TRACE_ERROR0("binfo_off is NULL: ");
@@ -144,8 +189,10 @@ void bta_fm_deinit()
     FmNotification_off.info.bt_info = binfo_off;
     FmNotification_off.type=IUI_FM_FREQ_NOTIFICATION_TYPE_BT;
     UTA_REMOTE_CALL(IuiFmNotifyFrequency)(IUI_FM_MACRO_ID_BT,  notification_off );
+    APPL_TRACE_DEBUG1("%s : IuiFmNotifyFrequency - BT off notification ", __FUNCTION__);
     UTA_REMOTE_CALL(IuiFmRegisterMitigationCallback)( IUI_FM_MACRO_ID_BT, NULL );
-    free(binfo_off);
+    APPL_TRACE_DEBUG1("%s : IuiFmRegisterMitigationCallback - unregister ", __FUNCTION__);
+    GKI_freebuf(binfo_off);
     binfo_off=NULL;
 }
 
@@ -168,14 +215,14 @@ IuiFmMitigationStatus  bt_iui_fm_mitigation_cb(const IuiFmMacroId macro_id, cons
     btfmmitigation.Seq = sequence;
     UINT8  *p=ch_mask;
     APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
-    btfmmitigation.FmMit = (IuiFmMitigation  *) malloc(sizeof(IuiFmMitigation));
+    btfmmitigation.FmMit = (IuiFmMitigation  *) GKI_getbuf(sizeof(IuiFmMitigation));
     if(!btfmmitigation.FmMit)
     {
         APPL_TRACE_ERROR0("btfmmitigation.FmMit = NULL");
         return IUI_FM_MITIGATION_ERROR;
     }
     btfmmitigation.FmMit->type=mitigation->type;
-    btfm_mask = (IuiFmBtChannelMask *) malloc(sizeof(UINT32)*IUI_FM_BT_CHANNEL_MASK_WORDS);
+    btfm_mask = (IuiFmBtChannelMask *) GKI_getbuf(sizeof(UINT32)*IUI_FM_BT_CHANNEL_MASK_WORDS);
     if(!btfm_mask)
     {
         APPL_TRACE_ERROR0("btfm_mask = NULL");
@@ -231,8 +278,8 @@ void bta_btfm_set_afh_channels_evt_cb(UINT8 result)
     // IUI_FM_MITIGATION_COMPLETE_OK success case
         UTA_REMOTE_CALL(IuiFmMitigationComplete)(IUI_FM_MACRO_ID_BT, IUI_FM_MITIGATION_COMPLETE_OK, btfmmitigation.FmMit, btfmmitigation.Seq );
     }
-    free(btfmmitigation.FmMit);
-    free(btfm_mask);
+    GKI_freebuf(btfmmitigation.FmMit);
+    GKI_freebuf(btfm_mask);
     btfmmitigation.FmMit=NULL;
     btfm_mask=NULL;
 }

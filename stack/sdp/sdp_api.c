@@ -83,25 +83,36 @@ BOOLEAN SDP_InitDiscoveryDb (tSDP_DISCOVERY_DB *p_db, UINT32 len, UINT16 num_uui
 
         return(FALSE);
     }
-
+    if(p_uuid_list ==NULL || ( (num_attr > 0 ) && (p_attr_list == NULL)))
+    {
+        SDP_TRACE_ERROR3("SDP_InitDiscoveryDb Illegal param:p_uuid_list = 0x%x,num_attr = %d, p_attr_list = 0x%x",
+                         (UINT32)p_uuid_list,num_attr,(UINT32)p_attr_list);
+        return (FALSE);
+    }
     memset (p_db, 0, (size_t)len);
-
     p_db->mem_size = len - sizeof (tSDP_DISCOVERY_DB);
     p_db->mem_free = p_db->mem_size;
     p_db->p_first_rec = NULL;
     p_db->p_free_mem = (UINT8 *)(p_db + 1);
-
-    for (xx = 0; xx < num_uuid; xx++)
-        p_db->uuid_filters[xx] = *p_uuid_list++;
-
+    // converted to deep copy to fix the SDP crash
+    for (xx = 0; xx < num_uuid; xx++){
+        if(p_uuid_list == NULL){
+            SDP_TRACE_ERROR1("SDP_InitDiscoveryDb Illegal param: p_uuid_list = 0x%x",(UINT32)p_uuid_list);
+            return (FALSE);
+        }
+        p_db->uuid_filters[xx].len = p_uuid_list[xx].len;
+        memcpy(p_db->uuid_filters[xx].uu.uuid128, p_uuid_list[xx].uu.uuid128, sizeof(p_uuid_list[xx].uu.uuid128));
+    }
     p_db->num_uuid_filters = num_uuid;
-
-    for (xx = 0; xx < num_attr; xx++)
+    for (xx = 0; xx < num_attr; xx++){
+        if(p_attr_list == NULL){
+            SDP_TRACE_ERROR1("SDP_InitDiscoveryDb Illegal param: p_attr_list = 0x%x",(UINT32)p_attr_list);
+            return (FALSE);
+        }
         p_db->attr_filters[xx] = *p_attr_list++;
-
+    }
     /* sort attributes */
     sdpu_sort_attr_list( num_attr, p_db );
-
     p_db->num_attr_filters = num_attr;
 #endif
     return(TRUE);
