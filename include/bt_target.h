@@ -863,7 +863,7 @@ and USER_HW_DISABLE_API macros */
 
 /* Includes WBS if TRUE */
 #ifndef BTM_WBS_INCLUDED
-#define BTM_WBS_INCLUDED                FALSE       /* TRUE includes WBS code */
+#define BTM_WBS_INCLUDED                TRUE       /* TRUE includes WBS code */
 #endif
 
 /* Includes WBS if TRUE */

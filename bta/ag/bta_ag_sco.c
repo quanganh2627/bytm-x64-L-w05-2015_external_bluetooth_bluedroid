@@ -556,6 +556,7 @@ static void bta_ag_create_sco(tBTA_AG_SCB *p_scb, BOOLEAN is_orig)
         /*
             Intel IBT supports enhanced sco connection setup command. No need to do any vendor
             specific command.
+            Commented the code which sends BCOM Vendor specific HCI commands for WBS
         */
         if (BTM_IsEnhancedSCOSupported() == FALSE)
         {
@@ -1560,8 +1561,9 @@ void bta_ag_sco_conn_rsp(tBTA_AG_SCB *p_scb, tBTM_ESCO_CONN_REQ_EVT_DATA *p_data
         bta_ag_co_audio_state(bta_ag_scb_to_idx(p_scb), p_scb->app_id, BTA_AG_CO_AUD_STATE_SETUP);
 
 #if (BTM_WBS_INCLUDED == TRUE )
-        /* When HS initiated SCO, it cannot be WBS. */
-        BTM_ConfigI2SPCM (BTM_SCO_CODEC_CVSD, (UINT8)HCI_BRCM_I2SPCM_IS_DEFAULT_ROLE, (UINT8)HCI_BRCM_I2SPCM_SAMPLE_DEFAULT, (UINT8)HCI_BRCM_I2SPCM_CLOCK_DEFAULT);
+        /* When HS initiated SCO, it cannot be WBS.
+		 Commented the code which sends BCOM Vendor specific HCI commands for WBS*/
+        /*BTM_ConfigI2SPCM (BTM_SCO_CODEC_CVSD, (UINT8)HCI_BRCM_I2SPCM_IS_DEFAULT_ROLE, (UINT8)HCI_BRCM_I2SPCM_SAMPLE_DEFAULT, (UINT8)HCI_BRCM_I2SPCM_CLOCK_DEFAULT);*/
 #endif
 
 #if (BTM_SCO_HCI_INCLUDED == TRUE )
