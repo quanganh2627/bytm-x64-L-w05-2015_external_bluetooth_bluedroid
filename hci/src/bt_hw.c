@@ -41,6 +41,8 @@
 
 extern tHCI_IF *p_hci_if;
 extern uint8_t fwcfg_acked;
+extern void lpm_periodic_pkt_rate_init_timer(void);
+
 void lpm_vnd_cback(uint8_t vnd_result);
 void lpm_host_wake_handler(uint8_t state);
 
@@ -68,9 +70,9 @@ tINT_CMD_CBACK p_int_evt_cb=NULL;
 ******************************************************************************/
 static void fwcfg_cb(bt_vendor_op_result_t result)
 {
-    bt_hc_postload_result_t status = (result == BT_VND_OP_RESULT_SUCCESS) ? \
-                                     BT_HC_PRELOAD_SUCCESS : BT_HC_PRELOAD_FAIL;
-    if (status == BT_HC_PRELOAD_SUCCESS)
+    bt_hc_postload_result_t status = ((result == BT_VND_OP_RESULT_SUCCESS) ? \
+                                     BT_HC_POSTLOAD_SUCCESS : BT_HC_POSTLOAD_FAIL);
+    if (status == BT_HC_POSTLOAD_SUCCESS)
         lpm_periodic_pkt_rate_init_timer();
     fwcfg_acked = TRUE;
 
@@ -200,7 +202,7 @@ static uint8_t int_evt_callback_reg_cb(tINT_CMD_CBACK p_cb)
 **                  called from the libbt-vendor to de-register async event
 **                  callback.
 **
-** Returns          TRUE/FALSE
+** Returns          NONE
 **
 ******************************************************************************/
 static void int_evt_callback_dereg_cb()

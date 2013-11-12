@@ -34,7 +34,6 @@
 #include "hci.h"
 #include "userial.h"
 #include "utils.h"
-
 /******************************************************************************
 **  Constants & Macros
 ******************************************************************************/
@@ -116,6 +115,9 @@ static const uint16_t msg_evt_table[] =
 #define HCI_RESET                   0x0C03
 /* OPCODE Array reset for CMD complete */
 #define HCI_CMD_INVALID             0x1111
+
+#define HCI_CMD_DEFAULT             0xffff
+#define HCI_INTEL_EVENT_NONE        0x00
 
 #define IGNORE_EVENT                3
 
@@ -274,8 +276,8 @@ uint8_t internal_event_intercept(void)
 {
     uint8_t     *p;
     uint8_t     event_code;
-    uint8_t     sub_event_code;
-    uint16_t    opcode, len;
+    uint8_t     sub_event_code = HCI_INTEL_EVENT_NONE;
+    uint16_t    opcode = HCI_CMD_DEFAULT, len;
     tHCI_H4_CB  *p_cb = &h4_cb;
 
     p = (uint8_t *)(p_cb->p_rcv_msg + 1);

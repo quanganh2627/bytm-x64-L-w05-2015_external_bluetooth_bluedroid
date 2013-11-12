@@ -737,7 +737,8 @@ BOOLEAN btsnd_hcic_enhanced_setup_sco_conn (UINT16 handle, UINT32     tx_bw,
 
     pp = (UINT8 *)(p + 1);
     temp_p = (UINT8 *)(p + 1);
-    bzero(pp, HCIC_PARAM_SIZE_ENHANCED_SETUP_SCO);
+    //bzero(pp, HCIC_PARAM_SIZE_ENHANCED_SETUP_SCO);
+    memset(pp, 0, HCIC_PARAM_SIZE_ENHANCED_SETUP_SCO);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_ENHANCED_SETUP_SCO;
     p->offset = 0;

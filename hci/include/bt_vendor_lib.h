@@ -328,7 +328,7 @@ typedef uint8_t (*cmd_xmit_cb)(uint16_t opcode, uint8_t compl_evt_code, void *p_
 typedef uint8_t (*cfg_int_async_evt_callback_reg_cb)(tINT_CMD_CBACK p_cb);
 
 /* De-registers aync event callback function */
-typedef uint8_t (*cfg_int_async_evt_callback_dereg_cb)();
+typedef void (*cfg_int_async_evt_callback_dereg_cb)();
 
 /* Passes Host Wake signal to the hci library for further handling */
 typedef void (*cmd_set_host_wake_state)(uint8_t state);

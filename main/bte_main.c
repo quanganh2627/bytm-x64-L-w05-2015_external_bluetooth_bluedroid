@@ -595,8 +595,10 @@ static void postload_cb(TRANSAC transac, bt_hc_postload_result_t result)
     uint8_t* p;
     BT_HDR* transac_hdr = (BT_HDR*) transac;
     if (transac != NULL)
+    {
         p = (uint8_t*) (transac_hdr + 1);
-    btu_hcif_cmd_window_mgmt(p[2]);
+        btu_hcif_cmd_window_mgmt(p[2]);
+    }
 }
 
 /******************************************************************************

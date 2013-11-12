@@ -971,6 +971,9 @@ extern BOOLEAN      btm_inq_find_bdaddr (BD_ADDR p_bda);
 extern BOOLEAN btm_lookup_eir(BD_ADDR_PTR p_rem_addr);
 #endif
 
+extern void btm_process_cancel_complete(UINT8 status, UINT8 mode);
+
+
 /* Internal functions provided by btm_acl.c
 ********************************************
 */

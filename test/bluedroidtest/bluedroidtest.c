@@ -68,7 +68,7 @@ typedef enum
     RESULT_SUCCESS,
     RESULT_TIMEOUT,
     RESULT_UNKNOWN
-};
+}bt_test_results_t;
 #define WAIT_TIME_SECONDS 30 /* 5 sec */
 /************************************************************************************
 **  Local type definitions
@@ -1199,7 +1199,7 @@ void do_file (char* param)
                         sscanf(line,"%[* ]%[^\n]", arg, line);
                     else
                         sscanf(line,"%[^\n]", line);
-                    printf("line:%s:\n", line, arg);
+                    printf("line:%s: args:%s\n", line, arg);
                     process_cmd(line, 0);
                     if (test_result != RESULT_SUCCESS)
                     {

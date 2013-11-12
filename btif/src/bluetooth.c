@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -406,6 +407,8 @@ static const bt_interface_t bluetoothInterface = {
     get_profile_interface,
     dut_mode_configure,
     dut_mode_send,
+    NULL,
+    NULL,
 #if BLE_INCLUDED == TRUE
     le_test_mode,
 #else
