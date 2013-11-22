@@ -498,7 +498,7 @@ void bta_av_rc_opened(tBTA_AV_CB *p_cb, tBTA_AV_DATA *p_data)
             p_scb->rc_handle = p_data->rc_conn_chg.handle;
             APPL_TRACE_DEBUG2("bta_av_rc_opened shdl:%d, srch %d", i + 1, p_scb->rc_handle);
             shdl = i+1;
-            APPL_TRACE_ERROR1("use_rc:%d", p_scb->use_rc);
+            APPL_TRACE_DEBUG1("use_rc:%d", p_scb->use_rc);
             bta_sys_stop_timer(&p_scb->timer);
             disc = p_scb->hndl;
             break;
@@ -533,7 +533,7 @@ void bta_av_rc_opened(tBTA_AV_CB *p_cb, tBTA_AV_DATA *p_data)
 
     p_cb->rcb[i].shdl = shdl;
     rc_open.rc_handle = i;
-    APPL_TRACE_ERROR4("bta_av_rc_opened rcb[%d] shdl:%d lidx:%d/%d",
+    APPL_TRACE_DEBUG4("bta_av_rc_opened rcb[%d] shdl:%d lidx:%d/%d",
             i, shdl, p_cb->rcb[i].lidx, p_cb->lcb[BTA_AV_NUM_LINKS].lidx);
     p_cb->rcb[i].status |= BTA_AV_RC_CONN_MASK;
 
@@ -550,7 +550,7 @@ void bta_av_rc_opened(tBTA_AV_CB *p_cb, tBTA_AV_DATA *p_data)
         p_lcb->lidx = BTA_AV_NUM_LINKS + 1;
             p_cb->rcb[i].lidx = p_lcb->lidx;
         p_lcb->conn_msk = 1;
-        APPL_TRACE_ERROR3("rcb[%d].lidx=%d, lcb.conn_msk=x%x",
+        APPL_TRACE_DEBUG3("rcb[%d].lidx=%d, lcb.conn_msk=x%x",
             i, p_cb->rcb[i].lidx, p_lcb->conn_msk);
         disc = p_data->rc_conn_chg.handle|BTA_AV_CHNL_MSK;
     }
@@ -664,9 +664,12 @@ void bta_av_rc_meta_rsp(tBTA_AV_CB *p_cb, tBTA_AV_DATA *p_data)
             (!p_data->api_meta_rsp.is_rsp && (p_cb->features & BTA_AV_FEAT_RCCT)) )
         {
             p_rcb = &p_cb->rcb[p_data->hdr.layer_specific];
-            AVRC_MsgReq(p_rcb->handle, p_data->api_meta_rsp.label, p_data->api_meta_rsp.rsp_code,
-                                      p_data->api_meta_rsp.p_pkt);
-            free = FALSE;
+            if (p_rcb->handle != BTA_AV_RC_HANDLE_NONE) {
+                AVRC_MsgReq(p_rcb->handle, p_data->api_meta_rsp.label,
+                            p_data->api_meta_rsp.rsp_code,
+                            p_data->api_meta_rsp.p_pkt);
+                free = FALSE;
+            }
         }
     }
 

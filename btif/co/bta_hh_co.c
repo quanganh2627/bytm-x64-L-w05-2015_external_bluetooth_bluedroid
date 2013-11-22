@@ -277,6 +277,7 @@ void bta_hh_co_open(UINT8 dev_handle, UINT8 sub_class, tBTA_HH_ATTR_MASK attr_ma
                 p_dev->attr_mask  = attr_mask;
                 p_dev->sub_class  = sub_class;
                 p_dev->app_id     = app_id;
+                p_dev->local_vup  = FALSE;
 
                 btif_hh_cb.device_num++;
                 // This is a new device,open the uhid driver now.
@@ -420,7 +421,7 @@ void bta_hh_co_send_hid_info(btif_hh_device_t *p_dev, char *dev_name, UINT16 ven
     strncpy((char*)ev.u.create.name, dev_name, sizeof(ev.u.create.name) - 1);
     ev.u.create.rd_size = dscp_len;
     ev.u.create.rd_data = p_dscp;
-    ev.u.create.bus = BUS_BLUETOOTH;
+    ev.u.create.bus = BUS_USB;
     ev.u.create.vendor = vendor_id;
     ev.u.create.product = product_id;
     ev.u.create.version = version;

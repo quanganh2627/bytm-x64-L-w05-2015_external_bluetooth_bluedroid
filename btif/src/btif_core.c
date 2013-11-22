@@ -30,6 +30,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <ctype.h>
@@ -141,6 +142,7 @@ void btif_dm_execute_service_request(UINT16 event, char *p_param);
 #ifdef BTIF_DM_OOB_TEST
 void btif_dm_load_local_oob(void);
 #endif
+void bte_main_config_hci_logging(BOOLEAN enable, BOOLEAN bt_disabled);
 
 /************************************************************************************
 **  Functions
@@ -416,8 +418,18 @@ static void btif_fetch_local_bdaddr(bt_bdaddr_t *local_addr)
     if (!valid_bda)
     {
         bdstr_t bdstr;
+        struct timeval tval;
         /* Seed the random number generator */
-        srand((unsigned int) (time(0)));
+        int ret = gettimeofday(&tval, NULL);
+        if (!ret) {
+            BTIF_TRACE_DEBUG2("gettimeofday returns %d secs and %d usecs",
+                                                    tval.tv_sec, tval.tv_usec);
+            srand((unsigned int) tval.tv_sec * tval.tv_usec);
+        } else {
+            BTIF_TRACE_WARNING1("gettimeofday failed with error %s",
+                                                            strerror(errno));
+            srand((unsigned int) time(NULL));
+        }
 
         /* No autogen BDA. Generate one now. */
         local_addr->address[0] = 0x22;
@@ -1416,7 +1428,7 @@ bt_status_t btif_enable_service(tBTA_SERVICE_ID service_id)
 
     btif_enabled_services |= (1 << service_id);
 
-    BTIF_TRACE_ERROR2("%s: current services:0x%x", __FUNCTION__, btif_enabled_services);
+    BTIF_TRACE_DEBUG2("%s: current services:0x%x", __FUNCTION__, btif_enabled_services);
 
     if (btif_is_enabled())
     {
@@ -1449,7 +1461,7 @@ bt_status_t btif_disable_service(tBTA_SERVICE_ID service_id)
 
     btif_enabled_services &=  (tBTA_SERVICE_MASK)(~(1<<service_id));
 
-    BTIF_TRACE_ERROR2("%s: Current Services:0x%x", __FUNCTION__, btif_enabled_services);
+    BTIF_TRACE_DEBUG2("%s: Current Services:0x%x", __FUNCTION__, btif_enabled_services);
 
     if (btif_is_enabled())
     {
@@ -1458,5 +1470,21 @@ bt_status_t btif_disable_service(tBTA_SERVICE_ID service_id)
                               (char*)p_id, sizeof(tBTA_SERVICE_ID), NULL);
     }
 
+    return BT_STATUS_SUCCESS;
+}
+
+/*******************************************************************************
+**
+** Function         btif_config_hci_snoop_log
+**
+** Description      enable or disable HCI snoop log
+**
+** Returns          bt_status_t
+**
+*******************************************************************************/
+bt_status_t btif_config_hci_snoop_log(uint8_t enable)
+{
+    bte_main_config_hci_logging(enable != 0,
+             btif_core_state == BTIF_CORE_STATE_DISABLED);
     return BT_STATUS_SUCCESS;
 }

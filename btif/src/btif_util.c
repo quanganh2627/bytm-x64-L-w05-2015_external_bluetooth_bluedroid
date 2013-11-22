@@ -96,8 +96,8 @@ char *bd2str(const bt_bdaddr_t *bdaddr, bdstr_t *bdstr)
     char *addr = (char *) bdaddr->address;
 
     sprintf((char*)bdstr, "%02x:%02x:%02x:%02x:%02x:%02x",
-                       (int)addr[0],(int)addr[1],(int)addr[2],
-                       (int)addr[3],(int)addr[4],(int)addr[5]);
+                       (UINT8)addr[0],(UINT8)addr[1],(UINT8)addr[2],
+                       (UINT8)addr[3],(UINT8)addr[4],(UINT8)addr[5]);
     return (char *)bdstr;
 }
 
@@ -472,6 +472,7 @@ const char *dump_rc_event(UINT8 event)
         CASE_RETURN_STR(BTA_AV_VENDOR_CMD_EVT)
         CASE_RETURN_STR(BTA_AV_VENDOR_RSP_EVT)
         CASE_RETURN_STR(BTA_AV_META_MSG_EVT)
+        CASE_RETURN_STR(BTA_AV_RC_FEAT_EVT)
         default:
             return "UNKNOWN_EVENT";
    }
@@ -489,6 +490,7 @@ const char * dump_rc_notification_event_id(UINT8 event_id)
         CASE_RETURN_STR(AVRC_EVT_BATTERY_STATUS_CHANGE)
         CASE_RETURN_STR(AVRC_EVT_SYSTEM_STATUS_CHANGE)
         CASE_RETURN_STR(AVRC_EVT_APP_SETTING_CHANGE)
+        CASE_RETURN_STR(AVRC_EVT_VOLUME_CHANGE)
 
         default:
             return "Unhandled Event ID";
@@ -512,7 +514,7 @@ const char*  dump_rc_pdu(UINT8 pdu)
         CASE_RETURN_STR(AVRC_PDU_REGISTER_NOTIFICATION)
         CASE_RETURN_STR(AVRC_PDU_REQUEST_CONTINUATION_RSP)
         CASE_RETURN_STR(AVRC_PDU_ABORT_CONTINUATION_RSP)
-
+        CASE_RETURN_STR(AVRC_PDU_SET_ABSOLUTE_VOLUME)
         default:
             return "Unknown PDU";
     }

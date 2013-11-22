@@ -18,6 +18,7 @@ LOCAL_C_INCLUDES:= . \
                    $(LOCAL_PATH)/hid \
                    $(LOCAL_PATH)/sdp \
                    $(LOCAL_PATH)/smp \
+                   $(LOCAL_PATH)/srvc \
                    $(LOCAL_PATH)/../include \
                    $(LOCAL_PATH)/../gki/common \
                    $(LOCAL_PATH)/../gki/ulinux \
@@ -33,11 +34,6 @@ LOCAL_C_INCLUDES:= . \
 
 LOCAL_CFLAGS += $(bdroid_CFLAGS)
 
-ifeq ($(BOARD_HAVE_BLUETOOTH_BCM),true)
-LOCAL_CFLAGS += \
-	-DBOARD_HAVE_BLUETOOTH_BCM
-endif
-
 LOCAL_PRELINK_MODULE:=false
 LOCAL_SRC_FILES:= \
     ./a2dp/a2d_api.c \
@@ -46,7 +42,9 @@ LOCAL_SRC_FILES:= \
     ./avrc/avrc_sdp.c \
     ./avrc/avrc_opt.c \
     ./avrc/avrc_bld_tg.c \
+    ./avrc/avrc_bld_ct.c \
     ./avrc/avrc_pars_tg.c \
+    ./avrc/avrc_pars_ct.c \
     ./avrc/avrc_utils.c \
     ./hid/hidh_api.c \
     ./hid/hidh_conn.c \
@@ -83,10 +81,6 @@ LOCAL_SRC_FILES:= \
     ./mcap/mca_csm.c \
     ./mcap/mca_cact.c \
     ./mcap/mca_api.c \
-     ./gap/gap_ble.c \
-    ./gap/gap_api.c \
-    ./gap/gap_utils.c \
-    ./gap/gap_conn.c \
     ./gatt/gatt_sr.c \
     ./gatt/gatt_cl.c \
     ./gatt/gatt_api.c \
@@ -103,12 +97,12 @@ LOCAL_SRC_FILES:= \
     ./avct/avct_lcb_act.c \
     ./smp/smp_main.c \
     ./smp/smp_l2c.c \
-    ./smp/aes.c \
     ./smp/smp_cmac.c \
     ./smp/smp_utils.c \
     ./smp/smp_act.c \
     ./smp/smp_keys.c \
     ./smp/smp_api.c \
+    ./smp/aes.c \
     ./avdt/avdt_ccb.c \
     ./avdt/avdt_scb_act.c \
     ./avdt/avdt_msg.c \
@@ -124,6 +118,12 @@ LOCAL_SRC_FILES:= \
     ./sdp/sdp_api.c \
     ./sdp/sdp_discovery.c \
     ./pan/pan_main.c \
+    ./srvc/srvc_battery.c \
+    ./srvc/srvc_battery_int.h \
+    ./srvc/srvc_dis.c \
+    ./srvc/srvc_dis_int.h \
+    ./srvc/srvc_eng.c \
+    ./srvc/srvc_eng_int.h \
     ./pan/pan_api.c \
     ./pan/pan_utils.c \
     ./btu/btu_hcif.c \
@@ -136,7 +136,11 @@ LOCAL_SRC_FILES:= \
     ./l2cap/l2c_utils.c \
     ./l2cap/l2c_csm.c \
     ./l2cap/l2c_link.c \
-    ./l2cap/l2c_ble.c
+    ./l2cap/l2c_ble.c \
+    ./gap/gap_api.c \
+    ./gap/gap_ble.c \
+    ./gap/gap_conn.c \
+    ./gap/gap_utils.c
 
 LOCAL_MODULE := libbt-brcm_stack
 LOCAL_MODULE_TAGS := optional

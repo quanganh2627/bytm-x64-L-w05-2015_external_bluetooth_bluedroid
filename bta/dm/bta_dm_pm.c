@@ -597,7 +597,7 @@ static void bta_dm_pm_ssr(BD_ADDR peer_addr)
                     && ((p_bta_dm_pm_cfg[j].app_id == BTA_ALL_APP_ID )
                     || (p_bta_dm_pm_cfg[j].app_id == bta_dm_conn_srvcs.conn_srvc[i].app_id)))
                 {
-                    APPL_TRACE_WARNING2("bta_dm_pm_ssr conn_srvc id:%d, app_id:%d",
+                    APPL_TRACE_DEBUG2("bta_dm_pm_ssr conn_srvc id:%d, app_id:%d",
                         bta_dm_conn_srvcs.conn_srvc[i].id, bta_dm_conn_srvcs.conn_srvc[i].app_id);
                     break;
                 }
@@ -625,7 +625,7 @@ static void bta_dm_pm_ssr(BD_ADDR peer_addr)
     }
 
     p_spec = &p_bta_dm_ssr_spec[ssr];
-    APPL_TRACE_WARNING2("bta_dm_pm_ssr:%d, lat:%d", ssr, p_spec->max_lat);
+    APPL_TRACE_DEBUG2("bta_dm_pm_ssr:%d, lat:%d", ssr, p_spec->max_lat);
     if(p_spec->max_lat)
     {
         /* set the SSR parameters. */

@@ -4,10 +4,6 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-ifeq ($(BOARD_HAVE_BLUETOOTH_BCM),true)
-LOCAL_CFLAGS += \
-	-DBOARD_HAVE_BLUETOOTH_BCM
-endif
 LOCAL_CFLAGS += -DBUILDCFG $(bdroid_CFLAGS)
 
 LOCAL_PRELINK_MODULE:=false
@@ -42,6 +38,7 @@ LOCAL_SRC_FILES:= \
     ./hh/bta_hh_cfg.c \
     ./hh/bta_hh_act.c \
     ./hh/bta_hh_api.c \
+    ./hh/bta_hh_le.c \
     ./hh/bta_hh_utils.c \
     ./hh/bta_hh_main.c \
     ./pb/bta_pbs_cfg.c \

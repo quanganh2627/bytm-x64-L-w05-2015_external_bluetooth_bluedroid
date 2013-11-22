@@ -76,6 +76,7 @@ typedef struct
 **  Variables
 ******************************************************************************/
 BOOLEAN hci_logging_enabled = FALSE;    /* by default, turn hci log off */
+BOOLEAN hci_logging_config = FALSE;    /* configured from bluetooth framework */
 char hci_logfile[256] = HCI_LOGGING_FILENAME;
 
 
@@ -106,7 +107,7 @@ BT_API void BTE_UnloadStack(void);
 extern void scru_flip_bda (BD_ADDR dst, const BD_ADDR src);
 extern void bte_load_conf(const char *p_path);
 extern bt_bdaddr_t btif_local_bd_addr;
-
+extern void bte_load_prop(void);
 
 /*******************************************************************************
 **                        System Task Configuration
@@ -156,6 +157,8 @@ void bte_main_boot_entry(void)
     bte_main_in_hw_init();
 
     bte_load_conf(BTE_STACK_CONF_FILE);
+
+    bte_load_prop(); // priority order Property > Conf > Static
 
 #if (BTTRC_INCLUDED == TRUE)
     /* Initialize trace feature */
@@ -227,6 +230,35 @@ void bte_main_disable(void)
 
 /******************************************************************************
 **
+** Function         bte_main_config_hci_logging
+**
+** Description      enable or disable HIC snoop logging
+**
+** Returns          None
+**
+******************************************************************************/
+void bte_main_config_hci_logging(BOOLEAN enable, BOOLEAN bt_disabled)
+{
+    int old = (hci_logging_enabled == TRUE) || (hci_logging_config == TRUE);
+    int new;
+
+    if (enable) {
+        hci_logging_config = TRUE;
+    } else {
+        hci_logging_config = FALSE;
+    }
+
+    new = (hci_logging_enabled == TRUE) || (hci_logging_config == TRUE);
+
+    if ((old == new) || bt_disabled || (bt_hc_if == NULL)) {
+        return;
+    }
+
+    bt_hc_if->logging(new ? BT_HC_LOGGING_ON : BT_HC_LOGGING_OFF, hci_logfile);
+}
+
+/******************************************************************************
+**
 ** Function         bte_hci_enable
 **
 ** Description      Enable HCI & Vendor modules
@@ -247,7 +279,7 @@ static void bte_hci_enable(void)
 
         assert(result == BT_HC_STATUS_SUCCESS);
 
-        if (hci_logging_enabled == TRUE)
+        if (hci_logging_enabled == TRUE || hci_logging_config == TRUE)
             bt_hc_if->logging(BT_HC_LOGGING_ON, hci_logfile);
 
 #if (defined (BT_CLEAN_TURN_ON_DISABLED) && BT_CLEAN_TURN_ON_DISABLED == TRUE)
@@ -291,7 +323,7 @@ static void bte_hci_disable(void)
     {
         bt_hc_if->cleanup();
         bt_hc_if->set_power(BT_HC_CHIP_PWR_OFF);
-        if (hci_logging_enabled == TRUE)
+        if (hci_logging_enabled == TRUE ||  hci_logging_config == TRUE)
             bt_hc_if->logging(BT_HC_LOGGING_OFF, hci_logfile);
     }
 }

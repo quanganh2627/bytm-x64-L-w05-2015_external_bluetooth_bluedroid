@@ -242,7 +242,7 @@ static void bta_av_save_addr(tBTA_AV_SCB *p_scb, const BD_ADDR b)
         p_scb->recfg_sup, p_scb->suspend_sup);
     if(bdcmp(p_scb->peer_addr, b) != 0)
     {
-        APPL_TRACE_ERROR0("reset flags");
+        APPL_TRACE_DEBUG0("reset flags");
         /* a new addr, reset the supported flags */
         p_scb->recfg_sup    = TRUE;
         p_scb->suspend_sup  = TRUE;
@@ -251,6 +251,28 @@ static void bta_av_save_addr(tBTA_AV_SCB *p_scb, const BD_ADDR b)
     /* do this copy anyway, just in case the first addr matches
      * the control block one by accident */
     bdcpy(p_scb->peer_addr, b);
+}
+
+/*******************************************************************************
+**
+** Function         notify_start_failed
+**
+** Description      notify up-layer AV start failed
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+static void notify_start_failed(tBTA_AV_SCB *p_scb)
+{
+    tBTA_AV_START   start;
+    /* if start failed, clear role */
+    p_scb->role &= ~BTA_AV_ROLE_START_INT;
+    start.chnl   = p_scb->chnl;
+    start.status = BTA_AV_FAIL;
+    start.initiator = TRUE;
+    start.hndl   = p_scb->hndl;
+    (*bta_av_cb.p_cback)(BTA_AV_START_EVT, (tBTA_AV *) &start);
 }
 
 /*******************************************************************************
@@ -1140,7 +1162,7 @@ void bta_av_setconfig_rsp (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data)
         p_scb->wait = BTA_AV_WAIT_ACP_CAPS_ON;
         if(p_data->ci_setconfig.recfg_needed)
             p_scb->role |= BTA_AV_ROLE_SUSPEND_OPT;
-        APPL_TRACE_ERROR3("bta_av_setconfig_rsp recfg_needed:%d role:x%x num:%d",
+        APPL_TRACE_DEBUG3("bta_av_setconfig_rsp recfg_needed:%d role:x%x num:%d",
             p_data->ci_setconfig.recfg_needed, p_scb->role, num);
         /* callout module tells BTA the number of "good" SEPs and their SEIDs.
          * getcap on these SEID */
@@ -1782,8 +1804,13 @@ void bta_av_do_start (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data)
     else if (p_scb->started)
     {
         p_scb->role |= BTA_AV_ROLE_START_INT;
-        if ( p_scb->wait == 0 )
-           bta_av_start_ok(p_scb, NULL);
+        if ( p_scb->wait == 0 ) {
+            if (p_scb->role & BTA_AV_ROLE_SUSPEND) {
+                notify_start_failed(p_scb);
+            } else {
+                bta_av_start_ok(p_scb, NULL);
+            }
+        }
     }
     APPL_TRACE_DEBUG2("started %d role:x%x", p_scb->started, p_scb->role);
 }
@@ -1805,7 +1832,7 @@ void bta_av_str_stopped (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data)
     BT_HDR  *p_buf;
     UINT8 policy = HCI_ENABLE_SNIFF_MODE;
 
-    APPL_TRACE_ERROR2("bta_av_str_stopped:audio_open_cnt=%d, p_data %x",
+    APPL_TRACE_EVENT2("bta_av_str_stopped:audio_open_cnt=%d, p_data %x",
             bta_av_cb.audio_open_cnt, p_data);
 
     bta_sys_idle(BTA_ID_AV, bta_av_cb.audio_open_cnt, p_scb->peer_addr);
@@ -2233,19 +2260,10 @@ void bta_av_start_ok (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data)
 *******************************************************************************/
 void bta_av_start_failed (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data)
 {
-    tBTA_AV_START   start;
-
     if(p_scb->started == FALSE && p_scb->co_started == FALSE)
     {
-        /* if start failed, clear role */
-        p_scb->role &= ~BTA_AV_ROLE_START_INT;
-
         bta_sys_idle(BTA_ID_AV, bta_av_cb.audio_open_cnt, p_scb->peer_addr);
-        start.chnl   = p_scb->chnl;
-        start.status = BTA_AV_FAIL;
-        start.initiator = TRUE;
-        start.hndl   = p_scb->hndl;
-        (*bta_av_cb.p_cback)(BTA_AV_START_EVT, (tBTA_AV *) &start);
+        notify_start_failed(p_scb);
     }
 
     bta_sys_set_policy(BTA_ID_AV, (HCI_ENABLE_SNIFF_MODE|HCI_ENABLE_MASTER_SLAVE_SWITCH), p_scb->peer_addr);
