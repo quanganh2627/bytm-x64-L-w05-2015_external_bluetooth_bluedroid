@@ -63,8 +63,7 @@
 #endif  // (BTHC_LINUX_BASE_POLICY != SCHED_NORMAL)
 
 #ifndef BTHC_USERIAL_READ_MEM_SIZE
-/* Buffer size value fixed for supporting any possible chip */
-#define BTHC_USERIAL_READ_MEM_SIZE (1026 + BT_HC_HDR_SIZE)
+#define BTHC_USERIAL_READ_MEM_SIZE (1024)
 #endif
 
 #ifndef BTSNOOPDISP_INCLUDED

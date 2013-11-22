@@ -1,7 +1,3 @@
-ifneq ($(BOARD_HAVE_BLUETOOTH),false)
-
-ifneq ($(BOARD_USES_WCS),true)
-
 LOCAL_PATH := $(call my-dir)
 
 # Setup bdroid local make variables for handling configuration
@@ -17,8 +13,4 @@ include $(call all-subdir-makefiles)
 
 # Cleanup our locals
 bdroid_C_INCLUDES :=
-bdroid_CFLAGS :=
-
-endif # BOARD_USES_WCS != true
-
-endif
+bdroid_CFLaGS :=

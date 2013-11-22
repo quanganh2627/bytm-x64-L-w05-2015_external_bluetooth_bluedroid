@@ -1013,7 +1013,7 @@ BOOLEAN bta_av_link_role_ok(tBTA_AV_SCB *p_scb, UINT8 bits)
 
     if (BTM_GetRole(p_scb->peer_addr, &role) == BTM_SUCCESS)
     {
-        APPL_TRACE_EVENT5("bta_av_link_role_ok hndl:x%x role:%d, conn_audio:x%x, bits:%d, features:x%x", p_scb->hndl, role, bta_av_cb.conn_audio, bits, bta_av_cb.features);
+        APPL_TRACE_ERROR5("bta_av_link_role_ok hndl:x%x role:%d, conn_audio:x%x, bits:%d, features:x%x", p_scb->hndl, role, bta_av_cb.conn_audio, bits, bta_av_cb.features);
         if (BTM_ROLE_MASTER != role && (A2D_BitsSet(bta_av_cb.conn_audio) > bits || (bta_av_cb.features & BTA_AV_FEAT_MASTER)))
         {
             if (bta_av_cb.features & BTA_AV_FEAT_MASTER)

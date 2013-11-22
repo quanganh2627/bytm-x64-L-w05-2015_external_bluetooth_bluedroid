@@ -420,7 +420,7 @@ void bta_hh_co_send_hid_info(btif_hh_device_t *p_dev, char *dev_name, UINT16 ven
     strncpy((char*)ev.u.create.name, dev_name, sizeof(ev.u.create.name) - 1);
     ev.u.create.rd_size = dscp_len;
     ev.u.create.rd_data = p_dscp;
-    ev.u.create.bus = BUS_USB;
+    ev.u.create.bus = BUS_BLUETOOTH;
     ev.u.create.vendor = vendor_id;
     ev.u.create.product = product_id;
     ev.u.create.version = version;

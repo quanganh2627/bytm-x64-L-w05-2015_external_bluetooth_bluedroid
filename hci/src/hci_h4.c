@@ -231,7 +231,7 @@ void get_acl_data_length_cback(void *p_mem)
         if (bt_hc_cbacks)
         {
             bt_hc_cbacks->dealloc((TRANSAC) p_buf, (char *) (p_buf + 1));
-            ALOGI("vendor lib postload completed");
+            ALOGE("vendor lib postload completed");
             bt_hc_cbacks->postload_cb(NULL, BT_HC_POSTLOAD_SUCCESS);
         }
     }

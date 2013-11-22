@@ -1103,7 +1103,7 @@ static void btif_dm_search_services_evt(UINT16 event, char *p_param)
                  {
                       char temp[256];
                       uuid_to_string((bt_uuid_t*)(p_data->disc_res.p_uuid_list + (i*MAX_UUID_SIZE)), temp);
-                      BTIF_TRACE_DEBUG2("Index: %d uuid:%s", i, temp);
+                      BTIF_TRACE_ERROR2("Index: %d uuid:%s", i, temp);
                  }
             }
 
