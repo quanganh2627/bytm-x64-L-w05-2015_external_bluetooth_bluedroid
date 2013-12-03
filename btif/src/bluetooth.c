@@ -406,9 +406,9 @@ static const bt_interface_t bluetoothInterface = {
     ssp_reply,
     get_profile_interface,
     dut_mode_configure,
+    NULL,
+    NULL,
     dut_mode_send,
-    NULL,
-    NULL,
 #if BLE_INCLUDED == TRUE
     le_test_mode,
 #else
