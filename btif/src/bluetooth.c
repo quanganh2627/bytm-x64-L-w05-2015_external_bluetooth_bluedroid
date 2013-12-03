@@ -38,6 +38,7 @@
 #include <hardware/bt_pan.h>
 #include <hardware/bt_gatt.h>
 #include <hardware/bt_rc.h>
+#include <hardware/bt_test.h>
 
 #define LOG_NDDEBUG 0
 #define LOG_TAG "bluedroid"
@@ -87,6 +88,31 @@ extern btpan_interface_t *btif_pan_get_interface();
 extern btgatt_interface_t *btif_gatt_get_interface();
 /* avrc */
 extern btrc_interface_t *btif_rc_get_interface();
+/*test*/
+#ifdef VERIFIER
+#ifdef BNEP_VERIFIER
+extern bnep_verifier_interface_t *btif_get_bnep_verifier_interface(void);
+#endif
+
+#ifdef AVDTP_VERIFIER
+extern avdtp_verifier_interface_t *btif_get_avdtp_verifier_interface(void);
+#endif //AVDTP_VERIFIER
+
+#endif // VERIFIER
+
+#ifdef TESTER
+#ifdef BNEP_TESTER
+extern bnep_test_interface_t *btif_get_bnep_test_interface(void);
+#endif
+
+#ifdef AVDTP_TESTER
+extern avdtp_test_interface_t *btif_get_avdtp_test_interface(void);
+#endif
+
+#ifdef L2CAP_TESTER
+extern l2cap_test_interface_t *btif_get_l2cap_test_interface(void);
+#endif
+#endif // TESTER
 
 /************************************************************************************
 **  Functions
@@ -333,6 +359,31 @@ static const void* get_profile_interface (const char *profile_id)
 
     if (is_profile(profile_id, BT_PROFILE_AV_RC_ID))
         return btif_rc_get_interface();
+
+#ifdef BNEP_VERIFIER
+    if (is_profile(profile_id, BT_PROFILE_BNEP_VERIFIER_ID))
+        return btif_get_bnep_verifier_interface();
+#endif
+
+#ifdef AVDTP_VERIFIER
+    if (is_profile(profile_id, BT_PROFILE_AVDTP_VERIFIER_ID))
+        return btif_get_avdtp_verifier_interface();
+#endif
+
+#ifdef BNEP_TESTER
+    if (is_profile(profile_id, BT_PROFILE_BNEP_TESTER_ID))
+        return btif_get_bnep_test_interface();
+#endif
+
+#ifdef AVDTP_TESTER
+    if (is_profile(profile_id, BT_PROFILE_AVDTP_TESTER_ID))
+        return btif_get_avdtp_test_interface();
+#endif
+
+#ifdef L2CAP_TESTER
+    if (is_profile(profile_id, BT_PROFILE_L2CAP_TESTER_ID))
+        return btif_get_l2cap_test_interface();
+#endif
 
     return NULL;
 }

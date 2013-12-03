@@ -49,6 +49,7 @@
 #include <hardware/hardware.h>
 #include <hardware/bluetooth.h>
 #include <hardware/bt_sock.h>
+#include <hardware/bt_test.h>
 
 #include "stack.h"
 
@@ -70,6 +71,15 @@ typedef enum
     RESULT_UNKNOWN
 }bt_test_results_t;
 #define WAIT_TIME_SECONDS 30 /* 5 sec */
+#ifdef BDT_LOG_ENABLE
+#define BDT_LOG_FUNC_NAME() bdt_log("%s", __func__)
+#define BDT_LOG(str, ...)   bdt_log(str, ##__VA_ARGS__)
+#define BDT_LOG_NEW(str, ...)   bdt_log_new(str, ##__VA_ARGS__)
+#else
+#define BDT_LOG_FUNC_NAME() ;
+#define BDT_LOG(str, ...) ;
+#define BDT_LOG_NEW(str, ...) ;
+#endif
 /************************************************************************************
 **  Local type definitions
 ************************************************************************************/
@@ -101,6 +111,30 @@ int num_device=0;
 
 const bt_interface_t* sBtInterface = NULL;
 
+/*test*/
+#ifdef VERIFER
+#ifdef BNEP_VERIFIER
+const bnep_verifier_interface_t *sBtBNEPVInterface = NULL;
+#endif
+#ifdef AVDTP_VERIFIER
+const avdtp_verifier_interface_t *sBtAVDTPVInterface = NULL;
+#endif //AVDTP_VERIFIER
+
+#endif // VERIFIER
+
+#ifdef TESTER
+#ifdef BNEP_TESTER
+const bnep_test_interface_t *sBtBNEPTestInterface = NULL;
+#endif
+#ifdef AVDTP_TESTER
+const avdtp_test_interface_t *sBtAVDTPTestInterface = NULL;
+#endif //AVDTP_TESTER
+
+#ifdef L2CAP_TESTER
+const l2cap_test_interface_t *sBtL2CAPTestInterface = NULL;
+#endif
+#endif // TESTER
+
 static gid_t groups[] = { AID_NET_BT, AID_INET, AID_NET_BT_ADMIN,
                           AID_SYSTEM, AID_MISC, AID_SDCARD_RW,
                           AID_NET_ADMIN, AID_VPN
@@ -122,6 +156,7 @@ static FILE *file;
 static void process_cmd(char *p, unsigned char is_job);
 static void job_handler(void *param);
 static void bdt_log(const char *fmt_str, ...);
+static void bdt_log_new(const char *fmt_str, ...);
 
 
 /************************************************************************************
@@ -139,7 +174,7 @@ extern int adb_send(char *param);
 
 static void bdt_shutdown(void)
 {
-    bdt_log("shutdown bdroid test app\n");
+    BDT_LOG("shutdown bdroid test app\n");
     main_done = 1;
 }
 
@@ -153,7 +188,7 @@ static void config_permissions(void)
     struct __user_cap_header_struct header;
     struct __user_cap_data_struct cap;
 
-    bdt_log("set_aid_and_cap : pid %d, uid %d gid %d", getpid(), getuid(), getgid());
+    BDT_LOG("set_aid_and_cap : pid %d, uid %d gid %d", getpid(), getuid(), getgid());
 
     header.pid = 0;
 
@@ -191,7 +226,7 @@ void bdt_log(const char *fmt_str, ...)
     vsnprintf(buffer, 1024, fmt_str, ap);
     va_end(ap);
 
-    fprintf(stdout, "%s\n", buffer);
+    fprintf(stdout, "\t%s\n", buffer);
 }
 
 /*******************************************************************************
@@ -233,6 +268,18 @@ static void cond_signal()
     pthread_mutex_unlock(&mutex);
 }
 
+void bdt_log_new(const char *fmt_str, ...)
+{
+    static char buffer[1024];
+    va_list ap;
+
+    va_start(ap, fmt_str);
+    vsnprintf(buffer, 1024, fmt_str, ap);
+    va_end(ap);
+
+    fprintf(stdout, "\t%s", buffer);
+}
+
 static const char* dump_bt_status(bt_status_t status)
 {
     switch(status)
@@ -259,7 +306,7 @@ static void hex_dump(char *msg, void *data, int size, int trunc)
     char hexstr[ 16*3 + 5] = {0};
     char charstr[16*1 + 5] = {0};
 
-    bdt_log("%s  \n", msg);
+    BDT_LOG("%s  \n", msg);
 
     /* truncate */
     if(trunc && (size>32))
@@ -291,7 +338,7 @@ static void hex_dump(char *msg, void *data, int size, int trunc)
         if(n%16 == 0)
         {
             /* line completed */
-            bdt_log("[%4.4s]   %-50.50s  %s\n", addrstr, hexstr, charstr);
+            BDT_LOG("[%4.4s]   %-50.50s  %s\n", addrstr, hexstr, charstr);
             hexstr[0] = 0;
             charstr[0] = 0;
         }
@@ -307,7 +354,7 @@ static void hex_dump(char *msg, void *data, int size, int trunc)
     if (strlen(hexstr) > 0)
     {
         /* print rest of buffer if not empty */
-        bdt_log("[%4.4s]   %-50.50s  %s\n", addrstr, hexstr, charstr);
+        BDT_LOG("[%4.4s]   %-50.50s  %s\n", addrstr, hexstr, charstr);
     }
 }
 
@@ -448,11 +495,11 @@ static void cmdjob_handler(void *param)
 {
     char *job_cmd = (char*)param;
 
-    bdt_log("cmdjob starting (%s)", job_cmd);
+    BDT_LOG("cmdjob starting (%s)", job_cmd);
 
     process_cmd(job_cmd, 1);
 
-    bdt_log("cmdjob terminating");
+    BDT_LOG("cmdjob terminating");
 
     free(job_cmd);
 }
@@ -483,7 +530,7 @@ int HAL_load(void)
     hw_module_t* module;
     hw_device_t* device;
 
-    bdt_log("Loading HAL lib + extensions");
+    printf("\tLoading HAL lib + extensions\n");
 
     err = hw_get_module(BT_HARDWARE_MODULE_ID, (hw_module_t const**)&module);
     if (err == 0)
@@ -496,7 +543,7 @@ int HAL_load(void)
         }
     }
 
-    bdt_log("HAL library loaded (%s)", strerror(err));
+    printf("\tHAL library loaded (%s)\n", strerror(err));
 
     return err;
 }
@@ -505,11 +552,11 @@ int HAL_unload(void)
 {
     int err = 0;
 
-    bdt_log("Unloading HAL lib");
+    printf("\tUnloading HAL lib\n");
 
     sBtInterface = NULL;
 
-    bdt_log("HAL library unloaded (%s)", strerror(err));
+    printf("\tHAL library unloaded (%s)\n", strerror(err));
 
     return err;
 }
@@ -533,17 +580,19 @@ void check_return_status(bt_status_t status)
 {
     if (status != BT_STATUS_SUCCESS)
     {
-        bdt_log("HAL REQUEST FAILED status : %d (%s)", status, dump_bt_status(status));
+        printf("\tHAL REQUEST FAILED status : %d (%s)\n", status, dump_bt_status(status));
     }
     else
     {
-        bdt_log("HAL REQUEST SUCCESS");
+        printf("\tHAL REQUEST SUCCESS\n");
     }
 }
 
 static void adapter_state_changed(bt_state_t state)
 {
-    bdt_log("ADAPTER STATE UPDATED : %s", (state == BT_STATE_OFF)?"OFF":"ON");
+    BDT_LOG_FUNC_NAME();
+
+    BDT_LOG("ADAPTER STATE UPDATED : %s", (state == BT_STATE_OFF)?"OFF":"ON");
     if (state == BT_STATE_ON)
     {
         bt_enabled = 1;
@@ -557,34 +606,45 @@ static void adapter_state_changed(bt_state_t state)
 
 static void dut_mode_recv(uint16_t opcode, uint8_t *buf, uint8_t len)
 {
-    bdt_log("DUT MODE RECV : NOT IMPLEMENTED");
+    BDT_LOG_FUNC_NAME();
+    BDT_LOG("DUT MODE RECV : NOT IMPLEMENTED");
 }
 
 static void adapter_properties_cb(bt_status_t status,int num_properties,bt_property_t *properties)
 {
     int i;
     bt_bdaddr_t *bd_addr;
-    bdt_log("Adapter Properties :");
-    bdt_log("Number of properties : %d",num_properties);
+
+    BDT_LOG_FUNC_NAME();
+    //BDT_LOG("Number of properties : %d",num_properties);
 
     for(i=0; i<num_properties; i++)
     {
 
         if(properties[i].type==BT_PROPERTY_BDNAME)
         {
-            bdt_log("Device Name = %s",properties[i].val);
+            if (bt_enabled)
+            {
+                BDT_LOG("Device Name = %s", properties[i].val);
+            }
         }
         else if(properties[i].type==BT_PROPERTY_BDADDR)
         {
-            local_bd_addr = (bt_bdaddr_t*)properties[i].val;
-            bdt_log("BT Address = %x:%x:%x:%x:%x:%x",local_bd_addr->address[0],local_bd_addr->address[1],
-                    local_bd_addr->address[2],local_bd_addr->address[3],local_bd_addr->address[4],local_bd_addr->address[5]);
+            bd_addr = (bt_bdaddr_t*) properties[i].val;
+
+            if (bt_enabled)
+                BDT_LOG("BT Address = %x:%x:%x:%x:%x:%x", bd_addr->address[0], bd_addr->address[1], bd_addr->address[2],
+                        bd_addr->address[3], bd_addr->address[4], bd_addr->address[5]);
         }
         else if(properties[i].type==BT_PROPERTY_ADAPTER_BONDED_DEVICES)
         {
-            bd_addr = (bt_bdaddr_t*)properties[i].val;
-            bdt_log("Bonded Device BT Address = %x:%x:%x:%x:%x:%x",bd_addr->address[0],bd_addr->address[1],
-                    bd_addr->address[2],bd_addr->address[3],bd_addr->address[4],bd_addr->address[5]);
+            bd_addr = (bt_bdaddr_t*) properties[i].val;
+
+            if (bt_enabled)
+            {
+                BDT_LOG("Bonded Device BT Address = %x:%x:%x:%x:%x:%x", bd_addr->address[0], bd_addr->address[1],
+                        bd_addr->address[2], bd_addr->address[3], bd_addr->address[4], bd_addr->address[5]);
+            }
         }
 
     }
@@ -601,7 +661,7 @@ static void device_found_cb(int num_properties,bt_property_t *properties)
         if(properties[i].type==BT_PROPERTY_BDNAME)
         {
             j=0;
-            bdt_log("Device Name = %s",properties[i].val);
+            printf("Device Name = %s",properties[i].val);
             name = (char*)properties[i].val;
             while(name[j]!='\0')
             {
@@ -614,7 +674,7 @@ static void device_found_cb(int num_properties,bt_property_t *properties)
             bt_bdaddr_t *bd_addr = (bt_bdaddr_t*)properties[i].val;
             if (bd_addr)
             {
-                bdt_log("BT Address = %x:%x:%x:%x:%x:%x",bd_addr->address[0],bd_addr->address[1],
+                printf("BT Address = %x:%x:%x:%x:%x:%x",bd_addr->address[0],bd_addr->address[1],
                         bd_addr->address[2],bd_addr->address[3],bd_addr->address[4],bd_addr->address[5]);
             }
         }
@@ -644,9 +704,11 @@ void remote_device_properties_cb(bt_status_t status,bt_bdaddr_t *bd_addr,int num
 
 static void bond_state_changed_cb(bt_status_t status,bt_bdaddr_t *bd_addr,bt_bond_state_t state)
 {
-    bdt_log("%s",__func__);
-    bdt_log("Status = %d",status);
-    bdt_log("State = %d",state);
+    BDT_LOG_FUNC_NAME();
+
+    BDT_LOG("Status = \t%d", status);BDT_LOG("State = \t%d", state);
+    BDT_LOG("State = %d",state);
+
     if (state == 2)
         cond_signal();
 }
@@ -659,31 +721,32 @@ static void le_test_mode(bt_status_t status, uint16_t packet_count)
 static void ssp_request_cb(bt_bdaddr_t *remote_bd_addr,bt_bdname_t *bd_name,uint32_t cod,
                     bt_ssp_variant_t pairing_variant,uint32_t pass_key)
 {
-    bdt_log("%s",__func__);
-    bdt_log("Remote BTADDR= %x:%x:%x:%x:%x:%x",remote_bd_addr->address[0],remote_bd_addr->address[1],
-            remote_bd_addr->address[2],remote_bd_addr->address[3],remote_bd_addr->address[4],
-            remote_bd_addr->address[5]);
-    bdt_log("Remote name = %s",bd_name);
-    bdt_log("cod = %d",cod);
-    bdt_log("Pairing variant = %d",pairing_variant);
-    bdt_log("Pass Key = %d",pass_key);
-    bdt_log("\n Confirming the pass key");
+    BDT_LOG_FUNC_NAME();
+
+    BDT_LOG("Remote BTADDR= %02x:%02x:%02x:%02x:%02x:%02x",remote_bd_addr->address[0],remote_bd_addr->address[1],
+            remote_bd_addr->address[2],remote_bd_addr->address[3],remote_bd_addr->address[4], remote_bd_addr->address[5]);
+    BDT_LOG("Remote name = %s",bd_name);
+    BDT_LOG("cod = %d",cod);
+    BDT_LOG("Pairing variant = %d",pairing_variant);
+    BDT_LOG("Pass Key = %d",pass_key);
+    BDT_LOG("Confirming the pass key");
     sBtInterface->ssp_reply(remote_bd_addr,0,1,pass_key);
 
 }
 
 static void acl_state_changed_cb(bt_status_t status,bt_bdaddr_t *bd_addr,bt_acl_state_t state)
 {
-    bdt_log("%s",__func__);
-    bdt_log("%d",status);
-    bdt_log("BT Address = %x:%x:%x:%x:%x:%x",bd_addr->address[0],bd_addr->address[1],
+    BDT_LOG_FUNC_NAME();
+
+    BDT_LOG("%d",status);
+    BDT_LOG("BT Address = %02x:%02x:%02x:%02x:%02x:%02x",bd_addr->address[0],bd_addr->address[1],
             bd_addr->address[2],bd_addr->address[3],bd_addr->address[4],bd_addr->address[5]);
-    bdt_log("acl_state %d",state);
+    BDT_LOG("acl_state %d",state);
 }
 
 static void pin_request_cb(bt_bdaddr_t *remote_bdaddr,bt_bdname_t *bd_name,uint32_t cod)
 {
-    bdt_log("%s",__func__);
+    BDT_LOG_FUNC_NAME();
 }
 
 static bt_callbacks_t bt_callbacks =
@@ -710,17 +773,19 @@ static bt_callbacks_t bt_callbacks =
 
 void bdt_init(void)
 {
-    bdt_log("INIT BT ");
+    printf("\tINIT BT\n");
+
     status = sBtInterface->init(&bt_callbacks);
     check_return_status(status);
 }
 
 void bdt_enable(void)
 {
-    bdt_log("ENABLE BT");
+    BDT_LOG_FUNC_NAME();
+
     if (bt_enabled)
     {
-        bdt_log("Bluetooth is already enabled");
+        BDT_LOG("Bluetooth is already enabled");
         return;
     }
     status = sBtInterface->enable();
@@ -730,10 +795,11 @@ void bdt_enable(void)
 
 void bdt_disable(void)
 {
-    bdt_log("DISABLE BT");
+    BDT_LOG_FUNC_NAME();
+
     if (!bt_enabled)
     {
-        bdt_log("Bluetooth is already disabled");
+        BDT_LOG("Bluetooth is already disabled");
         return;
     }
     status = sBtInterface->disable();
@@ -745,16 +811,17 @@ void bdt_dut_mode_configure(char *p)
 {
     int32_t mode = -1;
 
-    bdt_log("BT DUT MODE CONFIGURE");
+    BDT_LOG_FUNC_NAME();
+
     if (!bt_enabled)
     {
-        bdt_log("Bluetooth must be enabled for test_mode to work.");
+        BDT_LOG("Bluetooth must be enabled for test_mode to work.");
         return;
     }
     mode = get_signed_int(&p, mode);
     if ((mode != 0) && (mode != 1))
     {
-        bdt_log("Please specify mode: 1 to enter, 0 to exit");
+        BDT_LOG("Please specify mode: 1 to enter, 0 to exit :: ");
         return;
     }
     status = sBtInterface->dut_mode_configure(mode);
@@ -816,7 +883,8 @@ void bdt_le_test_mode(char *p)
 
 void bdt_cleanup(void)
 {
-    bdt_log("CLEANUP");
+    BDT_LOG_FUNC_NAME();
+
     sBtInterface->cleanup();
 }
 
@@ -898,7 +966,7 @@ void do_help(char *p)
     while (console_cmd_list[i].name != NULL)
     {
         pos = sprintf(line, "%s", (char*)console_cmd_list[i].name);
-        bdt_log("%s %s\n", (char*)line, (char*)console_cmd_list[i].help);
+        printf("\t%s %s\n", (char*)line, (char*)console_cmd_list[i].help);
         i++;
     }
 }
@@ -908,13 +976,9 @@ void do_quit(char *p)
 
     if(listen_on==1)
     {
-
         quit=1;
 
         while(quit==1);
-
-
-
     }
 
     bdt_shutdown();
@@ -1255,6 +1319,926 @@ void do_async(char* param)
     //TODO: implement multiprofile scenarios
 }
 
+/*******************************************************************************
+ ** L2CAP test functions & callbacks
+ *******************************************************************************/
+#ifdef TESTER
+#ifdef L2CAP_TESTER
+
+void do_L2CAPTest_init()
+{
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtInterface == NULL)
+    {
+        BDT_LOG("BT HAL Interface is null");
+        return;
+    }
+    sBtL2CAPTestInterface = sBtInterface->get_profile_interface(BT_PROFILE_L2CAP_TESTER_ID);
+
+    if (sBtL2CAPTestInterface == NULL)
+    {
+        BDT_LOG("Test Interface is NULL");
+        return;
+    }
+
+    sBtL2CAPTestInterface->L2CAPTest_init();
+}
+
+void do_L2CAPTest_set_default_parameters()
+{
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtL2CAPTestInterface == NULL)
+    {
+        BDT_LOG("Test Interface is NULL");
+        return;
+    }
+
+    sBtL2CAPTestInterface->L2CAPTest_set_default_parameters();
+}
+
+void do_L2CAPTest_set_parameters()
+{
+    int val;
+    char res;
+
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtL2CAPTestInterface == NULL)
+    {
+        BDT_LOG("Test Interface is NULL");
+        return;
+    }
+
+    sBtL2CAPTestInterface->L2CAPTest_set_parameters(L2CAP_PARAMETER_CLEAR, NULL);
+
+    printf("\tEnter mode : 0 - BASIC : 1 - ERM : 2 - STM : ");
+    scanf("%d", &val);
+    sBtL2CAPTestInterface->L2CAPTest_set_parameters(L2CAP_PARAMETER_MODE, (void *) &val);
+
+    printf("\n\tSend Config ? (y/n): ");
+    scanf(" %c", &res);
+    val = (res == 'y') ? 1 : 0;
+    sBtL2CAPTestInterface->L2CAPTest_set_parameters(L2CAP_PARAMETER_SEND_CONFIG, (void *) &val);
+
+    sBtL2CAPTestInterface->L2CAPTest_set_parameters(L2CAP_PARAMETER_SET_ERTM, (void *) &val);
+
+    printf("\n\tMTU Present ? (y/n): ");
+    scanf(" %c", &res);
+    val = (res == 'y') ? 1 : 0;
+    sBtL2CAPTestInterface->L2CAPTest_set_parameters(L2CAP_PARAMETER_SET_MTU, (void *) &val);
+
+    printf("\n\tFLUSH TO Present ? (y/n): ");
+    scanf(" %c", &res);
+    val = (res == 'y') ? 1 : 0;
+    sBtL2CAPTestInterface->L2CAPTest_set_parameters(L2CAP_PARAMETER_SET_FLUSH_TO, (void *) &val);
+
+    printf("\n\tFCS Options Present ? (y/n): ");
+    scanf(" %c", &res);
+    if (res == 'y')
+    {
+        printf("\n\tFCS present ? (y/n): ");
+        scanf(" %c", &res);
+        val = (res == 'y') ? 1 : 2;
+    }
+    else
+        val = 0;
+
+    sBtL2CAPTestInterface->L2CAPTest_set_parameters(L2CAP_PARAMETER_SET_FCS, (void *) &val);
+
+    printf("\n\tFCR Present ? (y/n): ");
+    scanf(" %c", &res);
+    val = (res == 'y') ? 1 : 0;
+    sBtL2CAPTestInterface->L2CAPTest_set_parameters(L2CAP_PARAMETER_SET_FCR, (void *) &val);
+
+    printf("\n\tSet Parameters Done\n");
+}
+
+void do_L2CAPTest_set_remote_bd_addr()
+{
+    int index;
+    char bd_addr_str[18];
+    bt_bdaddr_t bd_addr;
+
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtL2CAPTestInterface == NULL)
+    {
+        BDT_LOG("Test Interface is NULL");
+        return;
+    }
+
+    printf("\tPlease enter BD Address of Remote Device in \"ab cd ef aa bb cc\" format : ");
+    fgets(bd_addr_str, 18, stdin);
+
+    sscanf(bd_addr_str, "%hhx %hhx %hhx %hhx %hhx %hhx", &bd_addr.address[0], &bd_addr.address[1], &bd_addr.address[2],
+            &bd_addr.address[3], &bd_addr.address[4], &bd_addr.address[5]);
+
+    printf("\n\tEntered Device Address is : %hhx %hhx %hhx %hhx %hhx %hhx\n", bd_addr.address[0], bd_addr.address[1],
+            bd_addr.address[2], bd_addr.address[3], bd_addr.address[4], bd_addr.address[5]);
+
+    sBtL2CAPTestInterface->L2CAPTest_set_remote_bd_addr(&bd_addr);
+}
+
+void do_L2CAPTest_connect()
+{
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtL2CAPTestInterface == NULL)
+    {
+        BDT_LOG("Test Interface is NULL");
+        return;
+    }
+
+    sBtL2CAPTestInterface->L2CAPTest_connect();
+
+}
+
+void do_L2CAPTest_disconnect()
+{
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtL2CAPTestInterface == NULL)
+    {
+        BDT_LOG("Test Interface is NULL");
+        return;
+    }
+
+    sBtL2CAPTestInterface->L2CAPTest_disconnect();
+}
+
+void do_L2CAPTest_senddata()
+{
+    int len;
+
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtL2CAPTestInterface == NULL)
+    {
+        BDT_LOG("Test Interface is NULL");
+        return;
+    }
+
+    printf("\tPlease enter data lenght[in byte] you want to send : ");
+    scanf("%d", &len);
+
+    sBtL2CAPTestInterface->L2CAPTest_senddata((uint16_t) len);
+}
+
+void do_L2CAPTest_ping()
+{
+    int val;
+
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtL2CAPTestInterface == NULL)
+    {
+        BDT_LOG("Test Interface is NULL");
+        return;
+    }
+
+    printf("\tEnter mode : 1 - PING : 2 - RNR : 3 - RR : ");
+    scanf("%d", &val);
+    sBtL2CAPTestInterface->L2CAPTest_ping(val);
+}
+
+void do_L2CAPTest_cleanup()
+{
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtL2CAPTestInterface == NULL)
+    {
+        BDT_LOG("Test Interface is NULL");
+        return;
+    }
+
+    sBtL2CAPTestInterface->L2CAPTest_cleanup();
+}
+#endif // L2CAP_TESTER
+#ifdef BNEP_TESTER
+void do_BNEPTest_init()
+{
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtInterface == NULL)
+    {
+        BDT_LOG("BT HAL Interface is null");
+        return;
+    }
+
+    sBtBNEPTestInterface = sBtInterface->get_profile_interface(BT_PROFILE_BNEP_TESTER_ID);
+
+    if (sBtBNEPTestInterface == NULL)
+    {
+        BDT_LOG("Test Interface is NULL");
+        return;
+    }
+
+    sBtBNEPTestInterface->BNEPTest_init();
+}
+
+void do_BNEPTest_send_control_msg()
+{
+    int which;
+    if (sBtBNEPTestInterface == NULL)
+     {
+         BDT_LOG("Test Interface is NULL");
+         return;
+     }
+
+     printf("\nWhich Command - 1 : Undefined, 2 : Setup Msg :: ");
+     scanf("%d", &which);
+
+     sBtBNEPTestInterface->BNEPTest_send_control_msg(which);
+}
+#endif // BNEP_TESTER
+
+#ifdef AVDTP_TESTER
+
+void do_AVDTPTest_init()
+{
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtInterface == NULL)
+    {
+        BDT_LOG("BT HAL Interface is null");
+        return;
+    }
+
+    sBtAVDTPTestInterface = sBtInterface->get_profile_interface(BT_PROFILE_AVDTP_TESTER_ID);
+
+    if (sBtAVDTPTestInterface == NULL)
+    {
+        BDT_LOG("Test Interface is NULL");
+        return;
+    }
+
+    sBtAVDTPTestInterface->AVDTPTest_init();
+}
+
+void do_AVDTPTest_set_remote_addr()
+{
+    char bd_addr_str[18];
+    bt_bdaddr_t bd_addr;
+
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtInterface == NULL)
+    {
+        BDT_LOG("BT HAL Interface is null");
+        return;
+    }
+
+    sBtAVDTPTestInterface = sBtInterface->get_profile_interface(BT_PROFILE_AVDTP_TESTER_ID);
+
+    if (sBtAVDTPTestInterface == NULL)
+    {
+        BDT_LOG("Test Interface is NULL");
+        return;
+    }
+    printf("\tPlease enter BD Address of Tester Device in \"ab cd ef aa bb cc\" format : ");
+    fgets(bd_addr_str, 18, stdin);
+
+    sscanf(bd_addr_str, "%hhx %hhx %hhx %hhx %hhx %hhx", &bd_addr.address[0], &bd_addr.address[1], &bd_addr.address[2],
+            &bd_addr.address[3], &bd_addr.address[4], &bd_addr.address[5]);
+
+    printf("\n\tEntered Device Address is : %hhx %hhx %hhx %hhx %hhx %hhx\n", bd_addr.address[0], bd_addr.address[1],
+            bd_addr.address[2], bd_addr.address[3], bd_addr.address[4], bd_addr.address[5]);
+
+    sBtAVDTPTestInterface->AVDTPTest_set_remote_bd_addr(&bd_addr);
+
+
+
+}
+
+void do_AVDTPTest_send_control_msg()
+{
+    int which;
+    if (sBtAVDTPTestInterface == NULL)
+     {
+         BDT_LOG("Test Interface is NULL");
+         return;
+     }
+
+     printf("\tDISCOVER   1 \tGETCAP     2 \n\tSETCONFIG  3 \tGETCONFIG  4 \n");
+     printf("\tRECONFIG   5 \tOPEN       6 \n\tSTART      7 \tCLOSE      8 \n");
+     printf("\tSUSPEND    9 \tABORT      10\n");
+     printf("\tSET/RESET REJECT 91 - 99/90 \n");
+     scanf("%d", &which);
+
+     sBtAVDTPTestInterface->AVDTPTest_send_control_msg(which);
+}
+#endif //AVDTP_TESTER
+#endif // TESTER
+
+#ifdef VERIFIER
+#ifdef AVDTP_VERIFIER
+int tc_av_num = 0;
+int tc_av_executing = 0;
+int avdtp_status = 3; //TC_UNKNOWN
+
+int w_av_evt = 1;
+
+char *tc_av_string[] = {
+"TP/SIG/SMG/BV-05-C",
+"TP/SIG/SMG/BV-06-C",
+"TP/SIG/SMG/BV-07-C",
+"TP/SIG/SMG/BV-08-C",
+"TP/SIG/SMG/BV-09-C",
+"TP/SIG/SMG/BV-10-C",
+"TP/SIG/SMG/BV-11-C",
+"TP/SIG/SMG/BV-12-C",
+"TP/SIG/SMG/BV-13-C",
+"TP/SIG/SMG/BV-14-C",
+"TP/SIG/SMG/BV-15-C",
+"TP/SIG/SMG/BV-16-C",
+"TP/SIG/SMG/BV-17-C",
+"TP/SIG/SMG/BV-18-C",
+"TP/SIG/SMG/BV-19-C",
+"TP/SIG/SMG/BV-20-C",
+"TP/SIG/SMG/BV-21-C",
+"TP/SIG/SMG/BV-22-C",
+"TP/SIG/SMG/BV-23-C",
+"TP/SIG/SMG/BV-24-C",
+"TP/SIG/SMG/BI-01-C", /*21*/
+"TP/SIG/SMG/BI-02-C",
+"TP/SIG/SMG/BI-03-C",
+"TP/SIG/SMG/BI-04-C",
+"TP/SIG/SMG/BI-05-C",
+"TP/SIG/SMG/BI-06-C",
+"TP/SIG/SMG/BI-07-C",
+"TP/SIG/SMG/BI-08-C",
+"TP/SIG/SMG/BI-09-C",
+"TP/SIG/SMG/BI-10-C",
+"TP/SIG/SMG/BI-11-C",
+"TP/SIG/SMG/BI-12-C",
+"TP/SIG/SMG/BI-13-C",
+"TP/SIG/SMG/BI-14-C",
+"TP/SIG/SMG/BI-15-C",
+"TP/SIG/SMG/BI-16-C",
+"TP/SIG/SMG/BI-17-C",
+"TP/SIG/SMG/BI-18-C",
+"TP/SIG/SMG/BI-19-C",
+"TP/SIG/SMG/BI-20-C",
+"TP/SIG/SMG/BI-21-C",
+"TP/SIG/SMG/BI-22-C",
+"TP/SIG/SMG/BI-23-C",
+"TP/SIG/SMG/BI-24-C",
+"TP/SIG/SMG/BI-25-C",
+"TP/SIG/SMG/BI-26-C",
+"TP/SIG/SMG/BI-27-C", /*47*/
+"TP/SIG/SMG/BI-14-C2",
+"TP/SIG/SMG/BI-14-C3",
+NULL};
+
+const avdtp_verifier_interface_t *sBtAVDTPVInterface = NULL;
+
+void avdtp_callback ( uint8_t ev )
+{
+    switch(ev)
+    {
+        case TC_EVENT_CONN_CFM:
+            printf("\tAVDTP Connection Established\n");
+            avdtp_status = TC_SUCCESS;
+        break;
+
+        case TC_EVENT_CONN_FAILED:
+            printf("\tAVDTP Connection Failed\n");
+            avdtp_status = TC_FAILURE;
+        break;
+
+        case TC_EVENT_VER_PASS:
+            printf("\tTest Case : PASSED\n");
+        break;
+
+        case TC_EVENT_VER_INCONC:
+            printf("\tTest Case : INCONCLUSIVE\n");
+        break;
+
+        case TC_EVENT_VER_FAIL:
+            printf("\tTest Case : FAILED\n");
+        break;
+
+        case TC_EVENT_EXEC_CONT:
+            printf("\tReceived response to control message : CONT\n");
+            avdtp_status = TC_SUCCESS;
+        break;
+
+        case TC_EVENT_EXEC_EXIT:
+            printf("\tReceived response to control message : EXIT\n");
+            avdtp_status = TC_FAILURE;
+        break;
+    }
+
+    w_av_evt = 0;
+}
+
+void do_AVDTPV_init()
+{
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtInterface == NULL)
+    {
+        BDT_LOG("BT HAL Interface is null");
+        return;
+    }
+
+    sBtAVDTPVInterface = sBtInterface->get_profile_interface(BT_PROFILE_AVDTP_VERIFIER_ID);
+
+    if (sBtAVDTPVInterface == NULL)
+    {
+        BDT_LOG("AVDTP Verifier Interface is NULL");
+        return;
+    }
+
+    sBtAVDTPVInterface->fnAVDTPV_init((void *)avdtp_callback);
+}
+
+void do_AVDTPV_set_remote_addr()
+{
+    int index;
+    char bd_addr_str[18];
+    bt_bdaddr_t bd_addr;
+
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtAVDTPVInterface == NULL)
+    {
+        BDT_LOG("AVDTP Verifier Interface is NULL");
+        return;
+    }
+
+    if(tc_av_executing)
+    {
+        printf("Test Case is Executing...\n");
+
+        return;
+    }
+
+    printf("\tPlease enter BD Address of Tester Device in \"ab cd ef aa bb cc\" format : ");
+    fgets(bd_addr_str, 18, stdin);
+
+    sscanf(bd_addr_str, "%hhx %hhx %hhx %hhx %hhx %hhx", &bd_addr.address[0], &bd_addr.address[1], &bd_addr.address[2],
+            &bd_addr.address[3], &bd_addr.address[4], &bd_addr.address[5]);
+
+    printf("\n\tEntered Device Address is : %hhx %hhx %hhx %hhx %hhx %hhx\n", bd_addr.address[0], bd_addr.address[1],
+            bd_addr.address[2], bd_addr.address[3], bd_addr.address[4], bd_addr.address[5]);
+
+    sBtAVDTPVInterface->fnAVDTPV_set_remote_bd_addr(&bd_addr);
+}
+
+static int tc_av_wait_for_event ( unsigned int delay )
+{
+    int w_time = delay;
+
+    w_av_evt = 1;
+    while(w_time)
+    {
+        if(w_av_evt == 0)
+        {
+            break;
+        }
+        else
+        {
+            usleep(1000);
+        }
+        w_time--;
+    }
+
+    return (w_av_evt == 0) ? TC_SUCCESS : TC_FAILURE;
+}
+
+static void tc_av_handler( void *param )
+{
+    int tc_cmd = 0;
+    int c_loop = 0;
+
+    printf("\t=======================================================\n");
+    printf("\tStarting Test Case %s\n", tc_av_string[tc_av_num - 1]);
+    printf("\t=======================================================\n");
+    sBtAVDTPVInterface->fnAVDTPV_select_test_case(tc_av_num, tc_av_string[tc_av_num - 1]);
+
+    printf("\tVerifier will initiate connect with the IUT\n");
+
+    avdtp_status = TC_FAILURE;
+    for(c_loop = 0; c_loop < 5; c_loop++)
+    {
+        sBtAVDTPVInterface->fnAVDTPV_connect();
+        if(tc_av_wait_for_event(1000) == TC_SUCCESS)
+        {
+            break;
+        }
+
+        printf("\tReinitiating the connection\n");
+    }
+
+    if((c_loop == 5) || (avdtp_status == TC_FAILURE))
+    {
+        printf("\tUnable to connect to IUT\n");
+        printf("\tTest Case : INCONC\n");
+        printf("\tPlease select an test case\n\n");
+
+        tc_av_executing = 0;
+        return;
+    }
+
+    avdtp_status = TC_FAILURE;
+    do
+    {
+        tc_cmd = sBtAVDTPVInterface->fnAVDTPV_get_cmd();
+        printf("\tCommand = %d\n", tc_cmd);
+        if ( tc_cmd != TC_CMD_EXEC_WAIT )
+        {
+            printf("\tVerifier to send a Control Message\n");
+            sBtAVDTPVInterface->fnAVDTPV_send_control_msg(tc_cmd);
+            if (tc_av_wait_for_event(500) == TC_FAILURE)
+            {
+                avdtp_status = TC_FAILURE;
+                break;
+            }
+        }
+        else
+        {
+            printf("\tIUT to send a Control Message\n");
+            if (tc_av_wait_for_event(50000) == TC_FAILURE)
+            {
+                avdtp_status = TC_FAILURE;
+                break;
+            }
+        }
+
+    } while ( avdtp_status != TC_FAILURE );
+
+    printf("\tVerifier will initiate an Disconnect to IUT\n");
+    sBtAVDTPVInterface->fnAVDTPV_disconnect();
+
+    tc_av_executing = 0;
+}
+
+void do_AVDTPV_select_test_case()
+{
+    int tc, loop, len;
+    pthread_t t_id;
+
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtAVDTPVInterface == NULL)
+    {
+        BDT_LOG("\tAVDTP Verifier interface is NULL");
+        return;
+    }
+
+    if(tc_av_executing)
+    {
+        printf("\tTest Case is Executing...\n");
+
+        return;
+    }
+
+    tc_av_num = 0;
+    tc_av_executing = 0;
+    avdtp_status = TC_FAILURE;
+
+    len = 0;
+    while(tc_av_string[len] != NULL)
+        len++;
+
+    printf("\tPlease select a test case from 1 - %d\n", len);
+    for(loop = 0; loop < len; loop++)
+    {
+        printf("\t%d. %s\n", loop + 1, (void *)tc_av_string[loop]);
+    }
+    scanf("%d", &tc);
+
+    if((tc < 1) || (tc > len))
+    {
+        tc = 1;
+    }
+    tc_av_num = tc;
+
+    if (pthread_create(&t_id, NULL, (void *)tc_av_handler, NULL) != 0)
+    {
+        perror("pthread_create");
+
+        return;
+    }
+
+    tc_av_executing = 1;
+}
+/*
+void do_AVDTPV_set_local_config()
+{
+    int choice;
+
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtAVDTPVInterface == NULL)
+    {
+        BDT_LOG("AVDTP Verifier Interface is NULL");
+        return;
+    }
+
+    if(tc_av_executing)
+    {
+        printf("Test Case is Executing...\n");
+
+        return;
+    }
+
+    printf("\t1. Set Remote BD Address\n");
+    printf("\t2. Set invalid command mode\n");
+    scanf(" %d", &choice);
+
+    switch(choice)
+    {
+        case 1:
+        {
+            int index;
+            char bd_addr_str[18];
+            bt_bdaddr_t bd_addr;
+
+            printf("\tPlease enter BD Address of Tester Device in \"ab cd ef aa bb cc\" format : ");
+            fgets(bd_addr_str, 18, stdin);
+
+            sscanf(bd_addr_str, "%hhx %hhx %hhx %hhx %hhx %hhx", &bd_addr.address[0], &bd_addr.address[1], &bd_addr.address[2],
+            &bd_addr.address[3], &bd_addr.address[4], &bd_addr.address[5]);
+
+            printf("\n\tEntered Device Address is : %hhx %hhx %hhx %hhx %hhx %hhx\n", bd_addr.address[0], bd_addr.address[1],
+            bd_addr.address[2], bd_addr.address[3], bd_addr.address[4], bd_addr.address[5]);
+
+            sBtAVDTPVInterface->fnAVDTPV_set_remote_bd_addr(&bd_addr);
+        }
+        break;
+
+        case 2:
+        {
+            int choice;
+
+            printf("Choose invalid mode for");
+            printf("\tDISCOVER   1 \tGETCAP     2 \n\tSETCONFIG  3 \tGETCONFIG  4 \n");
+            printf("\tRECONFIG   5 \tOPEN       6 \n\tSTART      7 \tCLOSE      8 \n");
+            printf("\tSUSPEND    9 \tRESET 0\n");
+            scanf(" %d", &choice);
+            sBtAVDTPVInterface->fnAVDTPV_set_invalid_mode(choice);
+        }
+        break;
+
+    }
+
+}
+*/
+#endif //AVDTP_VERIFIER
+
+#ifdef BNEP_VERIFIER
+int tc_num = 0;
+int tc_executing = 0;
+int bnep_status = 0;
+
+int w_evt = 1;
+
+char *tc_string[] = {"TP/BNEP/CTRL/BV-01-C",
+                    "TP/BNEP/CTRL/BV-02-C",
+                    "TP/BNEP/CTRL/BV-03-C",
+                    "TP/BNEP/CTRL/BV-04-C",
+                    "TP/BNEP/CTRL/BV-05-C",
+                    "TP/BNEP/CTRL/BV-10-C",
+                    "TP/BNEP/RX-TYPE-0/BV-11-C",
+                    "TP/BNEP/RX-TYPE-0/BV-15-C",
+                    "TP/BNEP/RX-TYPE-0/BV-16-C",
+                    "TP/BNEP/RX-TYPE-0/BV-17-C",
+                    "TP/BNEP/RX-TYPE-0/BV-18-C",
+                    "TP/BNEP/CTRL/BV-19-C"};
+
+const bnep_verifier_interface_t* sBtBNEPVInterface = NULL;
+
+void bnep_callback ( uint8_t ev )
+{
+    switch(ev)
+    {
+        case TC_EVENT_CONN_CFM:
+            printf("\tBNEP Connection Established\n");
+            bnep_status = TC_SUCCESS;
+        break;
+
+        case TC_EVENT_CONN_FAILED:
+            printf("\tBNEP Connection Failed\n");
+            bnep_status = TC_FAILURE;
+        break;
+
+        case TC_EVENT_VER_PASS:
+            printf("\tTest Case : PASSED\n");
+        break;
+
+        case TC_EVENT_VER_INCONC:
+            printf("\tTest Case : INCONCLUSIVE\n");
+        break;
+
+        case TC_EVENT_VER_FAIL:
+            printf("\tTest Case : FAILED\n");
+        break;
+
+        case TC_EVENT_EXEC_CONT:
+            printf("\tReceived response to control message\n");
+            bnep_status = TC_SUCCESS;
+        break;
+
+        case TC_EVENT_EXEC_EXIT:
+            printf("\tReceived response to control message\n");
+            bnep_status = TC_FAILURE;
+        break;
+    }
+
+    w_evt = 0;
+}
+
+void do_BNEPV_init()
+{
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtInterface == NULL)
+    {
+        BDT_LOG("BT HAL Interface is null");
+        return;
+    }
+
+    sBtBNEPVInterface = sBtInterface->get_profile_interface(BT_PROFILE_BNEP_VERIFIER_ID);
+
+    if (sBtBNEPVInterface == NULL)
+    {
+        BDT_LOG("BNEP Verifier Interface is NULL");
+        return;
+    }
+
+    sBtBNEPVInterface->fnBNEPV_init((void *)bnep_callback);
+}
+
+void do_BNEPV_set_remote_addr()
+{
+    int index;
+    char bd_addr_str[18];
+    bt_bdaddr_t bd_addr;
+
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtBNEPVInterface == NULL)
+    {
+        BDT_LOG("BNEP Verifier Interface is NULL");
+        return;
+    }
+
+    if(tc_executing)
+    {
+        printf("Test Case is Executing...\n");
+
+        return;
+    }
+
+    printf("\tPlease enter BD Address of Tester Device in \"ab cd ef aa bb cc\" format : ");
+    fgets(bd_addr_str, 18, stdin);
+
+    sscanf(bd_addr_str, "%hhx %hhx %hhx %hhx %hhx %hhx", &bd_addr.address[0], &bd_addr.address[1], &bd_addr.address[2],
+            &bd_addr.address[3], &bd_addr.address[4], &bd_addr.address[5]);
+
+    printf("\n\tEntered Device Address is : %hhx %hhx %hhx %hhx %hhx %hhx\n", bd_addr.address[0], bd_addr.address[1],
+            bd_addr.address[2], bd_addr.address[3], bd_addr.address[4], bd_addr.address[5]);
+
+    sBtBNEPVInterface->fnBNEPV_set_remote_bd_addr(&bd_addr);
+}
+
+static void tc_wait_for_event ( void )
+{
+    int t_cmds = 0;
+
+    w_evt = 1;
+    while(1)
+    {
+        if(w_evt == 0)
+        {
+            break;
+        }
+        else
+        {
+            sleep(1);
+        }
+
+        t_cmds++;
+        if(t_cmds == TC_WAIT_TIME)
+        {
+            bnep_status = TC_FAILURE;
+            break;
+        }
+    }
+}
+
+static void tc_handler( void *param )
+{
+    int tc_cmd = 0;
+    int c_loop = 0;
+
+    printf("\t=======================================================\n");
+    printf("\tStarting Test Case %s\n", tc_string[tc_num - 1]);
+    printf("\t=======================================================\n");
+    sBtBNEPVInterface->fnBNEPV_select_test_case(tc_num, tc_string[tc_num - 1]);
+
+    printf("\tVerifier will initiate connect with the IUT\n");
+    for(c_loop = 0; c_loop < 5; c_loop++)
+    {
+        sBtBNEPVInterface->fnBNEPV_connect();
+
+        tc_wait_for_event();
+
+        if(bnep_status == TC_SUCCESS)
+        {
+            break;
+        }
+
+        printf("\tReinitiating the connection\n");
+    }
+
+    if(c_loop == 5)
+    {
+        printf("\tUnable to connect to IUT\n");
+        printf("\tTest Case : INCONC\n");
+        printf("\tPlease select an test case\n\n");
+
+        tc_executing = 0;
+        return;
+    }
+
+    do
+    {
+        tc_cmd = sBtBNEPVInterface->fnBNEPV_get_cmd();
+        printf("\tCommand = %d\n", tc_cmd);
+        if ( tc_cmd != TC_CMD_EXEC_WAIT )
+        {
+            printf("\tVerifier to send an Control Message\n");
+            sBtBNEPVInterface->fnBNEPV_send_control_msg(tc_cmd);
+        }
+        else
+        {
+            printf("\tIUT to send an Control Message\n");
+        }
+
+        tc_wait_for_event();
+    } while ( bnep_status != TC_FAILURE );
+
+    printf("\tVerifier will initiate an Disconnect to IUT\n");
+    sBtBNEPVInterface->fnBNEPV_disconnect();
+
+    tc_executing = 0;
+}
+
+void do_BNEPV_select_test_case()
+{
+    int tc, loop;
+    pthread_t t_id;
+
+    BDT_LOG_FUNC_NAME();
+
+    if (sBtBNEPVInterface == NULL)
+    {
+        BDT_LOG("\tBNEP Verifier interface is NULL");
+        return;
+    }
+
+    if(tc_executing)
+    {
+        printf("\tTest Case is Executing...\n");
+
+        return;
+    }
+
+    tc_num = 0;
+    tc_executing = 0;
+    bnep_status = TC_FAILURE;
+
+
+    printf("\tPlease select a test case from 1 - 12\n");
+    for(loop = 0; loop < 12; loop++)
+    {
+        printf("\t%d. %s\n", loop + 1, (void *)tc_string[loop]);
+    }
+    scanf("%d", &tc);
+
+    if((tc < 1) || (tc > 12))
+    {
+        tc = 1;
+    }
+    tc_num = tc;
+
+    if (pthread_create(&t_id, NULL, (void *)tc_handler, NULL) != 0)
+    {
+        perror("pthread_create");
+
+        return;
+    }
+
+    tc_executing = 1;
+}
+#endif // BNEP_VERIFIER
+#endif // VERIFIER
+
 /*******************************************************************
  *
  *  CONSOLE COMMAND TABLE
@@ -1300,6 +2284,47 @@ const t_cmd console_cmd_list[] =
     { "le_test_mode", do_le_test_mode, ":: LE Test Mode - RxTest - 1 <rx_freq>, \n\t \
                       TxTest - 2 <tx_freq> <test_data_len> <payload_pattern>, \n\t \
                       End Test - 3 <no_args>", 0 },
+#ifdef VERIFIER
+#ifdef BNEP_VERIFIER
+    { "BNEPV_init", do_BNEPV_init, ":: Initialise the BNEP Verifier Interface", 0},
+    { "BNEPV_set_remote_addr", do_BNEPV_set_remote_addr, ":: Set the tester address", 0},
+    { "BNEPV_select_test_case", do_BNEPV_select_test_case, ":: Select a test case to verify", 0},
+#endif // BNEP_VERIFIER
+
+#ifdef AVDTP_VERIFIER
+    { "AVDTPV_init", do_AVDTPV_init, ":: Initialise the AVDTP Verifier Interface", 0},
+    { "AVDTPV_set_remote_addr", do_AVDTPV_set_remote_addr,  ":: Set the tester address", 0},
+//  { "AVDTPV_set_local_config", do_AVDTPV_set_local_config, ":: Set the tester address and invalid command modes", 0},
+    { "AVDTPV_select_test_case", do_AVDTPV_select_test_case, ":: Select a test case to verify", 0},
+#endif // AVDTP_VERIFIER
+
+#endif // VERIFIER
+
+
+#ifdef TESTER
+#ifdef L2CAP_TESTER
+    { "L2CAPTest_init",do_L2CAPTest_init,"::initialize l2cap test interafce",0},
+    { "L2CAPTest_set_etm_parameters", do_L2CAPTest_set_default_parameters, ":: set default parameters", 0},
+    { "L2CAPTest_set_parameters", do_L2CAPTest_set_parameters, ":: set parameters", 0},
+    { "L2CAPTest_set_remote_bd_addr",do_L2CAPTest_set_remote_bd_addr,"::set remote device BD address",0},
+    { "L2CAPTest_connect",do_L2CAPTest_connect,"::connect to a remote device",0},
+    { "L2CAPTest_disconnect",do_L2CAPTest_disconnect,"::disconnect remote device",0},
+    { "L2CAPTest_senddata",do_L2CAPTest_senddata,"::send data to remote device",0},
+    { "L2CAPTest_ping",do_L2CAPTest_ping,"::ping L2CAP Test interafce",0},
+    { "L2CAPTest_cleanup",do_L2CAPTest_cleanup,"::clean up L2CAP Test interafce",0},
+#endif
+#ifdef BNEP_TESTER
+    { "BNEPTest_init",do_BNEPTest_init,"::initialize bnep test interface",0},
+    { "BNEPTest_send_control_msg",do_BNEPTest_send_control_msg, "::BNEP Send Control Msg",0},
+#endif
+
+#ifdef AVDTP_TESTER
+    { "AVDTPTest_init",do_AVDTPTest_init,"::initialize avdtp test interface",0},
+    { "AVDTPTest_set_remote_addr",do_AVDTPTest_set_remote_addr,"::set remote bd address",0},
+    { "AVDTPTest_send_control_msg",do_AVDTPTest_send_control_msg, "::AVDTP Send Control Msg",0},
+#endif //AVDTP_TESTER
+
+#endif // TESTER
     /* add here */
 
     /* last entry */
@@ -1406,7 +2431,7 @@ int main (int argc, char * argv[])
 
     HAL_unload();
 
-    bdt_log(":: Bluedroid test app terminating");
+    BDT_LOG(":: Bluedroid test app terminating");
 
     return 0;
 }

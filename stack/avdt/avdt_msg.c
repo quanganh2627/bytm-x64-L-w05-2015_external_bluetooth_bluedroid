@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2002-2012 Broadcom Corporation
  *
@@ -291,7 +292,13 @@ static void avdt_msg_bld_cfg(UINT8 **p, tAVDT_CFG *p_cfg)
     /* codec */
     if (p_cfg->num_codec != 0)
     {
+#ifdef AVDTP_VERIFIER
+    if(AVDT_get_invalid() == RECONFIG_INVALID)
+        *(*p)++ = 0xFF;
+    else
+#endif //AVDTP_VERIFIER
         *(*p)++ = AVDT_CAT_CODEC;
+
         len = p_cfg->codec_info[0] + 1;
         if( len > AVDT_CODEC_SIZE )
             len = AVDT_CODEC_SIZE;
@@ -1482,11 +1489,23 @@ void avdt_msg_send_cmd(tAVDT_CCB *p_ccb, void *p_scb, UINT8 sig_id, tAVDT_MSG *p
     p_buf->offset = AVDT_MSG_OFFSET;
     p_start = p = (UINT8 *)(p_buf + 1) + p_buf->offset;
 
+
+#ifdef AVDTP_VERIFIER
+    if(AVDT_get_invalid() != GETCAP_INVALID)
+#endif //AVDTP_VERIFIER
     /* execute parameter building function to build message */
     (*avdt_msg_bld_cmd[sig_id - 1])(&p, p_params);
 
     /* set len */
     p_buf->len = (UINT16) (p - p_start);
+
+#ifdef AVDTP_VERIFIER
+    if(AVDT_get_invalid() == DISC_INVALID)
+    {
+        p_buf->len = 0xFF;
+        p_buf->offset = 0xFF;
+    }
+#endif //AVDTP_VERIFIER
 
     /* now store scb hdls, if any, in buf */
     if (p_scb != NULL)

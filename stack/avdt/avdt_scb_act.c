@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2002-2012 Broadcom Corporation
  *
@@ -89,6 +90,13 @@ void avdt_scb_hdl_abort_cmd(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
     p_scb->role = AVDT_CLOSE_ACP;
     avdt_scb_event(p_scb, AVDT_SCB_API_ABORT_RSP_EVT, p_data);
+
+#if defined(AVDTP_TESTER) || defined(AVDTP_VERIFIER)
+    (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
+                                  NULL,
+                                  AVDT_ABORT_IND_EVT,
+                                  (tAVDT_CTRL *) &p_data->msg.hdr);
+#endif
 }
 
 /*******************************************************************************
@@ -103,6 +111,14 @@ void avdt_scb_hdl_abort_cmd(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 *******************************************************************************/
 void avdt_scb_hdl_abort_rsp(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
+
+#if defined(AVDTP_TESTER) || defined(AVDTP_VERIFIER)
+    (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
+                                  NULL,
+                                  AVDT_ABORT_CFM_EVT,
+                                  (tAVDT_CTRL *) &p_data->msg.hdr);
+#endif
+
     return;
 }
 
@@ -118,6 +134,24 @@ void avdt_scb_hdl_abort_rsp(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 *******************************************************************************/
 void avdt_scb_hdl_close_cmd(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
+
+#if defined(AVDTP_TESTER) || defined(AVDTP_VERIFIER)
+    if(AVDT_get_reject() == CLOSE_REJECT)
+    {
+        p_data->msg.hdr.err_code = AVDT_ERR_INVALID_FORMAT;
+
+        (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
+                                  p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+                                  AVDT_CLOSE_IND_EVT,
+                                  &p_data->msg);
+
+        avdt_msg_send_rej(p_scb->p_ccb, AVDT_SIG_CLOSE, &p_data->msg);
+        return AVDT_SUCCESS;
+    }
+
+#endif //AVDTP_TESTER
+
+
     p_scb->role = AVDT_CLOSE_ACP;
     avdt_scb_event(p_scb, AVDT_SCB_API_CLOSE_RSP_EVT, p_data);
 }
@@ -150,9 +184,33 @@ void avdt_scb_hdl_close_rsp(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 *******************************************************************************/
 void avdt_scb_hdl_getconfig_cmd(tAVDT_SCB *p_scb,tAVDT_SCB_EVT *p_data)
 {
+
+#if defined ( AVDTP_TESTER ) || defined ( AVDTP_VERIFIER )
+
+    if(AVDT_get_reject() == GETCONFIG_REJECT)
+    {
+        p_data->msg.svccap.hdr.err_code = p_data->msg.hdr.err_code = AVDT_ERR_INVALID_FORMAT;
+
+        (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
+                                  NULL,
+                                  AVDT_GETCFG_IND_EVT,
+                                  (tAVDT_CTRL *) &p_data->msg.svccap);
+
+        avdt_msg_send_rej(p_scb->p_ccb, AVDT_SIG_GETCONFIG, &p_data->msg);
+        return AVDT_SUCCESS;
+    }
+#endif //AVDTP_TESTER
+
     p_data->msg.svccap.p_cfg = &p_scb->curr_cfg;
 
     avdt_scb_event(p_scb, AVDT_SCB_API_GETCONFIG_RSP_EVT, p_data);
+
+#if defined ( AVDTP_TESTER ) || defined ( AVDTP_VERIFIER )
+    (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
+                                  NULL,
+                                  AVDT_GETCFG_IND_EVT,
+                                  (tAVDT_CTRL *) &p_data->msg.svccap);
+#endif
 }
 
 /*******************************************************************************
@@ -167,6 +225,14 @@ void avdt_scb_hdl_getconfig_cmd(tAVDT_SCB *p_scb,tAVDT_SCB_EVT *p_data)
 *******************************************************************************/
 void avdt_scb_hdl_getconfig_rsp(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
+
+#if defined ( AVDTP_TESTER ) || defined ( AVDTP_VERIFIER )
+    (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
+                                  NULL,
+                                  AVDT_GETCFG_CFM_EVT,
+                                  (tAVDT_CTRL *) &p_data->msg.svccap);
+#endif
+
     return;
 }
 
@@ -182,6 +248,24 @@ void avdt_scb_hdl_getconfig_rsp(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 *******************************************************************************/
 void avdt_scb_hdl_open_cmd(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
+
+#if defined ( AVDTP_TESTER ) || defined ( AVDTP_VERIFIER )
+
+    if(AVDT_get_reject() == OPEN_REJECT)
+    {
+        p_data->msg.hdr.err_code = p_data->open.hdr.err_code = AVDT_ERR_INVALID_FORMAT;
+
+        (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
+                                  p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+                                  AVDT_OPEN_IND_EVT,
+                                  (tAVDT_CTRL *) &p_data->open);
+
+
+        avdt_msg_send_rej(p_scb->p_ccb, AVDT_SIG_OPEN, &p_data->msg);
+        return AVDT_SUCCESS;
+    }
+#endif //AVDTP_TESTER
+
     avdt_scb_event(p_scb, AVDT_SCB_API_OPEN_RSP_EVT, p_data);
 }
 
@@ -684,6 +768,23 @@ void avdt_scb_drop_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 *******************************************************************************/
 void avdt_scb_hdl_reconfig_cmd(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
+
+#if defined ( AVDTP_TESTER ) || defined ( AVDTP_VERIFIER )
+
+    if(AVDT_get_reject() == RECONFIG_REJECT)
+    {
+        p_data->msg.hdr.err_code = p_data->msg.reconfig_cmd.hdr.err_code = AVDT_ERR_INVALID_FORMAT;
+
+        (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
+                                  NULL,
+                                  AVDT_RECONFIG_IND_EVT,
+                                  (tAVDT_CTRL *) &p_data->msg.reconfig_cmd);
+
+        avdt_msg_send_rej(p_scb->p_ccb, AVDT_SIG_RECONFIG, &p_data->msg);
+        return;
+    }
+#endif //AVDTP_TESTER
+
     /* if command not supported */
     if (p_scb->cs.nsc_mask & AVDT_NSC_RECONFIG)
     {
@@ -804,6 +905,24 @@ void avdt_scb_hdl_setconfig_cmd(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
     tAVDT_CFG *p_cfg;
 
+#if defined ( AVDTP_TESTER ) || defined ( AVDTP_VERIFIER )
+
+    if(AVDT_get_reject() == SETCONFIG_REJECT)
+    {
+        p_data->msg.hdr.err_code = p_data->msg.config_cmd.hdr.err_code = AVDT_ERR_INVALID_FORMAT;
+        p_data->msg.hdr.err_param = 0;
+
+       (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
+                          p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+                          AVDT_CONFIG_IND_EVT,
+                          (tAVDT_CTRL *) &p_data->msg.config_cmd);
+
+        avdt_msg_send_rej(avdt_ccb_by_idx(p_data->msg.hdr.ccb_idx),
+                          p_data->msg.hdr.sig_id, &p_data->msg);
+        return ;
+    }
+#endif AVDTP_TESTER
+
     if (!p_scb->in_use)
     {
         p_cfg = p_data->msg.config_cmd.p_cfg;
@@ -898,6 +1017,25 @@ void avdt_scb_hdl_setconfig_rsp(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 *******************************************************************************/
 void avdt_scb_hdl_start_cmd(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
+
+#if defined ( AVDTP_TESTER ) || defined ( AVDTP_VERIFIER )
+
+    if(AVDT_get_reject() == START_REJECT)
+    {
+        static tAVDT_MSG msg;
+        msg.hdr.err_code = AVDT_ERR_INVALID_FORMAT;
+        msg.hdr.err_param = 1;
+
+        (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
+                                  p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+                                  AVDT_START_IND_EVT,
+                                  &msg);
+
+        avdt_msg_send_rej(p_scb->p_ccb, AVDT_SIG_START, &msg);
+        return;
+    }
+#endif //AVDTP_TESTER
+
     (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
                               p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
                               AVDT_START_IND_EVT,
@@ -934,6 +1072,24 @@ void avdt_scb_hdl_start_rsp(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 *******************************************************************************/
 void avdt_scb_hdl_suspend_cmd(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
+
+#if defined(AVDTP_TESTER) || defined(AVDTP_VERIFIER)
+    if(AVDT_get_reject() == SUSPEND_REJECT)
+    {
+        static tAVDT_MSG msg;
+        msg.hdr.err_code = AVDT_ERR_INVALID_FORMAT;
+        msg.hdr.err_param = 1;
+
+        (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
+                                  p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+                                  AVDT_SUSPEND_IND_EVT,
+                                  &msg);
+
+        avdt_msg_send_rej(p_scb->p_ccb, AVDT_SIG_SUSPEND, &msg);
+        return;
+    }
+#endif //AVDTP_TESTER
+
     (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
                               p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
                               AVDT_SUSPEND_IND_EVT,

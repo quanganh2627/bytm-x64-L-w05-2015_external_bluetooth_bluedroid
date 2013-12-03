@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2002-2012 Broadcom Corporation
  *
@@ -192,6 +193,12 @@ typedef UINT8 AVDT_REPORT_TYPE;
 #define AVDT_REPORT_DISCONN_EVT     19      /* Reporting channel disconnected */
 #define AVDT_DELAY_REPORT_EVT       20      /* Delay report received */
 #define AVDT_DELAY_REPORT_CFM_EVT   21      /* Delay report response received */
+#define AVDT_ABORT_CFM_EVT          22
+#define AVDT_GETCFG_CFM_EVT         23
+#define AVDT_DISCOVER_IND_EVT       24
+#define AVDT_GETCAP_IND_EVT         25
+#define AVDT_GETCFG_IND_EVT         26
+#define AVDT_ABORT_IND_EVT          27
 
 #define AVDT_MAX_EVT                (AVDT_DELAY_REPORT_CFM_EVT)
 
@@ -202,6 +209,30 @@ typedef UINT8 AVDT_REPORT_TYPE;
 #define AVDT_NSC_SUSPEND            0x01    /* Suspend command not supported */
 #define AVDT_NSC_RECONFIG           0x02    /* Reconfigure command not supported */
 #define AVDT_NSC_SECURITY           0x04    /* Security command not supported */
+
+#if defined(AVDTP_TESTER) || defined(AVDTP_VERIFIER)
+#define DISC_REJECT                 1
+#define GETCAP_REJECT               2
+#define SETCONFIG_REJECT            3
+#define GETCONFIG_REJECT            4
+#define RECONFIG_REJECT             5
+#define OPEN_REJECT                 6
+#define START_REJECT                7
+#define CLOSE_REJECT                8
+#define SUSPEND_REJECT              9
+#endif //AVDTP_TESTER
+
+#ifdef AVDTP_VERIFIER
+#define DISC_INVALID                10
+#define GETCAP_INVALID              11
+#define SETCONFIG_INVALID           12
+#define GETCONFIG_INVALID           13
+#define RECONFIG_INVALID            14
+#define OPEN_INVALID                15
+#define START_INVALID               16
+#define CLOSE_INVALID               17
+#define SUSPEND_INVALID             18
+#endif //AVDTP_VERIFIER
 
 /*****************************************************************************
 **  Type Definitions
@@ -422,6 +453,28 @@ typedef UINT8 tAVDT_DATA_OPT_MASK;
 extern "C"
 {
 #endif
+
+#ifdef AVDTP_VERIFIER
+AVDT_API extern UINT16 AVDT_config_scb(UINT8 handle, UINT8 set, UINT8 seid);
+
+AVDT_API extern void AVDT_set_invalid(int val);
+
+AVDT_API extern UINT8 AVDT_get_invalid(void);
+
+#endif
+
+#if defined(AVDTP_TESTER) || defined(AVDTP_VERIFIER)
+
+AVDT_API extern UINT8 AVDT_get_reject(void);
+
+AVDT_API extern void AVDT_set_reject(int val);
+
+#endif
+
+AVDT_API extern UINT16 AVDT_GetConfigReq(UINT8 handle);
+
+AVDT_API extern UINT16 AVDT_AbortReq(UINT8 handle);
+
 
 /*******************************************************************************
 **
