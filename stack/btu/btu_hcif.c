@@ -1227,10 +1227,12 @@ static void btu_hcif_command_complete_evt (UINT8 controller_id, UINT8 *p, UINT16
                 /* opcode does not match, check next command in the queue */
                 p_cmd = (BT_HDR *) GKI_getnext(p_cmd);
                 BT_TRACE_2 (TRACE_LAYER_HCI, TRACE_TYPE_WARNING,\
-                        "event mismatch. opcode_dequeued:0x%x cc_opcode:0x%x",
+                        "event mismatch. opcode_dequeued:0x%02x cc_opcode:0x%02x",
                         opcode_dequeued, cc_opcode);
                 continue;
             }
+            BT_TRACE_1 (TRACE_LAYER_HCI, TRACE_TYPE_WARNING,\
+                        "event match. opcode_dequeued:0x%02x", cc_opcode);
             GKI_remove_from_queue(&p_hci_cmd_cb->cmd_cmpl_q, p_cmd);
 
             /* If command was a VSC, then extract command_complete callback */

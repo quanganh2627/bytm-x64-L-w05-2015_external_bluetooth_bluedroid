@@ -18,10 +18,6 @@
 #define BTA_FM_H
 
 /*FM Interface code is under flag BT_FM_MITIGATION. Using this flag we can enable or disable the FM Interface code.*/
-/*
-******* Currently, disable this macro, because RPC APIs are not working, they wait for modem response.******
-*/
-#define BT_FM_MITIGATION
 /*************************************************************************************************************
 **
 ** Function    bta_fm_register

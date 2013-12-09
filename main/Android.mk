@@ -128,6 +128,9 @@ endif
 ifeq ($(TARGET_PRODUCT), full_maguro)
      LOCAL_CFLAGS += -DTARGET_MAGURO
 endif
+ifneq ($(BOARD_SUPPORTS_FREQUENCY_MANAGER), false)
+LOCAL_CFLAGS += -DBT_FM_MITIGATION
+endif
 
 # Fix this
 #ifeq ($(TARGET_VARIANT), eng)

@@ -461,8 +461,9 @@ void lpm_vnd_cback(uint8_t vnd_result)
 {
     if (bt_hc_cbacks)
     {
-        BTLPMDBG("%s call bte_main lpm_cb to notify that lpm is enabled.", __func__);
-        bt_hc_cbacks->lpm_cb(1);
+        BTLPMDBG("%s call bte_main lpm_cb to notify that lpm is enabled. device state:%d", __func__, bt_lpm_cb.device_state);
+        if (bt_hc_cbacks->lpm_cb)
+            bt_hc_cbacks->lpm_cb(1);
     }
 }
 
@@ -566,11 +567,13 @@ void lpm_enable(uint8_t turn_on)
         bt_lpm_cb.pkt_rate_params.timer_created = FALSE;
         bt_lpm_cb.cts_state = HIGH;
         bt_lpm_cb.device_state = -1;
-        bt_lpm_cb.bt_wake_state = HIGH;
+        bt_lpm_cb.bt_wake_state = LOW;
         bt_lpm_cb.host_wake_state = LOW;
         bt_lpm_cb.start_transport_idle_timer = START_TRANSPORT_IDLE_TIMER;
         //lpm_periodic_pkt_rate_start_timer();
         lpm_set_device_state(D0);
+        //lpm_host_wake_handler(HIGH);
+        lpm_set_bt_wake_state(HIGH);
     }
     else if (turn_on == BT_VND_LPM_DISABLE)
     {
@@ -831,7 +834,6 @@ void lpm_host_wake_handler(uint8_t state)
 
     if ((bt_lpm_cb.state == LPM_ENABLED))
     {
-       // BTLPMDBG("%s", __func__);
         bt_lpm_cb.host_wake_state = state;
         pthread_mutex_lock(&start_transport_idle_timer_mutex);
         if (state == LOW)
@@ -854,6 +856,17 @@ void lpm_host_wake_handler(uint8_t state)
             lpm_stop_transport_idle_timer();
         }
         pthread_mutex_unlock(&start_transport_idle_timer_mutex);
+        /* Change device state to D0I3 -> D0 */
+        pthread_mutex_lock(&device_state_mutex);
+        if (state == HIGH && bt_lpm_cb.device_state == D0I3)
+        {
+            pthread_mutex_unlock(&device_state_mutex);
+            lpm_set_device_state(D0);
+        }
+        else
+        {
+            pthread_mutex_unlock(&device_state_mutex);
+        }
         /* Send RTS to ack host wake receive */
         if (bt_vnd_if)
         {

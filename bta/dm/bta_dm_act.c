@@ -1323,6 +1323,7 @@ void bta_dm_discover (tBTA_DM_MSG *p_data)
     bta_dm_search_cb.uuid_to_search = bta_dm_search_cb.num_uuid;
 #endif
 
+    APPL_TRACE_DEBUG0("bta_dm_discover");
     bta_dm_search_cb.p_search_cback = p_data->discover.p_cback;
     bta_dm_search_cb.sdp_search = p_data->discover.sdp_search;
     bta_dm_search_cb.services_to_search = bta_dm_search_cb.services;
@@ -2558,6 +2559,8 @@ static void bta_dm_inq_results_cb (tBTM_INQ_RESULTS *p_inq, UINT8 *p_eir)
 
     /* application will parse EIR to find out remote device name */
     result.inq_res.p_eir = p_eir;
+
+    APPL_TRACE_DEBUG0("bta_dm_inq_results_cb");
 
     if((p_inq_info = BTM_InqDbRead(p_inq->remote_bd_addr)) != NULL)
     {

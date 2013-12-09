@@ -346,8 +346,7 @@ uint8_t internal_event_intercept(void)
         if(opcode == HCI_RESET)
             hci_reset_ongoing = FALSE;
 
-        HCIDBG("%s p_cb->int_cmd[p_cb->int_cmd_rd_idx].opcode:0x%02x", __func__, \
-                                        p_cb->int_cmd[p_cb->int_cmd_rd_idx].opcode);
+        HCIDBG("%s opcode:0x%02x", __func__, opcode);
         /*
          * Call the callback function (passed by xmit_cb) to pass the event.
          */
@@ -731,7 +730,7 @@ void hci_h4_send_msg(HC_BT_HDR *p_msg)
             p = ((uint8_t *)(p_msg + 1)) + p_msg->offset - 1;
             *p = type;
             bytes_to_send = acl_pkt_size + 1; /* packet_size + message type */
-            HCIDBG("%s opcode:0x%02x%02x", __func__, p[1], p[2]);
+            HCIDBG("%s opcode:0x%02x%02x", __func__, p[2], p[1]);
 
             bytes_sent = userial_write(event,(uint8_t *) p,bytes_to_send);
 

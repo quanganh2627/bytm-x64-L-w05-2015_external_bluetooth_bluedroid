@@ -2106,7 +2106,14 @@ void btm_process_inq_results (UINT8 *p, UINT8 inq_res_mode)
         return;
 
     STREAM_TO_UINT8 (num_resp, p);
-
+    BTM_TRACE_ERROR1("num_resp:%d", num_resp);
+#if (BTM_EIR_CLIENT_INCLUDED == TRUE)
+	if (inq_res_mode == BTM_INQ_RESULT_EXTENDED && num_resp != 1)
+	{
+		BTM_TRACE_ERROR1("num_resp:%d wrong value", num_resp);
+		return;
+	}
+#endif
     for (xx = 0; xx < num_resp; xx++)
     {
         update = FALSE;
