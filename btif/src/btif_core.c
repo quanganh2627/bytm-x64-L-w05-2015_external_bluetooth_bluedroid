@@ -538,6 +538,10 @@ bt_status_t btif_enable_bluetooth(void)
 
     if (btif_core_state != BTIF_CORE_STATE_DISABLED)
     {
+#ifdef BLUEDROID_RTK
+        usleep(10000); /* 10 milliseconds */
+        kill(getpid(), SIGKILL);
+#endif
         ALOGD("not disabled\n");
         return BT_STATUS_DONE;
     }
