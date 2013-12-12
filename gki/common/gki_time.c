@@ -441,7 +441,9 @@ void GKI_timer_update (INT32 ticks_since_last_update)
      */
     gki_cb.com.OSNumOrigTicks -= gki_cb.com.OSTicksTilExp;
 
-#if GKI_TIMER_LIST_NOPREEMPT == TRUE
+#ifdef BLUEDROID_RTK
+    GKI_disable();
+#elif GKI_TIMER_LIST_NOPREEMPT == TRUE
     /* Protect this section because if a GKI_timer_stop happens between:
      *   - gki_cb.com.OSTaskTmr0[task_id] -= gki_cb.com.OSNumOrigTicks;
      *   - gki_cb.com.OSTaskTmr0[task_id] = gki_cb.com.OSTaskTmr0R[task_id];
@@ -562,7 +564,9 @@ void GKI_timer_update (INT32 ticks_since_last_update)
 
     }
 
-#if GKI_TIMER_LIST_NOPREEMPT == TRUE
+#ifdef BLUEDROID_RTK
+    GKI_enable();
+#elif GKI_TIMER_LIST_NOPREEMPT == TRUE
     /* End the critical section */
     GKI_enable();
 #endif
@@ -696,6 +700,10 @@ UINT16 GKI_update_timer_list (TIMER_LIST_Q *p_timer_listq, INT32 num_units_since
     INT32            rem_ticks;
     INT32            temp_ticks;
 
+#ifdef BLUEDROID_RTK
+    GKI_disable();
+#endif
+
     p_tle = p_timer_listq->p_first;
 
     /* First, get the guys who have previously timed out */
@@ -739,7 +747,9 @@ UINT16 GKI_update_timer_list (TIMER_LIST_Q *p_timer_listq, INT32 num_units_since
         if (p_timer_listq->last_ticks < 0)
             p_timer_listq->last_ticks = 0;
     }
-
+#ifdef BLUEDROID_RTK
+    GKI_enable();
+#endif
     return (num_time_out);
 }
 
@@ -762,6 +772,10 @@ UINT32 GKI_get_remaining_ticks (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_
     TIMER_LIST_ENT  *p_tle;
     UINT32           rem_ticks = 0;
 
+#ifdef BLUEDROID_RTK
+    GKI_disable();
+#endif
+
     if (p_target_tle->in_use)
     {
         p_tle = p_timer_listq->p_first;
@@ -781,6 +795,9 @@ UINT32 GKI_get_remaining_ticks (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_
         else
         {
             BT_ERROR_TRACE_0(TRACE_LAYER_GKI, "GKI_get_remaining_ticks: No timer entry in the list");
+#ifdef BLUEDROID_RTK
+            GKI_enable();
+#endif
             return(0);
         }
     }
@@ -788,7 +805,9 @@ UINT32 GKI_get_remaining_ticks (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_
     {
         BT_ERROR_TRACE_0(TRACE_LAYER_GKI, "GKI_get_remaining_ticks: timer entry is not active");
     }
-
+#ifdef BLUEDROID_RTK
+    GKI_enable();
+#endif
     return (rem_ticks);
 }
 
@@ -813,6 +832,14 @@ void GKI_add_to_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_tle)
     UINT32           nr_ticks_total;
     UINT8 tt;
     TIMER_LIST_ENT  *p_temp;
+
+#ifdef BLUEDROID_RTK
+    GKI_disable();
+    if (p_timer_listq == NULL|| p_tle == NULL || p_tle->ticks == (INT32)GKI_UNUSED_LIST_ENTRY) {
+        GKI_enable();
+        return;
+    }
+#endif
 
     /* Only process valid tick values */
     if (p_tle->ticks >= 0)
@@ -848,8 +875,13 @@ void GKI_add_to_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_tle)
                 /* Update the tick value if looking at an unexpired entry */
                 if (p_temp->ticks > 0)
                     p_tle->ticks -= p_temp->ticks;
-
                 p_temp = p_temp->p_next;
+#ifdef BLUEDROID_RTK
+                if (p_temp == NULL) {
+                    GKI_enable();
+                    return;
+                }
+#endif
             }
 
             /* The new entry is the first in the list */
@@ -874,8 +906,12 @@ void GKI_add_to_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_tle)
         /* if we already add this timer queue to the array */
         for (tt = 0; tt < GKI_MAX_TIMER_QUEUES; tt++)
         {
-             if (gki_cb.com.timer_queues[tt] == p_timer_listq)
+             if (gki_cb.com.timer_queues[tt] == p_timer_listq) {
+#ifdef BLUEDROID_RTK
+                 GKI_enable();
+#endif
                  return;
+             }
         }
         /* add this timer queue to the array */
         for (tt = 0; tt < GKI_MAX_TIMER_QUEUES; tt++)
@@ -888,7 +924,9 @@ void GKI_add_to_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_tle)
             gki_cb.com.timer_queues[tt] = p_timer_listq;
         }
     }
-
+#ifdef BLUEDROID_RTK
+    GKI_enable();
+#endif
     return;
 }
 
@@ -909,10 +947,15 @@ void GKI_add_to_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_tle)
 void GKI_remove_from_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_tle)
 {
     UINT8 tt;
-
+#ifdef BLUEDROID_RTK
+    GKI_disable();
+#endif
     /* Verify that the entry is valid */
     if (p_tle == NULL || p_tle->in_use == FALSE || p_timer_listq->p_first == NULL)
     {
+#ifdef BLUEDROID_RTK
+        GKI_enable();
+#endif
         return;
     }
 
@@ -956,6 +999,9 @@ void GKI_remove_from_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p
             else
             {
                 /* Error case - chain messed up ?? */
+#ifdef BLUEDROID_RTK
+                GKI_enable();
+#endif
                 return;
             }
 
@@ -964,6 +1010,9 @@ void GKI_remove_from_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p
             else
             {
                 /* Error case - chain messed up ?? */
+#ifdef BLUEDROID_RTK
+                GKI_enable();
+#endif
                 return;
             }
         }
@@ -985,7 +1034,9 @@ void GKI_remove_from_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p
             }
         }
     }
-
+#ifdef BLUEDROID_RTK
+    GKI_enable();
+#endif
     return;
 }
 
@@ -1009,6 +1060,9 @@ void GKI_remove_from_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p
 *******************************************************************************/
 void gki_adjust_timer_count (INT32 ticks)
 {
+#ifdef BLUEDROID_RTK
+    GKI_disable();
+#endif
     if (ticks > 0)
     {
         /* See if the new timer expires before the current first expiration */
@@ -1018,6 +1072,8 @@ void gki_adjust_timer_count (INT32 ticks)
             gki_cb.com.OSTicksTilExp = ticks;
         }
     }
-
+#ifdef BLUEDROID_RTK
+    GKI_enable();
+#endif
     return;
 }
