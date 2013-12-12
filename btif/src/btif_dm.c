@@ -1707,6 +1707,19 @@ static void btif_dm_generic_evt(UINT16 event, char* p_param)
                       (status == 0) ? BT_STATUS_SUCCESS : BT_STATUS_FAIL, count);
             }
             break;
+
+#ifdef BLUEDROID_RTK
+        case BTIF_DM_CB_BOND_FAIL:
+            {
+            if (pairing_cb.state == BT_BOND_STATE_NONE ) {
+                return;
+            } else if ((bdcmp(((bt_bdaddr_t *)p_param)->address, pairing_cb.bd_addr) != 0)) {
+                return;
+            }
+                bond_state_changed(BT_STATUS_RMT_DEV_DOWN, (bt_bdaddr_t *)p_param, BT_BOND_STATE_NONE);
+            }
+            break;
+#endif
         default:
         {
             BTIF_TRACE_WARNING2("%s : Unknown event 0x%x", __FUNCTION__, event);
@@ -2675,3 +2688,13 @@ static char* btif_get_default_local_name() {
     }
     return btif_default_local_name;
 }
+
+#ifdef BLUEDROID_RTK
+void btif_dm_hid_connect_fail(BD_ADDR bd_addr)
+{
+     bt_bdaddr_t bdaddr;
+     bdcpy(bdaddr.address, bd_addr);
+     btif_transfer_context(btif_dm_generic_evt, BTIF_DM_CB_BOND_FAIL,
+                         (char *)&bdaddr, sizeof(bt_bdaddr_t), NULL);
+}
+#endif
