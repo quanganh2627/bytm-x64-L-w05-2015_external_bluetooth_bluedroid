@@ -282,9 +282,11 @@ typedef UINT8 tBTM_INQ_TYPE;
 typedef struct
 {
     tBTM_CMPL_CB *p_remname_cmpl_cb;
-
+#ifndef BLUEDROID_RTK
 #define BTM_EXT_RMT_NAME_TIMEOUT    40
-
+#else
+#define BTM_EXT_RMT_NAME_TIMEOUT    30
+#endif
 
     TIMER_LIST_ENT  rmt_name_timer_ent;
 
