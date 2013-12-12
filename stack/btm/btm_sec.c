@@ -44,6 +44,7 @@
 BOOLEAN (APPL_AUTH_WRITE_EXCEPTION)(BD_ADDR bd_addr);
 #endif
 
+#define COD_HID_POINTING         0x0580
 
 /********************************************************************************
 **              L O C A L    F U N C T I O N     P R O T O T Y P E S            *
@@ -4236,6 +4237,22 @@ void btm_sec_connected (UINT8 *bda, UINT16 handle, UINT8 status, UINT8 enc_mode)
             }
         }
 
+#ifdef BLUEDROID_RTK
+        if (status == HCI_ERR_CONNECTION_TOUT || status == HCI_ERR_LMP_RESPONSE_TIMEOUT  ||
+            status == HCI_ERR_UNSPECIFIED     || status == HCI_ERR_PAGE_TIMEOUT) {
+            if (!(p_dev_rec->sec_flags & BTM_SEC_LINK_KEY_KNOWN)) {
+                UINT32 devClass;
+                devClass = devclass2uint(p_dev_rec->dev_class);
+                if ((devClass & 0x7ff) == COD_HID_POINTING) {
+                    /* We need to notify host that the key is not known any more */
+                    if (btm_cb.api.p_auth_complete_callback)
+                        (*btm_cb.api.p_auth_complete_callback) (p_dev_rec->bd_addr,
+                                                                p_dev_rec->dev_class,
+                                                                p_dev_rec->sec_bd_name, status);
+                }
+           }
+        }
+#endif
         if (status == HCI_ERR_CONNECTION_TOUT || status == HCI_ERR_LMP_RESPONSE_TIMEOUT  ||
             status == HCI_ERR_UNSPECIFIED     || status == HCI_ERR_PAGE_TIMEOUT)
             btm_sec_dev_rec_cback_event (p_dev_rec, BTM_DEVICE_TIMEOUT);
