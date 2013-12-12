@@ -34,6 +34,9 @@ void bte_dm_evt(tBTA_DM_SEC_EVT event, tBTA_DM_SEC *p_data);
  * pending commands, like pairing
  */
 void btif_dm_on_disable(void);
+#ifdef BLUEDROID_RTK
+void btif_dm_hid_connect_fail(BD_ADDR bd_addr);
+#endif
 
 /**
  * Out-of-band functions

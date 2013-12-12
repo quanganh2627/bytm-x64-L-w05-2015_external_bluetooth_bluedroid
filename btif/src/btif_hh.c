@@ -43,7 +43,9 @@
 #include "btif_hh.h"
 #include "gki.h"
 #include "l2c_api.h"
-
+#ifdef BLUEDROID_RTK
+#include "btif_dm.h"
+#endif
 
 #define BTIF_HH_APP_ID_MI       0x01
 #define BTIF_HH_APP_ID_KB       0x02
@@ -844,6 +846,9 @@ static void btif_hh_upstreams_evt(UINT16 event, char* p_param)
                 bt_bdaddr_t *bdaddr = (bt_bdaddr_t*)p_data->conn.bda;
                 HAL_CBACK(bt_hh_callbacks, connection_state_cb, (bt_bdaddr_t*) &p_data->conn.bda,BTHH_CONN_STATE_DISCONNECTED);
                 btif_hh_cb.status = BTIF_HH_DEV_DISCONNECTED;
+#ifdef BLUEDROID_RTK
+            btif_dm_hid_connect_fail(bdaddr->address);
+#endif
             }
             break;
         case BTA_HH_CLOSE_EVT:
