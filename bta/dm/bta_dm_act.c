@@ -233,6 +233,9 @@ const tBTA_DM_LMP_VER_INFO bta_role_switch_blacklist[BTA_DM_MAX_ROLE_SWITCH_BLAC
 #define MAX_DISC_RAW_DATA_BUF       (4096)
 UINT8 g_disc_raw_data_buf[MAX_DISC_RAW_DATA_BUF];
 
+#ifdef BLUEDROID_RTK
+INT8 gRssiThresholdForRemoteName = -70;
+#endif
 /*******************************************************************************
 **
 ** Function         bta_dm_app_ready_timer_cback
@@ -2407,14 +2410,19 @@ static void bta_dm_discover_device(BD_ADDR remote_bd_addr)
        && (( bta_dm_search_cb.p_btm_inq_info == NULL )
             ||(bta_dm_search_cb.p_btm_inq_info && (!bta_dm_search_cb.p_btm_inq_info->appl_knows_rem_name))))
     {
-        if( bta_dm_read_remote_device_name(bta_dm_search_cb.peer_bdaddr) == TRUE )
-        {
-            return;
-        }
-        else
-        {
-            /* starting name discovery failed */
+#ifdef BLUEDROID_RTK
+        if (bta_dm_search_cb.p_btm_inq_info != NULL && bta_dm_search_cb.p_btm_inq_info->results.rssi < gRssiThresholdForRemoteName) {
+            /* not req remote name */
             bta_dm_search_cb.name_discover_done = TRUE;
+        } else
+#endif
+        {
+            if (bta_dm_read_remote_device_name(bta_dm_search_cb.peer_bdaddr) == TRUE) {
+                return;
+            } else {
+                /* starting name discovery failed */
+                bta_dm_search_cb.name_discover_done = TRUE;
+            }
         }
     }
 
