@@ -1847,6 +1847,11 @@ bt_status_t btif_dm_start_discovery(void)
     BTIF_TRACE_EVENT1("%s", __FUNCTION__);
     /* TODO: Do we need to handle multiple inquiries at the same time? */
 
+#ifdef BLUEDROID_RTK
+    if (pairing_cb.state != BT_BOND_STATE_NONE)
+        return BT_STATUS_BUSY;
+#endif
+
     /* Set inquiry params and call API */
 #if (defined(BLE_INCLUDED) && (BLE_INCLUDED == TRUE))
     inq_params.mode = BTA_DM_GENERAL_INQUIRY|BTA_BLE_GENERAL_INQUIRY;
