@@ -1645,12 +1645,18 @@ void bta_dm_sdp_result (tBTA_DM_MSG *p_data)
 
     UINT32 num_uuids = 0;
     UINT8  uuid_list[32][MAX_UUID_SIZE]; // assuming a max of 32 services
+#ifdef BLUEDROID_RTK
+    char *remote_device_name;
+#endif
 
     if((p_data->sdp_event.sdp_result == SDP_SUCCESS)
         || (p_data->sdp_event.sdp_result == SDP_NO_RECS_MATCH)
         || (p_data->sdp_event.sdp_result == SDP_DB_FULL))
     {
         APPL_TRACE_DEBUG1("sdp_result::0x%x", p_data->sdp_event.sdp_result);
+#ifdef BLUEDROID_RTK
+        remote_device_name = BTM_SecReadDevName(bta_dm_search_cb.peer_bdaddr);
+#endif
         do
         {
 
@@ -1788,6 +1794,21 @@ void bta_dm_sdp_result (tBTA_DM_MSG *p_data)
                 }
             } while (p_sdp_rec);
         }
+
+#ifdef BLUEDROID_RTK
+        if (remote_device_name != NULL && !strncmp(remote_device_name, "MSI FS300", 10) && num_uuids == 0) {
+            UINT8 i;
+            num_uuids = 4;
+            bta_dm_search_cb.services_to_search = 0;
+            UINT16 uuid_list_msi_fs300[4] = {UUID_SERVCLASS_HF_HANDSFREE,
+                                                UUID_SERVCLASS_HEADSET,
+                                                UUID_SERVCLASS_AUDIO_SINK,
+                                                UUID_SERVCLASS_AV_REMOTE_CONTROL};
+            for(i = 0; i < num_uuids; i++)
+                sdpu_uuid16_to_uuid128(uuid_list_msi_fs300[i], uuid_list[i]);
+        }
+#endif
+
         /* if there are more services to search for */
         if(bta_dm_search_cb.services_to_search)
         {
