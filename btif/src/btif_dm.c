@@ -894,6 +894,7 @@ static void btif_dm_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
                         check_cod(&bd_addr, COD_HID_POINTING))
                     {
                         btif_storage_add_device_to_autopair_blacklist (&bd_addr);
+                        btif_config_flush();
                     }
                     pairing_cb.autopair_attempts++;
 
