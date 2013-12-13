@@ -49,6 +49,52 @@ static void btm_process_remote_ext_features (tACL_CONN *p_acl_cb, UINT8 num_read
 
 /*******************************************************************************
 **
+** Function         btm_save_remote_device_role
+**
+** Description      This function is to save remote device role
+**
+** Returns          void
+**
+*******************************************************************************/
+static void btm_save_remote_device_role(BD_ADDR bd_addr, UINT8 role)
+{
+    UINT8 i, j;
+    if (role == BTM_ROLE_UNDEFINED) return;
+
+    for (i = 0; i < BTM_ROLE_DEVICE_NUM; i++) {
+        if ((btm_cb.previous_connected_role[i] != BTM_ROLE_UNDEFINED) &&
+            (!bdcmp(bd_addr, btm_cb.previous_connected_remote_addr[i]))) {
+            break;
+        }
+    }
+
+    if (i < BTM_ROLE_DEVICE_NUM) {
+        UINT8 end;
+        if (i < btm_cb.front) {
+            for (j = i; j > 0; j--) {
+                bdcpy(btm_cb.previous_connected_remote_addr[j],
+                    btm_cb.previous_connected_remote_addr[j-1]);
+            }
+            bdcpy(btm_cb.previous_connected_remote_addr[0],
+                btm_cb.previous_connected_remote_addr[BTM_ROLE_DEVICE_NUM-1]);
+            end = BTM_ROLE_DEVICE_NUM-1;
+        } else {
+            end = i;
+        }
+
+        for (j = end; j > btm_cb.front; j--) {
+            bdcpy(btm_cb.previous_connected_remote_addr[j],
+                btm_cb.previous_connected_remote_addr[j-1]);
+        }
+    }
+
+    bdcpy(btm_cb.previous_connected_remote_addr[btm_cb.front], bd_addr);
+    btm_cb.previous_connected_role[btm_cb.front] = role;
+    btm_cb.front = (btm_cb.front + 1) % BTM_ROLE_DEVICE_NUM;
+}
+
+/*******************************************************************************
+**
 ** Function         btm_acl_init
 **
 ** Description      This function is called at BTM startup to initialize
@@ -158,6 +204,7 @@ void btm_acl_created (BD_ADDR bda, DEV_CLASS dc, BD_NAME bdn,
     {
         p->hci_handle = hci_handle;
         p->link_role  = link_role;
+        btm_save_remote_device_role(bda, link_role);
 #if BLE_INCLUDED == TRUE
         p->is_le_link = is_le_link;
 #endif
@@ -175,6 +222,7 @@ void btm_acl_created (BD_ADDR bda, DEV_CLASS dc, BD_NAME bdn,
             p->in_use            = TRUE;
             p->hci_handle        = hci_handle;
             p->link_role         = link_role;
+            btm_save_remote_device_role(bda, link_role);
             p->link_up_issued    = FALSE;
 
 #if BLE_INCLUDED == TRUE
@@ -251,10 +299,12 @@ void btm_acl_created (BD_ADDR bda, DEV_CLASS dc, BD_NAME bdn,
             {
                 btm_establish_continue(p);
 
+#if (!defined(BTA_SKIP_BLE_READ_REMOTE_FEAT) || BTA_SKIP_BLE_READ_REMOTE_FEAT == FALSE)
                 if (link_role == HCI_ROLE_MASTER)
                 {
                     btsnd_hcic_ble_read_remote_feat(p->hci_handle);
                 }
+#endif
             }
             else
 #endif
@@ -829,7 +879,7 @@ void btm_acl_link_key_change (UINT16 handle, UINT8 status)
         btm_cb.devcb.p_chg_link_key_cb = NULL;
     }
 
-    BTM_TRACE_ERROR2("Change Link Key Complete Event: Handle 0x%02x, HCI Status 0x%02x",
+    BTM_TRACE_EVENT2("Change Link Key Complete Event: Handle 0x%02x, HCI Status 0x%02x",
                      handle, p_data->hci_status);
 }
 
@@ -924,7 +974,7 @@ void btm_acl_encrypt_change (UINT16 handle, UINT8 status, UINT8 encr_enable)
                 BTM_TRACE_WARNING0("btm_acl_encrypt_change -> Issuing delayed HCI_Disconnect!!!");
                 btsnd_hcic_disconnect(p_dev_rec->hci_handle, HCI_ERR_PEER_USER);
             }
-            BTM_TRACE_ERROR2("btm_acl_encrypt_change: tBTM_SEC_DEV:0x%x rs_disc_pending=%d",
+            BTM_TRACE_DEBUG2("btm_acl_encrypt_change: tBTM_SEC_DEV:0x%x rs_disc_pending=%d",
                 (UINT32)p_dev_rec, p_dev_rec->rs_disc_pending);
             p_dev_rec->rs_disc_pending = BTM_SEC_RS_NOT_PENDING;     /* reset flag */
         }
@@ -2194,7 +2244,7 @@ void btm_acl_role_changed (UINT8 hci_status, BD_ADDR bd_addr, UINT8 new_role)
 
         /* Update cached value */
         p->link_role = new_role;
-
+        btm_save_remote_device_role(p_bda, new_role);
         /* Reload LSTO: link supervision timeout is reset in the LM after a role switch */
         if (new_role == BTM_ROLE_MASTER)
         {
@@ -2266,7 +2316,7 @@ void btm_acl_role_changed (UINT8 hci_status, BD_ADDR bd_addr, UINT8 new_role)
             BTM_TRACE_WARNING0("btm_acl_role_changed -> Issuing delayed HCI_Disconnect!!!");
             btsnd_hcic_disconnect(p_dev_rec->hci_handle, HCI_ERR_PEER_USER);
         }
-        BTM_TRACE_ERROR2("tBTM_SEC_DEV:0x%x rs_disc_pending=%d",
+        BTM_TRACE_DEBUG2("tBTM_SEC_DEV:0x%x rs_disc_pending=%d",
                          (UINT32)p_dev_rec, p_dev_rec->rs_disc_pending);
         p_dev_rec->rs_disc_pending = BTM_SEC_RS_NOT_PENDING;     /* reset flag */
     }

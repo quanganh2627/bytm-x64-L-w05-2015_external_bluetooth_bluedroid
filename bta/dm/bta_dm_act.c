@@ -2037,6 +2037,10 @@ void bta_dm_free_sdp_db (tBTA_DM_MSG *p_data)
 *******************************************************************************/
 void bta_dm_queue_search (tBTA_DM_MSG *p_data)
 {
+    if(bta_dm_search_cb.p_search_queue)
+    {
+        GKI_freebuf(bta_dm_search_cb.p_search_queue);
+    }
 
     bta_dm_search_cb.p_search_queue = (tBTA_DM_MSG *)GKI_getbuf(sizeof(tBTA_DM_API_SEARCH));
     memcpy(bta_dm_search_cb.p_search_queue, p_data, sizeof(tBTA_DM_API_SEARCH));
@@ -2054,6 +2058,10 @@ void bta_dm_queue_search (tBTA_DM_MSG *p_data)
 *******************************************************************************/
 void bta_dm_queue_disc (tBTA_DM_MSG *p_data)
 {
+    if(bta_dm_search_cb.p_search_queue)
+    {
+        GKI_freebuf(bta_dm_search_cb.p_search_queue);
+    }
 
     bta_dm_search_cb.p_search_queue = (tBTA_DM_MSG *)GKI_getbuf(sizeof(tBTA_DM_API_DISCOVER));
     memcpy(bta_dm_search_cb.p_search_queue, p_data, sizeof(tBTA_DM_API_DISCOVER));
@@ -2182,7 +2190,7 @@ static void bta_dm_find_services ( BD_ADDR bd_addr)
                 /* try to search all services by search based on L2CAP UUID */
                 if(bta_dm_search_cb.services == BTA_ALL_SERVICE_MASK )
                 {
-                    APPL_TRACE_ERROR1("services_to_search = %08x",bta_dm_search_cb.services_to_search);
+                    APPL_TRACE_DEBUG1("services_to_search = %08x",bta_dm_search_cb.services_to_search);
                     if (bta_dm_search_cb.services_to_search & BTA_RES_SERVICE_MASK)
                     {
                         uuid.uu.uuid16 = bta_service_id_to_uuid_lkup_tbl[0];
@@ -2244,7 +2252,7 @@ static void bta_dm_find_services ( BD_ADDR bd_addr)
                 }
 
 
-                APPL_TRACE_ERROR1("****************search UUID = %04x***********", uuid.uu.uuid16);
+                APPL_TRACE_DEBUG1("****************search UUID = %04x***********", uuid.uu.uuid16);
                 //SDP_InitDiscoveryDb (bta_dm_search_cb.p_sdp_db, BTA_DM_SDP_DB_SIZE, 1, &uuid, num_attrs, attr_list);
                 SDP_InitDiscoveryDb (bta_dm_search_cb.p_sdp_db, BTA_DM_SDP_DB_SIZE, 1, &uuid, 0, NULL);
 
@@ -3296,13 +3304,13 @@ static BOOLEAN bta_dm_check_av(UINT16 event)
     }
 #endif
 
-    APPL_TRACE_WARNING1("bta_dm_check_av:%d", bta_dm_cb.cur_av_count);
+    APPL_TRACE_DEBUG1("bta_dm_check_av:%d", bta_dm_cb.cur_av_count);
     if(bta_dm_cb.cur_av_count)
     {
         for(i=0; i<bta_dm_cb.device_list.count; i++)
         {
             p_dev = &bta_dm_cb.device_list.peer_device[i];
-            APPL_TRACE_WARNING4("[%d]: state:%d, info:x%x, avoid_rs %d",
+            APPL_TRACE_DEBUG4("[%d]: state:%d, info:x%x, avoid_rs %d",
                                 i, p_dev->conn_state, p_dev->info, avoid_roleswitch);
             if((p_dev->conn_state == BTA_DM_CONNECTED) && (p_dev->info & BTA_DM_DI_AV_ACTIVE) &&
                (avoid_roleswitch == FALSE))
@@ -3436,7 +3444,7 @@ void bta_dm_acl_change(tBTA_DM_MSG *p_data)
             /* both local and remote devices support SSR */
             bta_dm_cb.device_list.peer_device[i].info = BTA_DM_DI_USE_SSR;
         }
-        APPL_TRACE_WARNING1("info:x%x", bta_dm_cb.device_list.peer_device[i].info);
+        APPL_TRACE_DEBUG1("info:x%x", bta_dm_cb.device_list.peer_device[i].info);
         if( bta_dm_cb.p_sec_cback )
             bta_dm_cb.p_sec_cback(BTA_DM_LINK_UP_EVT, &conn);
 
@@ -3661,7 +3669,7 @@ static void bta_dm_rm_cback(tBTA_SYS_CONN_STATUS status, UINT8 id, UINT8 app_id,
             if(BTA_ID_AV == id)
                 bta_dm_cb.cur_av_count = app_id;
         }
-        APPL_TRACE_WARNING2("bta_dm_rm_cback:%d, status:%d", bta_dm_cb.cur_av_count, status);
+        APPL_TRACE_EVENT2("bta_dm_rm_cback:%d, status:%d", bta_dm_cb.cur_av_count, status);
     }
     else if ((status == BTA_SYS_CONN_BUSY) || (status == BTA_SYS_CONN_IDLE))
     {
@@ -4354,7 +4362,7 @@ static void bta_dm_eir_search_services( tBTM_INQ_RESULTS  *p_result,
         service_index++;
     }
 
-    APPL_TRACE_ERROR2("BTA EIR search result, services_to_search=0x%08X, services_found=0x%08X",
+    APPL_TRACE_DEBUG2("BTA EIR search result, services_to_search=0x%08X, services_found=0x%08X",
                         *p_services_to_search, *p_services_found);
 }
 #endif
@@ -5093,7 +5101,7 @@ static void bta_dm_gatt_disc_result(tBTA_GATT_ID service_id)
         APPL_TRACE_ERROR3("%s out of room to accomodate more service ids ble_raw_size = %d ble_raw_used = %d", __FUNCTION__,bta_dm_search_cb.ble_raw_size, bta_dm_search_cb.ble_raw_used );
     }
 
-    APPL_TRACE_ERROR1("bta_dm_gatt_disc_result serivce_id len=%d ", service_id.uuid.len);
+    APPL_TRACE_DEBUG1("bta_dm_gatt_disc_result serivce_id len=%d ", service_id.uuid.len);
     if ( bta_dm_search_cb.state != BTA_DM_SEARCH_IDLE)
     {
 

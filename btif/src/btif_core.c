@@ -30,6 +30,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <ctype.h>
@@ -417,8 +418,18 @@ static void btif_fetch_local_bdaddr(bt_bdaddr_t *local_addr)
     if (!valid_bda)
     {
         bdstr_t bdstr;
+        struct timeval tval;
         /* Seed the random number generator */
-        srand((unsigned int) (time(0)));
+        int ret = gettimeofday(&tval, NULL);
+        if (!ret) {
+            BTIF_TRACE_DEBUG2("gettimeofday returns %d secs and %d usecs",
+                                                    tval.tv_sec, tval.tv_usec);
+            srand((unsigned int) tval.tv_sec * tval.tv_usec);
+        } else {
+            BTIF_TRACE_WARNING1("gettimeofday failed with error %s",
+                                                            strerror(errno));
+            srand((unsigned int) time(NULL));
+        }
 
         /* No autogen BDA. Generate one now. */
         local_addr->address[0] = 0x22;
@@ -859,6 +870,297 @@ bt_status_t btif_dut_mode_send(uint16_t opcode, uint8_t *buf, uint8_t len)
          return BT_STATUS_FAIL;
     }
     BTM_VendorSpecificCommand(opcode, len, buf, btif_dut_mode_cback);
+    return BT_STATUS_SUCCESS;
+}
+
+/****************************************************************************
+**
+**   BTIF Set AFH Channel Classification APIs
+**
+*****************************************************************************/
+/*******************************************************************************
+**
+** Function         btif_set_channel_classification_cback
+**
+** Description     Callback invoked on completion of AFH set Channel Classification command
+**
+** Returns          None
+**
+*******************************************************************************/
+static void btif_set_channel_classification_cback( tBTM_VSC_CMPL *p )
+{
+    if (*p->p_param_buf == 0) {
+        BTIF_TRACE_DEBUG1("%s: Set_AFH_ChannelClassification OK", __FUNCTION__);
+    } else {
+        BTIF_TRACE_DEBUG1("%s: Set_AFH_ChannelClassification FAILED", __FUNCTION__);
+    }
+}
+
+
+/*******************************************************************************
+**
+** Function         btif_set_le_channel_classification_cback
+**
+** Description     Callback invoked on completion of AFH set Channel Classification command
+**
+** Returns          None
+**
+*******************************************************************************/
+static void btif_set_le_channel_classification_cback( tBTM_VSC_CMPL *p )
+{
+    if (*p->p_param_buf == 0) {
+        BTIF_TRACE_DEBUG1("%s: LE_set_Host_ChannelClassification OK", __FUNCTION__);
+    } else {
+        BTIF_TRACE_DEBUG1("%s: LE_set_Host_ChannelClassification FAILED", __FUNCTION__);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         btif_set_channel_classification
+**
+** Description     Re-configure BT and LE "AFH Channel Classification" coexistence purposes
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_set_channel_classification(uint8_t *bt_channel, uint8_t *le_channel)
+{
+    BT_HDR *p_msg;
+    UINT8 *pp;
+
+    BTIF_TRACE_DEBUG6("%s: AFH_channel(0-4) : %02x%02x%02x%02x%02x", __FUNCTION__,
+            bt_channel[0],bt_channel[1],bt_channel[2],bt_channel[3],bt_channel[4]);
+    BTIF_TRACE_DEBUG6("%s: AFH_channel(5-9) : %02x%02x%02x%02x%02x", __FUNCTION__,
+            bt_channel[5],bt_channel[6],bt_channel[7],bt_channel[8],bt_channel[9]);
+
+    BTIF_TRACE_DEBUG6("%s: le_channel :%02x%02x%02x%02x%02x", __FUNCTION__,
+        le_channel[0],le_channel[1],le_channel[2],le_channel[3],le_channel[4] );
+
+
+    /* Send setAFHChannelClassification command */
+    if ((p_msg = HCI_GET_CMD_BUF(sizeof(BT_HDR) + sizeof (void *)
+                                + 10 + HCIC_PREAMBLE_SIZE)) == NULL)
+    {
+        BTIF_TRACE_ERROR1("%s: failed to allocate buffer.", __FUNCTION__);
+        return (BT_STATUS_FAIL);
+    }
+
+    pp = (UINT8 *)(p_msg + 1);
+
+    p_msg->event = BT_EVT_TO_BTU_HCI_CMD | LOCAL_BR_EDR_CONTROLLER_ID;
+    p_msg->len = HCIC_PREAMBLE_SIZE + 10;
+    p_msg->offset = sizeof(void *);
+
+    /* Store cmd complete cb in buffer */
+    *((void **)pp) = btif_set_channel_classification_cback;
+    pp += sizeof(void *);               /* Skip over callback pointer */
+
+    UINT16_TO_STREAM (pp, HCI_SET_AFH_CHANNELS);
+    UINT8_TO_STREAM  (pp, 10);
+
+    /* should feed this way to get 80bits in little endian order out to the chip */
+    UINT8_TO_STREAM  (pp,bt_channel[9]);
+    UINT8_TO_STREAM  (pp,bt_channel[8]);
+    UINT8_TO_STREAM  (pp,bt_channel[7]);
+    UINT8_TO_STREAM  (pp,bt_channel[6]);
+    UINT8_TO_STREAM  (pp,bt_channel[5]);
+    UINT8_TO_STREAM  (pp,bt_channel[4]);
+    UINT8_TO_STREAM  (pp,bt_channel[3]);
+    UINT8_TO_STREAM  (pp,bt_channel[2]);
+    UINT8_TO_STREAM  (pp,bt_channel[1]);
+    UINT8_TO_STREAM  (pp,bt_channel[0]);
+
+    /* Can not call BTM_VendorSpecificCommand directly, because we are not in BTU task context */
+    /* send message to BTU to process instead */
+    GKI_send_msg(BTU_TASK, BTU_HCI_RCV_MBOX, p_msg);
+
+
+    /* Send LE_setHostChannelClassification command */
+    if ((p_msg = HCI_GET_CMD_BUF(sizeof(BT_HDR) + sizeof (void *)
+                        + 5 + HCIC_PREAMBLE_SIZE)) == NULL)
+    {
+
+        BTIF_TRACE_ERROR1("%s: failed to allocate buffer.", __FUNCTION__);
+        return (BT_STATUS_FAIL);
+    }
+
+    pp = (UINT8 *)(p_msg + 1);
+
+    p_msg->event = BT_EVT_TO_BTU_HCI_CMD | LOCAL_BR_EDR_CONTROLLER_ID;
+    p_msg->len = HCIC_PREAMBLE_SIZE + 5;
+    p_msg->offset = sizeof(void *);
+
+    /* Store cmd complete cb in buffer */
+    *((void **)pp) = btif_set_le_channel_classification_cback;
+    pp += sizeof(void *);               /* Skip over callback pointer */
+
+    UINT16_TO_STREAM (pp, HCI_BLE_SET_HOST_CHNL_CLASS);
+    UINT8_TO_STREAM  (pp, 5);
+
+    UINT8_TO_STREAM  (pp,le_channel[0]);
+    UINT8_TO_STREAM  (pp,le_channel[1]);
+    UINT8_TO_STREAM  (pp,le_channel[2]);
+    UINT8_TO_STREAM  (pp,le_channel[3]);
+    UINT8_TO_STREAM  (pp,le_channel[4]);
+
+    /* Can not call BTM_VendorSpecificCommand directly, because we are not in BTU task context */
+    /* send message to BTU to process instead */
+    GKI_send_msg(BTU_TASK, BTU_HCI_RCV_MBOX, p_msg);
+
+    return BT_STATUS_SUCCESS;
+}
+
+/****************************************************************************
+**
+**   BTIF MWS Channel APIs
+**
+*****************************************************************************/
+/*******************************************************************************
+**
+** Function         btif_set_mws_channel_parameters_cback
+**
+** Description     Callback invoked on completion of MWS set Channel Parameters command
+**
+** Returns          None
+**
+*******************************************************************************/
+static void btif_set_mws_channel_parameters_cback( tBTM_VSC_CMPL *p )
+{
+    if (*p->p_param_buf == 0) {
+        BTIF_TRACE_DEBUG1("%s: MWS_set_Channel_Parameters OK", __FUNCTION__);
+    } else {
+        BTIF_TRACE_DEBUG1("%s: MWS_set_Channel_Parameters FAILED", __FUNCTION__);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         btif_set_mws_channel_parameters
+**
+** Description      Implement the set MWS channel Parameters command as described in
+**                  Core Spec Addendum 3 Rev 2
+**                  CHANGE #2 - VOLUME 2, PART E (HCI), SECTION 7
+**                  7.3.80 Set MWS Channel Parameters Command
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_set_mws_channel_parameters(uint8_t enable,
+                                            uint16_t rx_center_freq,
+                                            uint16_t tx_center_freq,
+                                            uint16_t rx_channel_bandwidth,
+                                            uint16_t tx_channel_bandwidth,
+                                            uint8_t channel_type)
+{
+    BT_HDR *p_msg;
+    UINT8 *pp;
+
+    BTIF_TRACE_DEBUG2("%s: enable = 0x%02x", __FUNCTION__, enable);
+
+    /* Send setMWSChannelParameters command */
+    if ((p_msg = HCI_GET_CMD_BUF(sizeof(BT_HDR) + sizeof (void *)
+                                + 10 + HCIC_PREAMBLE_SIZE)) == NULL)
+    {
+        BTIF_TRACE_ERROR1("%s: failed to allocate buffer.", __FUNCTION__);
+        return (BT_STATUS_FAIL);
+    }
+
+    pp = (UINT8 *)(p_msg + 1);
+
+    p_msg->event = BT_EVT_TO_BTU_HCI_CMD | LOCAL_BR_EDR_CONTROLLER_ID;
+    p_msg->len = HCIC_PREAMBLE_SIZE + 10;
+    p_msg->offset = sizeof(void *);
+
+    /* Store cmd complete cb in buffer */
+    *((void **)pp) = btif_set_mws_channel_parameters_cback;
+    pp += sizeof(void *);               /* Skip over callback pointer */
+
+    UINT16_TO_STREAM (pp, HCI_SET_MWS_CHANNEL_PARAMETERS);
+    UINT8_TO_STREAM (pp, 10);
+
+    UINT8_TO_STREAM (pp, enable);
+    UINT16_TO_STREAM (pp, rx_center_freq);
+    UINT16_TO_STREAM (pp, tx_center_freq);
+    UINT16_TO_STREAM (pp, rx_channel_bandwidth);
+    UINT16_TO_STREAM (pp, tx_channel_bandwidth);
+    UINT8_TO_STREAM (pp, channel_type);
+
+    /* Can not call BTM_VendorSpecificCommand directly, because we are not in BTU task context */
+    /* send message to BTU to process instead */
+    GKI_send_msg(BTU_TASK, BTU_HCI_RCV_MBOX, p_msg);
+
+    return BT_STATUS_SUCCESS;
+}
+
+/*******************************************************************************
+**
+** Function         btif_set_mws_channel_parameters_cback
+**
+** Description     Callback invoked on completion of MWS set Channel Parameters command
+**
+** Returns          None
+**
+*******************************************************************************/
+static void btif_set_mws_transport_layer_cback( tBTM_VSC_CMPL *p )
+{
+    if (*p->p_param_buf == 0) {
+        BTIF_TRACE_DEBUG1("%s: MWS_set_Transport_Layer OK", __FUNCTION__);
+    } else {
+        BTIF_TRACE_DEBUG1("%s: MWS_set_Transport_Layer FAILED", __FUNCTION__);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         btif_set_mws_transport_layer
+**
+** Description      Implement the set MWS Transport Layer command as described in
+**                  Core Spec Addendum 3 Rev 2
+**                  CHANGE #2 - VOLUME 2, PART E (HCI), SECTION 7
+**                  7.3.83 Set MWS Transport Layer Command
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_set_mws_transport_layer(uint8_t transport_layer,
+                                         uint32_t to_baud_rate,
+                                         uint32_t from_baud_rate)
+{
+    BT_HDR *p_msg;
+    UINT8 *pp;
+
+    BTIF_TRACE_DEBUG2("%s: Baud rate = %d MHz", __FUNCTION__, to_baud_rate);
+
+    /* Send setMWSChannelParameters command */
+    if ((p_msg = HCI_GET_CMD_BUF(sizeof(BT_HDR) + sizeof (void *)
+                                + 9 + HCIC_PREAMBLE_SIZE)) == NULL)
+    {
+        BTIF_TRACE_ERROR1("%s: failed to allocate buffer.", __FUNCTION__);
+        return (BT_STATUS_FAIL);
+    }
+
+    pp = (UINT8 *)(p_msg + 1);
+
+    p_msg->event = BT_EVT_TO_BTU_HCI_CMD | LOCAL_BR_EDR_CONTROLLER_ID;
+    p_msg->len = HCIC_PREAMBLE_SIZE + 9;
+    p_msg->offset = sizeof(void *);
+
+    /* Store cmd complete cb in buffer */
+    *((void **)pp) = btif_set_mws_channel_parameters_cback;
+    pp += sizeof(void *);               /* Skip over callback pointer */
+
+    UINT16_TO_STREAM (pp, HCI_SET_MWS_TRANSPORT_LAYER);
+    UINT8_TO_STREAM (pp, 9);
+
+    UINT8_TO_STREAM (pp, transport_layer);
+    UINT32_TO_STREAM (pp, to_baud_rate);
+    UINT32_TO_STREAM (pp, from_baud_rate);
+
+    /* Can not call BTM_VendorSpecificCommand directly, because we are not in BTU task context */
+    /* send message to BTU to process instead */
+    GKI_send_msg(BTU_TASK, BTU_HCI_RCV_MBOX, p_msg);
+
     return BT_STATUS_SUCCESS;
 }
 

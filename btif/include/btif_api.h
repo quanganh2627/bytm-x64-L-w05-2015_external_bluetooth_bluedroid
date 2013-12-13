@@ -346,4 +346,51 @@ bt_status_t btif_le_test_mode(uint16_t opcode, uint8_t *buf, uint8_t len);
 **
 *******************************************************************************/
 bt_status_t btif_config_hci_snoop_log(uint8_t enable);
+
+/*******************************************************************************
+**
+** Function         btif_set_channel_classification
+**
+** Description      Re-configure the AFH Channel Classification for coexistence purpose
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_set_channel_classification(uint8_t *bt_channel, uint8_t *le_channel);
+
+/*******************************************************************************
+**
+** Function         btif_set_mws_channel_parameters
+**
+** Description      Implement the set MWS channel Parameters command as described in
+**                  Core Spec Addendum 3 Rev 2
+**                  CHANGE #2 - VOLUME 2, PART E (HCI), SECTION 7
+**                  7.3.80 Set MWS Channel Parameters Command
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_set_mws_channel_parameters(uint8_t enable,
+                                            uint16_t rx_center_freq,
+                                            uint16_t tx_center_freq,
+                                            uint16_t rx_channel_bandwidth,
+                                            uint16_t tx_channel_bandwidth,
+                                            uint8_t channel_type);
+
+/*******************************************************************************
+**
+** Function         btif_set_mws_transport_layer
+**
+** Description      Implement the set MWS Transport Layer command as described in
+**                  Core Spec Addendum 3 Rev 2
+**                  CHANGE #2 - VOLUME 2, PART E (HCI), SECTION 7
+**                  7.3.83 Set MWS Transport Layer Command
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_set_mws_transport_layer(uint8_t transport_layer,
+                                         uint32_t to_baud_rate,
+                                         uint32_t from_baud_rate);
+
 #endif /* BTIF_API_H */

@@ -4,10 +4,6 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-ifeq ($(BOARD_HAVE_BLUETOOTH_BCM),true)
-LOCAL_CFLAGS += \
-	-DBOARD_HAVE_BLUETOOTH_BCM
-endif
 LOCAL_CFLAGS += -DBUILDCFG $(bdroid_CFLAGS)
 
 LOCAL_PRELINK_MODULE:=false
@@ -88,6 +84,7 @@ LOCAL_C_INCLUDES+= . \
                    $(LOCAL_PATH)/include \
                    $(LOCAL_PATH)/sys \
                    $(LOCAL_PATH)/dm \
+                   $(LOCAL_PATH)/hh \
                    $(LOCAL_PATH)/../gki/common \
                    $(LOCAL_PATH)/../gki/ulinux \
                    $(LOCAL_PATH)/../include \

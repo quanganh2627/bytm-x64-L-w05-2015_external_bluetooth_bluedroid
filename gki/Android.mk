@@ -13,11 +13,6 @@ LOCAL_C_INCLUDES:= $(LOCAL_PATH)/common \
 
 LOCAL_CFLAGS += -Werror $(bdroid_CFLAGS)
 
-ifeq ($(BOARD_HAVE_BLUETOOTH_BCM),true)
-LOCAL_CFLAGS += \
-	-DBOARD_HAVE_BLUETOOTH_BCM
-endif
-
 LOCAL_PRELINK_MODULE:=false
 LOCAL_SRC_FILES:= \
     ./ulinux/gki_ulinux.c \
