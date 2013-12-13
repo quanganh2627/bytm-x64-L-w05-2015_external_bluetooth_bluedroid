@@ -96,8 +96,8 @@ char *bd2str(const bt_bdaddr_t *bdaddr, bdstr_t *bdstr)
     char *addr = (char *) bdaddr->address;
 
     sprintf((char*)bdstr, "%02x:%02x:%02x:%02x:%02x:%02x",
-                       (UINT8)addr[0],(UINT8)addr[1],(UINT8)addr[2],
-                       (UINT8)addr[3],(UINT8)addr[4],(UINT8)addr[5]);
+                       (int)addr[0],(int)addr[1],(int)addr[2],
+                       (int)addr[3],(int)addr[4],(int)addr[5]);
     return (char *)bdstr;
 }
 

@@ -829,7 +829,7 @@ void btm_acl_link_key_change (UINT16 handle, UINT8 status)
         btm_cb.devcb.p_chg_link_key_cb = NULL;
     }
 
-    BTM_TRACE_EVENT2("Change Link Key Complete Event: Handle 0x%02x, HCI Status 0x%02x",
+    BTM_TRACE_ERROR2("Change Link Key Complete Event: Handle 0x%02x, HCI Status 0x%02x",
                      handle, p_data->hci_status);
 }
 
@@ -924,7 +924,7 @@ void btm_acl_encrypt_change (UINT16 handle, UINT8 status, UINT8 encr_enable)
                 BTM_TRACE_WARNING0("btm_acl_encrypt_change -> Issuing delayed HCI_Disconnect!!!");
                 btsnd_hcic_disconnect(p_dev_rec->hci_handle, HCI_ERR_PEER_USER);
             }
-            BTM_TRACE_DEBUG2("btm_acl_encrypt_change: tBTM_SEC_DEV:0x%x rs_disc_pending=%d",
+            BTM_TRACE_ERROR2("btm_acl_encrypt_change: tBTM_SEC_DEV:0x%x rs_disc_pending=%d",
                 (UINT32)p_dev_rec, p_dev_rec->rs_disc_pending);
             p_dev_rec->rs_disc_pending = BTM_SEC_RS_NOT_PENDING;     /* reset flag */
         }
@@ -2266,7 +2266,7 @@ void btm_acl_role_changed (UINT8 hci_status, BD_ADDR bd_addr, UINT8 new_role)
             BTM_TRACE_WARNING0("btm_acl_role_changed -> Issuing delayed HCI_Disconnect!!!");
             btsnd_hcic_disconnect(p_dev_rec->hci_handle, HCI_ERR_PEER_USER);
         }
-        BTM_TRACE_DEBUG2("tBTM_SEC_DEV:0x%x rs_disc_pending=%d",
+        BTM_TRACE_ERROR2("tBTM_SEC_DEV:0x%x rs_disc_pending=%d",
                          (UINT32)p_dev_rec, p_dev_rec->rs_disc_pending);
         p_dev_rec->rs_disc_pending = BTM_SEC_RS_NOT_PENDING;     /* reset flag */
     }

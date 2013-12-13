@@ -117,12 +117,17 @@ BOOLEAN  BTM_SecRegister (tBTM_APPL_INFO *p_cb_info)
     BT_OCTET16      temp_value = {0};
 #endif
 
+    BTM_TRACE_EVENT0 ("BTM_Sec: application registered");
+
 #if BLE_INCLUDED == TRUE && SMP_INCLUDED == TRUE
+    BTM_TRACE_ERROR1 ("BTM_SecRegister:p_cb_info->p_le_callback == 0x%x ", p_cb_info->p_le_callback);
+
     if (p_cb_info->p_le_callback)
     {
-        BTM_TRACE_EVENT0 ("BTM_SecRegister: SMP_Register( btm_proc_smp_cback )");
+#if SMP_INCLUDED == TRUE
+        BTM_TRACE_EVENT0 ("BTM_Sec: SMP_Register( btm_proc_smp_cback )");
         SMP_Register(btm_proc_smp_cback);
-
+#endif
         /* if no IR is loaded, need to regenerate all the keys */
         if (memcmp(btm_cb.devcb.id_keys.ir, &temp_value, sizeof(BT_OCTET16)) == 0)
         {
@@ -135,9 +140,13 @@ BOOLEAN  BTM_SecRegister (tBTM_APPL_INFO *p_cb_info)
     }
 #endif
 
-    btm_cb.api = *p_cb_info;
 
-    BTM_TRACE_EVENT0 ("BTM_SecRegister: application registered");
+
+    btm_cb.api = *p_cb_info;
+#if BLE_INCLUDED == TRUE && SMP_INCLUDED == TRUE
+     BTM_TRACE_ERROR1 ("BTM_SecRegister: btm_cb.api.p_le_callback = 0x%x ", btm_cb.api.p_le_callback);
+#endif
+    BTM_TRACE_EVENT0 ("BTM_Sec: application registered");
     return(TRUE);
 }
 
@@ -4437,18 +4446,9 @@ void btm_sec_disconnected (UINT16 handle, UINT8 reason)
     /* clear unused flags */
     p_dev_rec->sm4 &= BTM_SM4_TRUE;
 
-    if (reason)
-    {
-        BTM_TRACE_ERROR6("btm_sec_disconnected() sec_req:0x%x  State: %s   reason:0x%x bda:%04x%08x RName:%s",
-                         p_dev_rec->security_required, btm_pair_state_descr(btm_cb.pairing_state), reason, (p_dev_rec->bd_addr[0]<<8)+p_dev_rec->bd_addr[1],
-                         (p_dev_rec->bd_addr[2]<<24)+(p_dev_rec->bd_addr[3]<<16)+(p_dev_rec->bd_addr[4]<<8)+p_dev_rec->bd_addr[5], p_dev_rec->sec_bd_name);
-    }
-    else
-    {
-        BTM_TRACE_EVENT6("btm_sec_disconnected() sec_req:0x%x  State: %s   reason:0x%x bda:%04x%08x RName:%s",
-                         p_dev_rec->security_required, btm_pair_state_descr(btm_cb.pairing_state), reason, (p_dev_rec->bd_addr[0]<<8)+p_dev_rec->bd_addr[1],
-                         (p_dev_rec->bd_addr[2]<<24)+(p_dev_rec->bd_addr[3]<<16)+(p_dev_rec->bd_addr[4]<<8)+p_dev_rec->bd_addr[5], p_dev_rec->sec_bd_name);
-    }
+    BTM_TRACE_EVENT6("btm_sec_disconnected() sec_req:x%x  State: %s   reason:%d bda:%04x%08x RName:%s",
+                     p_dev_rec->security_required, btm_pair_state_descr(btm_cb.pairing_state), reason,  (p_dev_rec->bd_addr[0]<<8)+p_dev_rec->bd_addr[1],
+                     (p_dev_rec->bd_addr[2]<<24)+(p_dev_rec->bd_addr[3]<<16)+(p_dev_rec->bd_addr[4]<<8)+p_dev_rec->bd_addr[5], p_dev_rec->sec_bd_name);
 
     BTM_TRACE_EVENT1("before Update sec_flags=0x%x", p_dev_rec->sec_flags);
 

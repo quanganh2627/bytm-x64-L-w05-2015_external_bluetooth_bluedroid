@@ -383,17 +383,6 @@ int config_hci_snoop_log(uint8_t enable)
     return btif_config_hci_snoop_log(enable);
 }
 
-int set_channel_classification(uint8_t *bt_channel, uint8_t *le_channel)
-{
-    ALOGI("set_channel_classification");
-
-    /* sanity check */
-    if (interface_ready() == FALSE)
-        return BT_STATUS_NOT_READY;
-
-    return btif_set_channel_classification(bt_channel, le_channel);
-}
-
 static const bt_interface_t bluetoothInterface = {
     sizeof(bluetoothInterface),
     init,
@@ -423,8 +412,7 @@ static const bt_interface_t bluetoothInterface = {
 #else
     NULL,
 #endif
-    config_hci_snoop_log,
-    set_channel_classification
+    config_hci_snoop_log
 };
 
 const bt_interface_t* bluetooth__get_bluetooth_interface ()

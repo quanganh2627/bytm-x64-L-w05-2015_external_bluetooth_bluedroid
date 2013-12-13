@@ -346,16 +346,4 @@ bt_status_t btif_le_test_mode(uint16_t opcode, uint8_t *buf, uint8_t len);
 **
 *******************************************************************************/
 bt_status_t btif_config_hci_snoop_log(uint8_t enable);
-
-/*******************************************************************************
-**
-** Function         btif_set_channel_classification
-**
-** Description      Re-configure the AFH Channel Classification for coexistence purpose
-**
-** Returns          BT_STATUS_SUCCESS on success
-**
-*******************************************************************************/
-bt_status_t btif_set_channel_classification(uint8_t *bt_channel, uint8_t *le_channel);
-
 #endif /* BTIF_API_H */

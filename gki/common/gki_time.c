@@ -817,8 +817,8 @@ void GKI_add_to_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_tle)
     /* Only process valid tick values */
     if (p_tle->ticks >= 0)
     {
-        /* If this entry is the only entry or the last in the list */
-        if (p_timer_listq->p_first == NULL || p_tle->ticks >= p_timer_listq->last_ticks)
+        /* If this entry is the last in the list */
+        if (p_tle->ticks >= p_timer_listq->last_ticks)
         {
             /* If this entry is the only entry in the list */
             if (p_timer_listq->p_first == NULL)

@@ -107,7 +107,7 @@ BT_API void BTE_UnloadStack(void);
 extern void scru_flip_bda (BD_ADDR dst, const BD_ADDR src);
 extern void bte_load_conf(const char *p_path);
 extern bt_bdaddr_t btif_local_bd_addr;
-extern void bte_load_prop(void);
+
 
 /*******************************************************************************
 **                        System Task Configuration
@@ -157,8 +157,6 @@ void bte_main_boot_entry(void)
     bte_main_in_hw_init();
 
     bte_load_conf(BTE_STACK_CONF_FILE);
-
-    bte_load_prop(); // priority order Property > Conf > Static
 
 #if (BTTRC_INCLUDED == TRUE)
     /* Initialize trace feature */
