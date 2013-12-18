@@ -852,6 +852,8 @@ static void btif_hh_upstreams_evt(UINT16 event, char* p_param)
 #ifdef BLUEDROID_RTK
             btif_dm_hid_connect_fail(bdaddr->address);
 #endif
+                if (p_data->conn.status == BTA_HH_ERR_SDP)
+                    btif_dm_remove_bond(bdaddr);
             }
             break;
         case BTA_HH_CLOSE_EVT:
