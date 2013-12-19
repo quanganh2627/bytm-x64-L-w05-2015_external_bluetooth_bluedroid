@@ -62,6 +62,9 @@ typedef uint8_t (*tHCI_SEND_INT)(uint16_t opcode, uint8_t compl_evt_code, \
 typedef void (*tHCI_ACL_DATA_LEN_HDLR)(void);
 typedef void (*tSCO_TRIGGER)(int state, uint16_t sco_handle);
 
+/* Report ACL and LE buffer size to HCI library */
+typedef void (*tHCI_REPORT)(uint16_t acl_buffer_size, uint16_t le_buffer_size);
+
 /******************************************************************************
 **  Extern variables and functions
 ******************************************************************************/
@@ -78,6 +81,7 @@ typedef struct {
 #else
     tHCI_RCV rcv;
     tSCO_TRIGGER sco_trigger;
+    tHCI_REPORT report_buffer_size;
 
 #endif
 } tHCI_IF;

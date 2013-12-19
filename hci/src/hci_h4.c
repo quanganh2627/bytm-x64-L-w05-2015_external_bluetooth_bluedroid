@@ -199,6 +199,22 @@ static int hci_reset_ongoing = FALSE;
 
 /*******************************************************************************
 **
+** Function         set_buffer_size
+**
+** Description      Save buffer size in local variable
+**
+** Returns          None
+**
+*******************************************************************************/
+void set_buffer_size(uint16_t acl_buffer_size, uint16_t le_buffer_size)
+{
+    h4_cb.hc_acl_data_size = acl_buffer_size;
+    /* If le_buffer_size is 0, use acl buffer for LE also */
+    h4_cb.hc_ble_acl_data_size = (le_buffer_size) ? le_buffer_size : h4_cb.hc_acl_data_size;
+}
+
+/*******************************************************************************
+**
 ** Function         get_acl_data_length_cback
 **
 ** Description      Callback function for HCI_READ_BUFFER_SIZE and
@@ -239,9 +255,7 @@ void get_acl_data_length_cback(void *p_mem)
                                            HCI_COMMAND_COMPLETE_EVT, p_buf, \
                                            get_acl_data_length_cback)) == FALSE)
         {
-            bt_hc_cbacks->postload_cb((TRANSAC) p_buf, BT_HC_POSTLOAD_SUCCESS);
             bt_hc_cbacks->dealloc((TRANSAC) p_buf, (char *) (p_buf + 1));
-            ALOGE("vendor lib postload read buffer completed.");
         }
     }
     else if (opcode == HCI_LE_READ_BUFFER_SIZE)
@@ -251,8 +265,8 @@ void get_acl_data_length_cback(void *p_mem)
 
         if (bt_hc_cbacks)
         {
-            bt_hc_cbacks->postload_cb((TRANSAC) p_buf, BT_HC_POSTLOAD_SUCCESS);
             bt_hc_cbacks->dealloc((TRANSAC) p_buf, (char *) (p_buf + 1));
+            bt_hc_cbacks->postload_cb((TRANSAC) p_buf, BT_HC_POSTLOAD_SUCCESS);
             ALOGE("vendor lib postload completed");
         }
     }
@@ -1197,6 +1211,7 @@ const tHCI_IF hci_h4_func_table =
     hci_h4_send_int_cmd,
     hci_h4_get_acl_data_length,
     hci_h4_receive_msg,
-    send_sco_trigger
+    send_sco_trigger,
+    set_buffer_size
 };
 

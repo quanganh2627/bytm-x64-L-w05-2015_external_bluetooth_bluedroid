@@ -796,6 +796,7 @@ void btm_read_hci_buf_size_complete (UINT8 *p, UINT16 evt_len)
 #else
         acl_buf_size = L2CAP_MTU_SIZE;
 #endif
+        HCI_REPORT_BUFFER_SIZE(btu_cb.hcit_acl_data_size, 0);
         /* Tell the controller what our buffer sizes are. ?? Need SCO info */
          btsnd_hcic_set_host_buf_size (acl_buf_size, 0xc8, L2CAP_HOST_FC_ACL_BUFS, 100);
 
@@ -853,6 +854,8 @@ void btm_read_ble_buf_size_complete (UINT8 *p, UINT16 evt_len)
         btu_cb.hcit_ble_acl_pkt_size = btu_cb.hcit_ble_acl_data_size + HCI_DATA_PREAMBLE_SIZE;
 
         l2c_link_processs_ble_num_bufs (lm_num_le_bufs);
+
+        HCI_REPORT_BUFFER_SIZE(btu_cb.hcit_acl_data_size, btu_cb.hcit_ble_acl_data_size);
     }
 
     btm_read_ble_local_supported_features();

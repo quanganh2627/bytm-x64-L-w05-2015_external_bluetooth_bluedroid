@@ -524,23 +524,6 @@ void btu_hcif_send_cmd (UINT8 controller_id, BT_HDR *p_buf)
 
 /*******************************************************************************
 **
-** Function         btu_hcif_cmd_window_mgmt
-**
-** Description      This function is called to report the HCI credit value of
-**                  the events generated from the command sent from HCI lib.
-**
-** Returns          void
-**
-*******************************************************************************/
-void  btu_hcif_cmd_window_mgmt(UINT8 cmd_window)
-{
-    tHCI_CMD_CB * p_hci_cmd_cb = &(btu_cb.hci_cmd_cb[LOCAL_BR_EDR_CONTROLLER_ID]);
-    //ALOGE("%s cmd_window:%d", __func__, cmd_window);
-    p_hci_cmd_cb->cmd_window = cmd_window;
-}
-
-/*******************************************************************************
-**
 ** Function         btu_hcif_send_host_rdy_for_data
 **
 ** Description      This function is called to check if it can send commands

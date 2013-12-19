@@ -399,6 +399,12 @@ static void cleanup( void )
     bt_hc_cbacks = NULL;
 }
 
+/** Called to report acl buffer size and LE buffer size */
+void report_buffer_size(uint16_t acl_buffer_size, uint16_t le_buffer_size)
+{
+    p_hci_if->report_buffer_size(acl_buffer_size, le_buffer_size);
+}
+
 static void sco_rx_trigger(int state, uint16_t sco_handle)
 {
     ALOGD("%s", __func__);
@@ -417,7 +423,8 @@ static const bt_hc_interface_t bluetoothHCLibInterface = {
     set_rxflow,
     logging,
     sco_rx_trigger,
-    cleanup
+    cleanup,
+    report_buffer_size
 };
 
 
@@ -490,10 +497,6 @@ static void *bt_hc_worker_thread(void *arg)
 
         if (events & HC_EVENT_POSTLOAD)
         {
-            /* Read requests of getting
-             * ACL data length for both BR/EDR and LE.
-             */
-            p_hci_if->get_acl_max_len();
         }
 
         if (events & HC_EVENT_TX)

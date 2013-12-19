@@ -537,6 +537,21 @@ void bte_main_sco_trigger_send(int state, UINT16 sco_handle)
 }
 /******************************************************************************
 **
+** Function         bte_main_hci_report_buffer_size
+**
+** Description      Reports ACL buffer size and LE buffer size to HCI library
+**
+** Returns          None
+**
+******************************************************************************/
+void bte_main_hci_report_buffer_size (UINT16 acl_buffer_size, UINT16 le_buffer_size)
+{
+    if (bt_hc_if)
+        bt_hc_if->report_buffer_size(acl_buffer_size, le_buffer_size);
+}
+
+/******************************************************************************
+**
 ** Function         bte_main_post_reset_init
 **
 ** Description      BTE MAIN API - This function is mapped to BTM_APP_DEV_INIT
@@ -592,13 +607,7 @@ static void preload_cb(TRANSAC transac, bt_hc_preload_result_t result)
 ******************************************************************************/
 static void postload_cb(TRANSAC transac, bt_hc_postload_result_t result)
 {
-    uint8_t* p;
-    BT_HDR* transac_hdr = (BT_HDR*) transac;
-    if (transac != NULL)
-    {
-        p = (uint8_t*) (transac_hdr + 1);
-        btu_hcif_cmd_window_mgmt(p[2]);
-    }
+     APPL_TRACE_EVENT1("HC postload_cb %d", result);
 }
 
 /******************************************************************************
