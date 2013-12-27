@@ -868,6 +868,7 @@ static void btif_dm_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
          /*Map the HCI fail reason  to  bt status  */
         switch(p_auth_cmpl->fail_reason)
         {
+            BTIF_TRACE_ERROR2("%s: HCI ERROR CODE 0X%02X", __FUNCTION__, p_auth_cmpl->fail_reason);
             case HCI_ERR_PAGE_TIMEOUT:
             case HCI_ERR_CONNECTION_TOUT:
                 status =  BT_STATUS_RMT_DEV_DOWN;
