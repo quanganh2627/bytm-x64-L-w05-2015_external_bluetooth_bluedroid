@@ -36,6 +36,7 @@
 
 #include "bt_target.h"
 #include "bta_api.h"
+#include "bt_trace.h"
 
 /******************************************************************************
 **  Externs
@@ -467,28 +468,6 @@ void bte_load_did_conf (const char *p_path)
 /*****************************************************************************
 **   PROPERTIES INTERFACE FUNCTIONS
 *****************************************************************************/
-char *bt_properties_name[] = {
-    "BtSnoopLogOutput",
-    "BtSnoopFileName",
-    "TraceConf",
-    "TRC_BTM",
-    "TRC_HCI",
-    "TRC_L2CAP",
-    "TRC_RFCOMM",
-    "TRC_OBEX",
-    "TRC_AVCT",
-    "TRC_AVDT",
-    "TRC_AVRC",
-    "TRC_AVDT_SCB",
-    "TRC_AVDT_CCB",
-    "TRC_A2D",
-    "TRC_SDP",
-    "TRC_GATT",
-    "TRC_SMP",
-    "TRC_BTAPP",
-    "bt.hfp.WideBandSpeechEnabled",
-    NULL
-};
 
 /*******************************************************************************
 **
@@ -502,31 +481,27 @@ char *bt_properties_name[] = {
 *******************************************************************************/
 void bte_load_prop()
 {
-    char         **p_name = bt_properties_name;
+    char         *p_name;
+    tBTTRC_FUNC_MAP *p_f_map;
     char         value[PROPERTY_VALUE_MAX];
     BOOLEAN      name_matched;
     conf_entry_t *p_entry;
 
     ALOGI("Loading BT stack properties conf");
     /* parse prop by prop */
-    while (*p_name != NULL) {
-        name_matched = FALSE;
-        if (property_get(*p_name, value, NULL) > 0) {
-            p_entry = (conf_entry_t *)conf_table;
-            while (p_entry->conf_entry != NULL) {
-                if (strcmp(p_entry->conf_entry, *p_name) == 0) {
-                    name_matched = TRUE;
-                    if (p_entry->p_action != NULL)
-                        p_entry->p_action(*p_name, value);
-                    break;
-                    }
-                    p_entry++;
-            }
-            if ((name_matched == FALSE) && (trace_conf_enabled == TRUE)) {
-                /* Check if this is a TRC config item */
-                bte_trace_conf(*p_name, value);
-            }
-        }
-        *p_name++;
+    p_entry = (conf_entry_t *)conf_table;
+    while (p_entry->conf_entry != NULL) {
+        p_name = (char *)p_entry->conf_entry;
+        if (property_get(p_name, value, NULL) > 0 && p_entry->p_action != NULL)
+            p_entry->p_action(p_name, value);
+        p_entry++;
+    }
+
+    p_f_map = (tBTTRC_FUNC_MAP *) &bttrc_set_level_map[0];
+    while (p_f_map->trc_name != NULL) {
+        p_name = (char *)p_f_map->trc_name;
+        if (property_get(p_name, value, NULL) > 0 && trace_conf_enabled == TRUE)
+            bte_trace_conf(p_name, value);
+        p_f_map++;
     }
 }
