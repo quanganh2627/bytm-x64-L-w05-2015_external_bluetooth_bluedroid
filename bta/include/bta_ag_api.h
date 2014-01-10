@@ -304,9 +304,9 @@ typedef enum
 /* data associated AUDIO_OPEN callback */
 typedef struct
 {
+    tBTA_AG_CODEC  codec;
     UINT16              handle;
     UINT8               app_id;
-    tBTA_AG_CODEC        codec;
 } tBTA_AG_AUDIO_OPEN;
 
 /* union of data associated with AG callback */
@@ -317,7 +317,7 @@ typedef union
     tBTA_AG_OPEN        open;
     tBTA_AG_CONN        conn;
     tBTA_AG_VAL         val;
-    tBTA_AG_AUDIO_OPEN    audio_open;
+    tBTA_AG_AUDIO_OPEN  audio_open;
 } tBTA_AG;
 
 /* AG callback */
