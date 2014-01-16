@@ -154,6 +154,7 @@ void  bta_fm_init()
     FmNotification_on.type=IUI_FM_FREQ_NOTIFICATION_TYPE_BT;
     UTA_REMOTE_CALL(IuiFmNotifyFrequency)(IUI_FM_MACRO_ID_BT,  notification_on );
     APPL_TRACE_DEBUG1("%s : IuiFmNotifyFrequency - BT on notification ", __FUNCTION__);
+    ALOGI("%s:IuiFmNotifyFrequency - BT on notification",__FUNCTION__);
     UTA_REMOTE_CALL(IuiFmRegisterMitigationCallback)( IUI_FM_MACRO_ID_BT, bt_iui_fm_mitigation_cb );
     APPL_TRACE_DEBUG1("%s : IuiFmRegisterMitigationCallback - BT mitigation cb registered ", __FUNCTION__);
     GKI_freebuf(binfo_on);
@@ -190,6 +191,7 @@ void bta_fm_deinit()
     FmNotification_off.type=IUI_FM_FREQ_NOTIFICATION_TYPE_BT;
     UTA_REMOTE_CALL(IuiFmNotifyFrequency)(IUI_FM_MACRO_ID_BT,  notification_off );
     APPL_TRACE_DEBUG1("%s : IuiFmNotifyFrequency - BT off notification ", __FUNCTION__);
+    ALOGI("%s: BT off notification",__FUNCTION__);
     UTA_REMOTE_CALL(IuiFmRegisterMitigationCallback)( IUI_FM_MACRO_ID_BT, NULL );
     APPL_TRACE_DEBUG1("%s : IuiFmRegisterMitigationCallback - unregister ", __FUNCTION__);
     GKI_freebuf(binfo_off);
@@ -215,6 +217,11 @@ IuiFmMitigationStatus  bt_iui_fm_mitigation_cb(const IuiFmMacroId macro_id, cons
     btfmmitigation.Seq = sequence;
     UINT8  *p=ch_mask;
     APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
+    ALOGI("%s : ++++ ",__FUNCTION__);
+    APPL_TRACE_DEBUG2("%s : macro_id = %d",__FUNCTION__,macro_id);
+    APPL_TRACE_DEBUG2("%s : mitigation->type = %d",__FUNCTION__,mitigation->type);
+    if((btfmmitigation.MacroId == IUI_FM_MACRO_ID_BT) && (mitigation->type == IUI_FM_MITIGATION_TYPE_BT))
+    {
     btfmmitigation.FmMit = (IuiFmMitigation  *) GKI_getbuf(sizeof(IuiFmMitigation));
     if(!btfmmitigation.FmMit)
     {
@@ -226,34 +233,37 @@ IuiFmMitigationStatus  bt_iui_fm_mitigation_cb(const IuiFmMacroId macro_id, cons
     if(!btfm_mask)
     {
         APPL_TRACE_ERROR0("btfm_mask = NULL");
+        GKI_freebuf(btfmmitigation.FmMit);
+        btfmmitigation.FmMit=NULL;
         return IUI_FM_MITIGATION_ERROR;
     }
     btfmmitigation.FmMit->info.bt_ch_mask = btfm_mask;
+    APPL_TRACE_DEBUG1("mitigation->info.bt_ch_mask->bt_ch_mask[0] = %0x",mitigation->info.bt_ch_mask->bt_ch_mask[0]);
+    APPL_TRACE_DEBUG1("mitigation->info.bt_ch_mask->bt_ch_mask[1] = %0x",mitigation->info.bt_ch_mask->bt_ch_mask[1]);
+    APPL_TRACE_DEBUG1("mitigation->info.bt_ch_mask->bt_ch_mask[2] = %0x",mitigation->info.bt_ch_mask->bt_ch_mask[2]);
     for(i=0;i<IUI_FM_BT_CHANNEL_MASK_WORDS;i++)
     {
         btfmmitigation.FmMit->info.bt_ch_mask->bt_ch_mask[i]=mitigation->info.bt_ch_mask->bt_ch_mask[i];
     }
 
-    if(btfmmitigation.MacroId == IUI_FM_MACRO_ID_BT)
+    UINT32_TO_STREAM(p,btfmmitigation.FmMit->info.bt_ch_mask->bt_ch_mask[0]);
+    UINT32_TO_STREAM(p,btfmmitigation.FmMit->info.bt_ch_mask->bt_ch_mask[1]);
+    UINT32_TO_STREAM(p,btfmmitigation.FmMit->info.bt_ch_mask->bt_ch_mask[2]);
+    /* Respect to Bluetooth specification doc, if we send zero as channel mask, then it will disable the channel.
+    But FM has taken assumption in reverse way. So doing bit invert to achieve the result */
+    APPL_TRACE_ERROR1(" %s : btfmmitigation.FmMit->type == IUI_FM_MITIGATION_TYPE_BT",__FUNCTION__);
+    for(i=0;i<12;i++)
     {
-        if(btfmmitigation.FmMit->type == IUI_FM_MITIGATION_TYPE_BT)
-        {
-            UINT32_TO_STREAM(p,btfmmitigation.FmMit->info.bt_ch_mask->bt_ch_mask[0]);
-            UINT32_TO_STREAM(p,btfmmitigation.FmMit->info.bt_ch_mask->bt_ch_mask[1]);
-            UINT32_TO_STREAM(p,btfmmitigation.FmMit->info.bt_ch_mask->bt_ch_mask[2]);
-/* Respect to Bluetooth specification doc, if we send zero as channel mask, then it will disable the channel.
-But FM has taken assumption in reverse way. So doing bit invert to achive the result. If FM will follow Bluetooth spec
-assumption, then we will remove the bit invert step. Currently it is overhead*/
-       //   for(i=0;i<12;i++)
-       //   ch_mask[i]=(unsigned char)~ch_mask[i];
-            bta_dm_btfm_set_afh_channels(ch_mask);
-            return IUI_FM_MITIGATION_ASYNC_PENDING;
-        }
-        else{
-            return IUI_FM_MITIGATION_ERROR_INVALID_PARAM;
-        }
+        ch_mask[i]=(unsigned char)~ch_mask[i];
+        APPL_TRACE_DEBUG1("Mitigation channels requested = %0x",ch_mask[i]);
     }
-    else{
+    bta_dm_btfm_set_afh_channels(ch_mask);
+    ALOGI("%s : --- IUI_FM_MITIGATION_ASYNC_PENDING",__FUNCTION__);
+    return IUI_FM_MITIGATION_ASYNC_PENDING;
+    }
+    else
+    {
+        APPL_TRACE_ERROR1(" %s : --- IUI_FM_MITIGATION_ERROR_INVALID_PARAM",__FUNCTION__);
         return IUI_FM_MITIGATION_ERROR_INVALID_PARAM;
     }
 }
@@ -273,13 +283,18 @@ void bta_btfm_set_afh_channels_evt_cb(UINT8 result)
 {
     BOOLEAN evt = result;
     APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
+    ALOGI("%s : ++++ ",__FUNCTION__);
     if(!evt)
     {
     // IUI_FM_MITIGATION_COMPLETE_OK success case
-        UTA_REMOTE_CALL(IuiFmMitigationComplete)(IUI_FM_MACRO_ID_BT, IUI_FM_MITIGATION_COMPLETE_OK, btfmmitigation.FmMit, btfmmitigation.Seq );
+        UTA_REMOTE_CALL(IuiFmMitigationComplete)(IUI_FM_MACRO_ID_BT, IUI_FM_MITIGATION_COMPLETE_OK,
+                        btfmmitigation.FmMit, btfmmitigation.Seq );
+        ALOGI("%s : IUI_FM_MITIGATION_COMPLETE_OK ",__FUNCTION__);
     }
-    GKI_freebuf(btfmmitigation.FmMit);
-    GKI_freebuf(btfm_mask);
+    if(btfmmitigation.FmMit)
+        GKI_freebuf(btfmmitigation.FmMit);
+    if(btfm_mask)
+        GKI_freebuf(btfm_mask);
     btfmmitigation.FmMit=NULL;
     btfm_mask=NULL;
 }
