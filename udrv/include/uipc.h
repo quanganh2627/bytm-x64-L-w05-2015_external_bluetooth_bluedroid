@@ -24,9 +24,14 @@
 
 #define UIPC_CH_ID_AV_CTRL  0
 #define UIPC_CH_ID_AV_AUDIO 1
-#define UIPC_CH_NUM         2
+#define UIPC_CH_ID_VOICE_IN_CTRL 2
+#define UIPC_CH_ID_VOICE_IN_DATA 3
+#define UIPC_CH_ID_VOICE_OUT_CTRL 4
+#define UIPC_CH_ID_VOICE_OUT_DATA 5
+#define UIPC_CH_NUM         6
 
-#define UIPC_CH_ID_ALL      3   /* used to address all the ch id at once */
+#define UIPC_CH_ID_AV_ALL      7   /* used to address all the AV ch id at once */
+#define UIPC_CH_ID_VOICE_ALL      8   /* used to address all the VOICE ch id at once */
 
 #define DEFAULT_READ_POLL_TMO_MS 100
 

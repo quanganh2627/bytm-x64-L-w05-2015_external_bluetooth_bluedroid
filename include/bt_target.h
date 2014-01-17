@@ -745,6 +745,7 @@ extern "C" {
 #endif
 
 BT_API extern void bte_main_hci_send (BT_HDR *p_msg, UINT16 event);
+BT_API extern void bte_main_sco_trigger_send(int state, UINT16 sco_handle);
 #if (HCISU_H4_INCLUDED == TRUE)
 BT_API extern void bte_main_lpm_allow_bt_device_sleep(void);
 #endif
@@ -767,6 +768,9 @@ BT_API extern void bte_main_lpm_allow_bt_device_sleep(void);
 #define HCI_SCO_DATA_TO_LOWER(p)    bte_main_hci_send((BT_HDR *)(p), BT_EVT_TO_LM_HCI_SCO);
 #endif
 
+#ifndef HCI_SCO_RX_TRIGGER
+#define HCI_SCO_RX_TRIGGER(p, m)      bte_main_sco_trigger_send(p, m)
+#endif
 /* Sends an HCI command received from the upper stack to the BD/EDR HCI transport. */
 #ifndef HCI_CMD_TO_LOWER
 #define HCI_CMD_TO_LOWER(p)         bte_main_hci_send((BT_HDR *)(p), BT_EVT_TO_LM_HCI_CMD);
@@ -853,7 +857,7 @@ and USER_HW_DISABLE_API macros */
 
 /* Includes SCO if TRUE */
 #ifndef BTM_SCO_HCI_INCLUDED
-#define BTM_SCO_HCI_INCLUDED            FALSE       /* TRUE includes SCO over HCI code */
+#define BTM_SCO_HCI_INCLUDED            TRUE       /* TRUE includes SCO over HCI code */
 #endif
 
 /* Includes WBS if TRUE */

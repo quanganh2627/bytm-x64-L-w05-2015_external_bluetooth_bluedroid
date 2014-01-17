@@ -505,6 +505,8 @@ BTA_API void BTA_AgResult(UINT16 handle, tBTA_AG_RES result, tBTA_AG_RES_DATA *p
 *******************************************************************************/
 BTA_API void BTA_AgSetCodec(UINT16 handle, tBTA_AG_PEER_CODEC codec);
 
+BTA_API void BTA_AgSendScoData(UINT16 handle);
+
 #ifdef __cplusplus
 }
 #endif

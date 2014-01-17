@@ -41,6 +41,7 @@
 #define usb_read            userial_read
 #define usb_close           userial_close
 #define usb_ioctl           userial_ioctl
+#define usb_sco_trigger     userial_sco_trigger
 #define usb_ioctl_op_t      userial_ioctl_op_t
 
 #define BT_USB_DEVICE_INFO(cl, sc, pr) \
@@ -135,6 +136,8 @@ void usb_close(void);
 **
 *******************************************************************************/
 void usb_ioctl(usb_ioctl_op_t op, void *p_data);
+
+void usb_sco_trigger(int state, uint16_t sco_handle);
 
 #endif /* USB_H */
 
