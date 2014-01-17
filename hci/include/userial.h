@@ -137,5 +137,16 @@ void userial_close(void);
 *******************************************************************************/
 void userial_ioctl(userial_ioctl_op_t op, void *p_data);
 
+/*******************************************************************************
+**
+** Function        userial_sco_trigger
+**
+** Description     Trigger SCO Connection
+**
+** Returns         None
+**
+*******************************************************************************/
+void userial_sco_trigger(int state, uint16_t sco_handle);
+
 #endif /* USERIAL_H */
 

@@ -76,7 +76,8 @@ bt_hc_callbacks_t *bt_hc_cbacks = NULL;
 BUFFER_Q tx_q;
 tHCI_IF *p_hci_if;
 volatile uint8_t fwcfg_acked;
-
+static int sco_state = 0;
+static uint16_t hc_sco_handle = 0;
 /******************************************************************************
 **  Local type definitions
 ******************************************************************************/
@@ -397,7 +398,13 @@ static void cleanup( void )
     bt_hc_cbacks = NULL;
 }
 
-
+static void sco_rx_trigger(int state, uint16_t sco_handle)
+{
+    ALOGD("%s", __func__);
+    sco_state = state;
+    hc_sco_handle = sco_handle;
+    bthc_signal_event(HC_EVENT_SCO_TRIGGER);
+}
 static const bt_hc_interface_t bluetoothHCLibInterface = {
     sizeof(bt_hc_interface_t),
     init,
@@ -408,6 +415,7 @@ static const bt_hc_interface_t bluetoothHCLibInterface = {
     transmit_buf,
     set_rxflow,
     logging,
+    sco_rx_trigger,
     cleanup
 };
 
@@ -577,6 +585,11 @@ static void *bt_hc_worker_thread(void *arg)
 
         if (events & HC_EVENT_EXIT)
             break;
+        if(events & HC_EVENT_SCO_TRIGGER)
+        {
+            ALOGD("SCO triger event in the bt hc worker thread");
+            p_hci_if->sco_trigger(sco_state, hc_sco_handle);
+        }
     }
 
     ALOGI("bt_hc_worker_thread exiting");

@@ -69,9 +69,12 @@
 #define A2DP_MEDIA_TASK         2
 #endif
 
+#ifndef HSP_TASK
+#define HSP_TASK          3
+#endif
 /* The number of GKI tasks in the software system. */
 #ifndef GKI_MAX_TASKS
-#define GKI_MAX_TASKS               3
+#define GKI_MAX_TASKS               4
 #endif
 
 /******************************************************************************

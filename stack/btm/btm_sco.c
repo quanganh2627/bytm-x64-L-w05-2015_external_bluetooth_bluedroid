@@ -68,6 +68,7 @@ static const tBTM_ESCO_PARAMS btm_esco_defaults =
      BTM_ESCO_RETRANS_POWER        /* Retransmission Effort (Power)   */
 };
 
+static UINT16 sco_handle_db[BTM_MAX_SCO_LINKS];
 /*******************************************************************************
 **
 ** Function         btm_sco_flush_sco_data
@@ -386,6 +387,22 @@ tBTM_STATUS BTM_WriteScoData (UINT16 sco_inx, BT_HDR *p_buf)
 #endif
 }
 
+void BTM_sco_trigger(int state, int index)
+{
+    BTM_TRACE_DEBUG1("%s",__func__);
+    UINT16 sco_handle = 0;
+    tSCO_CONN   *p_ccb = &btm_cb.sco_cb.sco_db[index - 1];
+    if (state == 1)
+    {
+        sco_handle_db[index - 1] = p_ccb->hci_handle;
+        sco_handle = p_ccb->hci_handle;
+    }
+    else
+    {
+        sco_handle = sco_handle_db[index - 1];
+    }
+    HCI_SCO_RX_TRIGGER(state , sco_handle);
+}
 #if (BTM_MAX_SCO_LINKS>0)
 /*******************************************************************************
 **
@@ -1738,6 +1755,17 @@ BOOLEAN btm_is_sco_active_by_bdaddr (BD_ADDR remote_bda)
     }
 #endif
     return (FALSE);
+}
+
+BTM_API  tBTM_STATUS BTM_ConfigScoPath (tBTM_SCO_ROUTE_TYPE path,
+                                                  tBTM_SCO_DATA_CB *p_sco_data_cb,
+                                                  tBTM_SCO_PCM_PARAM *p_pcm_param,
+                                                  BOOLEAN err_data_rpt)
+{
+    BTM_TRACE_DEBUG1("%s", __func__);
+    btm_cb.sco_cb.p_data_cb = p_sco_data_cb;
+
+    return 0;
 }
 #else   /* SCO_EXCLUDED == TRUE (Link in stubs) */
 

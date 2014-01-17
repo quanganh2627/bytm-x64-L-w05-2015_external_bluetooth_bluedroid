@@ -88,6 +88,7 @@
 #define HC_EVENT_LPM_WAKE_DEVICE       0x0040
 #define HC_EVENT_LPM_ALLOW_SLEEP       0x0080
 #define HC_EVENT_LPM_IDLE_TIMEOUT      0x0100
+#define HC_EVENT_SCO_TRIGGER           0x0400
 #define HC_EVENT_EXIT                  0x0200
 #define HC_EVENT_EPILOG                0x0400
 

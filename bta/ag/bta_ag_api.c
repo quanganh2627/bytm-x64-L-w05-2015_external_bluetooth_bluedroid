@@ -321,3 +321,20 @@ void BTA_AgSetCodec(UINT16 handle, tBTA_AG_PEER_CODEC codec)
     }
 }
 
+void BTA_AgSendScoData(UINT16 handle)
+{
+    BT_HDR  *p_buf;
+    APPL_TRACE_DEBUG1("%s",__func__);
+    if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
+    {
+        p_buf->event = BTA_AG_CI_SCO_DATA_EVT;
+        p_buf->layer_specific = handle;
+        bta_sys_sendmsg(p_buf);
+        APPL_TRACE_DEBUG0("Sco data trigger sent");
+    }
+    else
+    {
+        APPL_TRACE_DEBUG0("p_buf allocate failed");
+
+    }
+}
