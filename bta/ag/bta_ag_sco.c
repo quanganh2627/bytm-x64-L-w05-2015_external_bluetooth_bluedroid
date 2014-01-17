@@ -609,6 +609,7 @@ static void bta_ag_cn_timer_cback (TIMER_LIST_ENT *p_tle)
 
             /* call app callback */
             bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+            BTM_sco_trigger(SCO_OFF, bta_ag_scb_to_idx(p_scb));
         }
     }
 }
@@ -1404,6 +1405,7 @@ void bta_ag_sco_conn_open(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
 
     /* call app callback */
     bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_OPEN_EVT);
+    BTM_sco_trigger(SCO_ON, bta_ag_scb_to_idx(p_scb));
 
     p_scb->retry_with_sco_only = FALSE;
 }
@@ -1467,6 +1469,8 @@ void bta_ag_sco_conn_close(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
 
         /* call app callback */
         bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+        APPL_TRACE_DEBUG1("%s Audio close", __func__);
+        BTM_sco_trigger(SCO_OFF, bta_ag_scb_to_idx(p_scb));
     }
     p_scb->retry_with_sco_only = FALSE;
 }

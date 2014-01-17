@@ -186,7 +186,7 @@ typedef struct {
 
     /** Controls HCI logging on/off */
     int (*logging)(bt_hc_logging_state_t state, char *p_path);
-
+    int (*sco_trigger)(int state, uint16_t sco_handle);
     /** Closes the interface */
     void  (*cleanup)( void );
 } bt_hc_interface_t;
