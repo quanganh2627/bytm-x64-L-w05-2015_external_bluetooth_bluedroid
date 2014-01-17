@@ -1408,7 +1408,13 @@ bt_status_t btif_storage_load_bonded_hid_info(void)
         kpos = btif_config_next_key(kpos, "Remote", kname, &kname_size);
         BTIF_TRACE_DEBUG2("Remote device:%s, size:%d", kname, kname_size);
         int value;
+#ifdef BLUEDROID_RTK
+        int linkkey_type;
+        if(btif_config_get_int("Remote", kname, "HidAttrMask", &value) &&
+           btif_config_get_int("Remote", kname, "LinkKeyType", &linkkey_type))
+#else
         if(btif_config_get_int("Remote", kname, "HidAttrMask", &value))
+#endif
         {
             attr_mask = (uint16_t)value;
 
