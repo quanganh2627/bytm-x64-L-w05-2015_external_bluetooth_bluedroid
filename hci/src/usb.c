@@ -419,147 +419,159 @@ static void recv_xfer_cb(struct libusb_transfer *transfer)
     uint16_t sco_handle = 0;
     int sco_pkt_length = 0;
 
-
     status = transfer->status;
-    if (status == LIBUSB_TRANSFER_CANCELLED)
+    switch (status)
     {
-        if (transfer->endpoint == BT_ISO_IN)
-        {
-            USBDBG("Freeing transfer");
-            free(transfer->buffer);
-            libusb_free_transfer(transfer);
-            cancelled_packets++;
-            if (cancelled_packets == NO_RX_SUBMITS)
+        case LIBUSB_TRANSFER_CANCELLED:
+            USBDBG("Libusb Transfer Cancelled");
+            if (transfer->endpoint == BT_ISO_IN)
             {
-                cancelled_packets = 0;
-                r=libusb_set_interface_alt_setting(usb.handle, USB_SCO_INTERFACE, 0);
-                if (r != LIBUSB_SUCCESS)
+                USBDBG("Freeing transfer");
+                free(transfer->buffer);
+                libusb_free_transfer(transfer);
+                cancelled_packets++;
+                if (cancelled_packets == NO_RX_SUBMITS)
                 {
-                    USBDBG("%s : Unable to set the alternate to %d. Error %d", __func__, 0, r);
-                }
-                r = libusb_release_interface(usb.handle, USB_SCO_INTERFACE);
-                if (r != LIBUSB_SUCCESS)
-                {
-                    USBDBG("%s : Unable to release the %d interface", __func__, USB_SCO_INTERFACE);
-                }
-            }
-            return;
-        }
-    }
-    if (status == LIBUSB_TRANSFER_COMPLETED)
-    {
-        switch (transfer->endpoint)
-        {
-            struct iso_frames *frames;
-        case BT_INT_EP:
-            if (transfer->actual_length == 0)
-            {
-                USBDBG("*****Rxed zero length packet from usb ....");
-                skip = 1;
-                break;
-            }
-            p_rx = CONTAINER_RX_HDR(transfer->buffer);
-            p_rx->event = H4_TYPE_EVENT;
-            p_rx->len = (uint16_t)transfer->actual_length;
-            utils_enqueue(&(usb.rx_eventq), p_rx);
-            p_rx =  (RX_HDR *) bt_hc_cbacks->alloc(intr_pkt_size_wh);
-            transfer->buffer = p_rx->data;
-            transfer->length = intr_pkt_size;
-            break;
-
-        case BT_BULK_IN:
-            if (transfer->actual_length == 0)
-            {
-                USBDBG("*******Rxed zero length packet from usb ....");
-                skip = 1;
-                break;
-            }
-            p_rx = CONTAINER_RX_HDR(transfer->buffer);
-            p_rx->event = H4_TYPE_ACL_DATA;
-            p_rx->len = (uint16_t)transfer->actual_length;
-            utils_enqueue(&(usb.rx_bulkq), p_rx);
-            p_rx =  (RX_HDR *) bt_hc_cbacks->alloc(bulk_pkt_size_wh);
-            transfer->buffer = p_rx->data;
-            transfer->length = bulk_pkt_size;
-            break;
-
-        case BT_ISO_IN:
-            iso_actual_length = 0;
-            for (xx = 0; xx<transfer->num_iso_packets; xx++)
-            {
-                iso_actual_length += transfer->iso_packet_desc[xx].actual_length;
-            }
-            skip = 1;
-            if (iso_actual_length != 51)
-            {
-                USBDBG("*******Rxed Non-proper length packet from usb ....");
-                USBDBG("Length of packet received = %d", iso_actual_length);
-                break;
-            }
-            USBDBG("Packet Received : Actual length = %d", iso_actual_length);
-
-            buffer = transfer->buffer;
-
-            for (xx = 0; xx < BT_MAX_ISO_FRAMES; xx++)
-            {
-                sco_handle = (buffer[1]<<(8)) + buffer[0];
-                USBDBG("Sco Handle of frame %d is %d", xx, sco_handle);
-                sco_pkt_length = buffer[2];
-                USBDBG("Sco Packet Length = %d", sco_pkt_length);
-                cur_sco_db_index = check_sco_handle_validity(sco_handle);
-
-                if (cur_sco_db_index < 0 )
-                {
-                    if (prev_sco_db_index == INVALID_INDEX)
+                    cancelled_packets = 0;
+                    r=libusb_set_interface_alt_setting(usb.handle, USB_SCO_INTERFACE, 0);
+                    if (r != LIBUSB_SUCCESS)
                     {
-                        buffer = buffer + iso_pkt_size;
-                        continue;
+                        USBDBG("%s : Unable to set the alternate to %d. Error %d", __func__, 0, r);
                     }
-                    if (add_frame_to_cur_packet(buffer, prev_sco_db_index))
+                    r = libusb_release_interface(usb.handle, USB_SCO_INTERFACE);
+                    if (r != LIBUSB_SUCCESS)
                     {
-                        utils_enqueue(&(usb.rx_isoq), cur_iso_pkt[prev_sco_db_index]);
-                        USBDBG("Enqued iso packet with correct event");
-                        cur_iso_pkt[prev_sco_db_index] = (ISO_HDR *) bt_hc_cbacks->alloc(iso_pkt_size_wh);
-                        flush_prev_packet(prev_sco_db_index);
-                        prev_sco_db_index = INVALID_INDEX;
-                        skip = 0;
+                        USBDBG("%s : Unable to release the %d interface", __func__, USB_SCO_INTERFACE);
                     }
-
                 }
-                else
-                {
-                    if (sco_pkt_length == SCO_PACKET_SIZE)
+                return;
+            }
+            break;
+        case LIBUSB_TRANSFER_COMPLETED:
+            USBDBG("Libusb Transfer Completed Successfully");
+            switch (transfer->endpoint)
+            {
+                struct iso_frames *frames;
+                case BT_INT_EP:
+                    if (transfer->actual_length == 0)
                     {
-                        flush_prev_packet(cur_sco_db_index);
-                        prev_sco_db_index = cur_sco_db_index;
-                        if (add_frame_to_cur_packet(buffer, cur_sco_db_index))
+                        USBDBG("*****Rxed zero length packet from usb ....");
+                        skip = 1;
+                        break;
+                    }
+                    p_rx = CONTAINER_RX_HDR(transfer->buffer);
+                    p_rx->event = H4_TYPE_EVENT;
+                    p_rx->len = (uint16_t)transfer->actual_length;
+                    utils_enqueue(&(usb.rx_eventq), p_rx);
+                    p_rx =  (RX_HDR *) bt_hc_cbacks->alloc(intr_pkt_size_wh);
+                    transfer->buffer = p_rx->data;
+                    transfer->length = intr_pkt_size;
+                    break;
+
+                case BT_BULK_IN:
+                    if (transfer->actual_length == 0)
+                    {
+                        USBDBG("*******Rxed zero length packet from usb ....");
+                        skip = 1;
+                        break;
+                    }
+                    p_rx = CONTAINER_RX_HDR(transfer->buffer);
+                    p_rx->event = H4_TYPE_ACL_DATA;
+                    p_rx->len = (uint16_t)transfer->actual_length;
+                    utils_enqueue(&(usb.rx_bulkq), p_rx);
+                    p_rx =  (RX_HDR *) bt_hc_cbacks->alloc(bulk_pkt_size_wh);
+                    transfer->buffer = p_rx->data;
+                    transfer->length = bulk_pkt_size;
+                    break;
+
+                case BT_ISO_IN:
+                    iso_actual_length = 0;
+                    for (xx = 0; xx<transfer->num_iso_packets; xx++)
+                    {
+                        iso_actual_length += transfer->iso_packet_desc[xx].actual_length;
+                    }
+                    skip = 1;
+                    if (iso_actual_length != 51)
+                    {
+                        USBDBG("*******Rxed Non-proper length packet from usb ....");
+                        USBDBG("Length of packet received = %d", iso_actual_length);
+                        break;
+                    }
+                    USBDBG("Packet Received : Actual length = %d", iso_actual_length);
+                    buffer = transfer->buffer;
+                    for (xx = 0; xx < BT_MAX_ISO_FRAMES; xx++)
+                    {
+                        sco_handle = (buffer[1]<<(8)) + buffer[0];
+                        USBDBG("Sco Handle of frame %d is %d", xx, sco_handle);
+                        sco_pkt_length = buffer[2];
+                        USBDBG("Sco Packet Length = %d", sco_pkt_length);
+                        cur_sco_db_index = check_sco_handle_validity(sco_handle);
+                        if (cur_sco_db_index < 0 )
                         {
-                            utils_enqueue(&(usb.rx_isoq), cur_iso_pkt[cur_sco_db_index]);
-                            USBDBG("Enqued iso packet with correct event");
-                            cur_iso_pkt[cur_sco_db_index] = (ISO_HDR *) bt_hc_cbacks->alloc(iso_pkt_size_wh);
-                            skip = 0;
+                            if (prev_sco_db_index == INVALID_INDEX)
+                            {
+                                buffer = buffer + iso_pkt_size;
+                                continue;
+                            }
+                            if (add_frame_to_cur_packet(buffer, prev_sco_db_index))
+                            {
+                                utils_enqueue(&(usb.rx_isoq), cur_iso_pkt[prev_sco_db_index]);
+                                USBDBG("Enqued iso packet with correct event");
+                                cur_iso_pkt[prev_sco_db_index] = (ISO_HDR *) bt_hc_cbacks->alloc(iso_pkt_size_wh);
+                                flush_prev_packet(prev_sco_db_index);
+                                prev_sco_db_index = INVALID_INDEX;
+                                skip = 0;
+                            }
                         }
+                        else
+                        {
+                            if (sco_pkt_length == SCO_PACKET_SIZE)
+                            {
+                                flush_prev_packet(cur_sco_db_index);
+                                prev_sco_db_index = cur_sco_db_index;
+                                if (add_frame_to_cur_packet(buffer, cur_sco_db_index))
+                                {
+                                    utils_enqueue(&(usb.rx_isoq), cur_iso_pkt[cur_sco_db_index]);
+                                    USBDBG("Enqued iso packet with correct event");
+                                    cur_iso_pkt[cur_sco_db_index] = (ISO_HDR *) bt_hc_cbacks->alloc(iso_pkt_size_wh);
+                                    skip = 0;
+                                }
+                            }
+                            else
+                            {
+                                USBERR("Sco Packet size not proper. Size is %d", sco_pkt_length);
+                            }
+                        }
+                        buffer = buffer + iso_pkt_size;
                     }
-                    else
-                    {
-                        USBERR("Sco Packet size not proper. Size is %d", sco_pkt_length);
-                    }
-                }
-                buffer = buffer + iso_pkt_size;
+                    break;
+            default:
+                USBERR("Unexpeted endpoint rx %d\n", transfer->endpoint);
+                break;
             }
+            if (!skip)
+                usb_rx_signal_event();
             break;
-        default:
-            USBERR("Unexpeted endpoint rx %d\n", transfer->endpoint);
+        case LIBUSB_TRANSFER_ERROR:
+            USBERR("Libusb Transfer: IO Error, restarting BT");
+            kill(getpid(), SIGKILL);
             break;
-        }
-        if (!skip)
-            usb_rx_signal_event();
-    }
-    else
-    {
-        USBERR("******Transfer to BT Device failed- %d *****", status);
-        usb_xfer_status |= RX_DEAD;
-        return;
+        case LIBUSB_TRANSFER_TIMED_OUT:
+            USBERR("Libusb Transfer: Timed Out");
+            break;
+        case LIBUSB_TRANSFER_STALL:
+            USBERR("Libusb Transfer: Stalled");
+            break;
+        case LIBUSB_TRANSFER_NO_DEVICE:
+            USBERR("Libusb Transfer: Device Disconnected");
+            break;
+        case LIBUSB_TRANSFER_OVERFLOW:
+            USBERR("Libusb Transfer: Overflow");
+            break;
+        default :
+            USBERR("Libusb Transfer: Unknown Error, restarting BT");
+            kill(getpid(), SIGKILL);
+            break;
     }
     r = libusb_submit_transfer(transfer);
     if (r < 0)
