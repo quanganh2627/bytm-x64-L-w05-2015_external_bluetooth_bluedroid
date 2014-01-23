@@ -502,8 +502,9 @@ static void btif_dm_cb_hid_remote_name(tBTM_REMOTE_DEV_NAME *p_remote_name)
 *******************************************************************************/
 static void btif_dm_cb_create_bond(bt_bdaddr_t *bd_addr)
 {
-    BOOLEAN is_hid = check_cod(bd_addr, COD_HID_POINTING);
-
+    BOOLEAN is_hid = check_cod(bd_addr, COD_HID_KEYBOARD) ||
+                        check_cod(bd_addr, COD_HID_COMBO) ||
+                        check_cod(bd_addr, COD_HID_POINTING);
 
     bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDING);
 
@@ -1151,6 +1152,21 @@ static void btif_dm_search_services_evt(UINT16 event, char *p_param)
                                    __FUNCTION__);
                  pairing_cb.sdp_attempts  = 0;
                  bond_state_changed(BT_STATUS_SUCCESS, &bd_addr, BT_BOND_STATE_BONDED);
+                 if (!pairing_cb.is_local_initiated)
+                 {
+                     BTIF_TRACE_DEBUG1("%s lets try to connect",__FUNCTION__);
+                     if(check_cod(&bd_addr, COD_HID_KEYBOARD) ||
+                     check_cod(&bd_addr, COD_HID_COMBO) ||
+                     check_cod(&bd_addr, COD_HID_POINTING))
+                     {
+                        BTIF_TRACE_DEBUG1("%s connect from DUT",__FUNCTION__);
+                        btif_hh_connect(&bd_addr);
+                     }
+                 }
+                 else
+                 {
+                    BTIF_TRACE_DEBUG1("%s It is initiated by local so ignore",__FUNCTION__);
+                 }
             }
 
             if(p_data->disc_res.num_uuids != 0)
