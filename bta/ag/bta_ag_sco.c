@@ -50,6 +50,9 @@ static char *bta_ag_sco_state_str(UINT8 state);
                              BTM_SCO_PKT_TYPES_MASK_NO_2_EV5 | \
                              BTM_SCO_PKT_TYPES_MASK_NO_3_EV5)
 
+/* variables */
+BOOLEAN wbs_enabled = FALSE;    /* by default, disable WBS feature */
+
 /* sco events */
 enum
 {
@@ -170,6 +173,27 @@ static void bta_ag_sco_conn_cback(UINT16 sco_idx)
 
 /*******************************************************************************
 **
+** Function         bta_ag_cback_sco
+**
+** Description      Call application callback function with SCO event.
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+static void bta_ag_cback_sco(tBTA_AG_SCB *p_scb, UINT8 event)
+{
+    tBTA_AG_HDR    sco;
+
+    sco.handle = bta_ag_scb_to_idx(p_scb);
+    sco.app_id = p_scb->app_id;
+
+    /* call close cback */
+   (*bta_ag_cb.p_cback)(event, (tBTA_AG *) &sco);
+}
+
+/*******************************************************************************
+**
 ** Function         bta_ag_sco_disc_cback
 **
 ** Description      BTM SCO disconnection callback.
@@ -215,8 +239,9 @@ static void bta_ag_sco_disc_cback(UINT16 sco_idx)
         /* Restore settings */
         if(bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_CODEC_MSBC)
         {
-            BTM_SetWBSCodec (BTM_SCO_CODEC_NONE);
             BTM_WriteVoiceSettings (BTM_VOICE_SETTING_CVSD);
+            BTM_SetWBSCodec(BTM_SCO_CODEC_NONE);
+            bta_ag_cback_sco(bta_ag_cb.sco.p_curr_scb, BTA_AG_WBS_OFF_EVT);
 
             /* If SCO open was initiated by AG and failed for mSBC, try CVSD again. */
             if (bta_ag_sco_is_opening (bta_ag_cb.sco.p_curr_scb))
@@ -383,27 +408,6 @@ static void bta_ag_esco_connreq_cback(tBTM_ESCO_EVT event, tBTM_ESCO_EVT_DATA *p
 
 /*******************************************************************************
 **
-** Function         bta_ag_cback_sco
-**
-** Description      Call application callback function with SCO event.
-**
-**
-** Returns          void
-**
-*******************************************************************************/
-static void bta_ag_cback_sco(tBTA_AG_SCB *p_scb, UINT8 event)
-{
-    tBTA_AG_HDR    sco;
-
-    sco.handle = bta_ag_scb_to_idx(p_scb);
-    sco.app_id = p_scb->app_id;
-
-    /* call close cback */
-    (*bta_ag_cb.p_cback)(event, (tBTA_AG *) &sco);
-}
-
-/*******************************************************************************
-**
 ** Function         bta_ag_create_sco
 **
 ** Description
@@ -438,7 +442,8 @@ static void bta_ag_create_sco(tBTA_AG_SCB *p_scb, BOOLEAN is_orig)
 #if (BTM_WBS_INCLUDED == TRUE )
     if ((p_scb->sco_codec == BTM_SCO_CODEC_MSBC) &&
         !p_scb->codec_fallback &&
-        !p_scb->retry_with_sco_only)
+        !p_scb->retry_with_sco_only &&
+        wbs_enabled == TRUE)
         esco_codec = BTM_SCO_CODEC_MSBC;
 
     if (p_scb->codec_fallback)
@@ -487,7 +492,7 @@ static void bta_ag_create_sco(tBTA_AG_SCB *p_scb, BOOLEAN is_orig)
                ||!((params.packet_types & ~(BTM_ESCO_LINK_ONLY_MASK | BTM_SCO_LINK_ONLY_MASK)) ^ BTA_AG_NO_EDR_ESCO))
             {
 #if (BTM_WBS_INCLUDED == TRUE )
-                if (esco_codec != BTA_AG_CODEC_MSBC)
+                if (wbs_enabled == FALSE || esco_codec != BTA_AG_CODEC_MSBC)
                 {
                     p_scb->retry_with_sco_only = TRUE;
                     APPL_TRACE_API0("Setting retry_with_sco_only to TRUE");
@@ -522,7 +527,7 @@ static void bta_ag_create_sco(tBTA_AG_SCB *p_scb, BOOLEAN is_orig)
 
 #if (BTM_SCO_HCI_INCLUDED == TRUE )
 #if (BTM_WBS_INCLUDED == TRUE)
-        if (esco_codec == BTA_AG_CODEC_MSBC)
+        if (wbs_enabled == TRUE && esco_codec == BTA_AG_CODEC_MSBC)
             pcm_sample_rate = BTA_DM_SCO_SAMP_RATE_16K;
         else
 #endif
@@ -532,21 +537,17 @@ static void bta_ag_create_sco(tBTA_AG_SCB *p_scb, BOOLEAN is_orig)
 #endif
 
 #if (BTM_WBS_INCLUDED == TRUE )
-        if (esco_codec == BTA_AG_CODEC_MSBC)
-        {
-            /* Enable mSBC codec in fw */
-            BTM_SetWBSCodec (esco_codec);
-        }
-
-        /* Specify PCM input for SBC codec in fw */
-        BTM_ConfigI2SPCM (esco_codec, (UINT8)HCI_BRCM_I2SPCM_IS_DEFAULT_ROLE, (UINT8)HCI_BRCM_I2SPCM_SAMPLE_DEFAULT, (UINT8)HCI_BRCM_I2SPCM_CLOCK_DEFAULT);
-
         /* This setting may not be necessary */
         /* To be verified with stable 2049 boards */
-        if (esco_codec == BTA_AG_CODEC_MSBC)
+        if (wbs_enabled == TRUE && esco_codec == BTA_AG_CODEC_MSBC) {
             BTM_WriteVoiceSettings (BTM_VOICE_SETTING_TRANS);
-        else
+            BTM_SetWBSCodec(esco_codec);
+            bta_ag_cback_sco(p_scb, BTA_AG_WBS_ON_EVT);
+        }
+        else {
             BTM_WriteVoiceSettings (BTM_VOICE_SETTING_CVSD);
+            BTM_SetWBSCodec(BTM_SCO_CODEC_CVSD);
+        }
 
         /* save the current codec because sco_codec can be updated while SCO is open. */
         p_scb->inuse_codec = esco_codec;
@@ -730,13 +731,17 @@ static void bta_ag_sco_event(tBTA_AG_SCB *p_scb, UINT8 event)
 
 #if (BTM_WBS_INCLUDED == TRUE )
                     /* start codec negotiation */
+                    if (wbs_enabled)
+                    {
                     p_sco->state = BTA_AG_SCO_CODEC_ST;
                     p_cn_scb = p_scb;
-#else
+                    } else
+#endif
                     /* create sco connection to peer */
+                    {
                     bta_ag_create_sco(p_scb, TRUE);
                     p_sco->state = BTA_AG_SCO_OPENING_ST;
-#endif
+                    }
                     break;
 
                 case BTA_AG_SCO_SHUTDOWN_E:
@@ -1526,7 +1531,9 @@ void bta_ag_sco_conn_rsp(tBTA_AG_SCB *p_scb, tBTM_ESCO_CONN_REQ_EVT_DATA *p_data
 
 #if (BTM_WBS_INCLUDED == TRUE )
         /* When HS initiated SCO, it cannot be WBS. */
-        BTM_ConfigI2SPCM (BTM_SCO_CODEC_CVSD, (UINT8)HCI_BRCM_I2SPCM_IS_DEFAULT_ROLE, (UINT8)HCI_BRCM_I2SPCM_SAMPLE_DEFAULT, (UINT8)HCI_BRCM_I2SPCM_CLOCK_DEFAULT);
+        //BTM_ConfigI2SPCM (BTM_SCO_CODEC_CVSD, (UINT8)HCI_BRCM_I2SPCM_IS_DEFAULT_ROLE, (UINT8)HCI_BRCM_I2SPCM_SAMPLE_DEFAULT, (UINT8)HCI_BRCM_I2SPCM_CLOCK_DEFAULT);
+        BTM_SetWBSCodec(BTM_SCO_CODEC_CVSD);
+        bta_ag_cback_sco(p_scb, BTA_AG_WBS_OFF_EVT);
 #endif
 
 #if (BTM_SCO_HCI_INCLUDED == TRUE )
