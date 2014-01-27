@@ -961,7 +961,7 @@ static void bta_hl_api_dch_open(tBTA_HL_CB *p_cb, tBTA_HL_DATA *p_data)
     tBTA_HL_STATUS              status = BTA_HL_STATUS_OK;
     UINT8                       app_idx, mcl_idx, mdl_idx;
     tBTA_HL_APP_CB              *p_acb;
-    tBTA_HL_MCL_CB              *p_mcb;
+    tBTA_HL_MCL_CB              *p_mcb = NULL;
     tBTA_HL_MDL_CB              *p_dcb;
     tBTA_HL_MDEP_CFG            *p_mdep_cfg;
     UINT8                       mdep_cfg_idx;
@@ -1323,7 +1323,7 @@ static void bta_hl_api_dch_echo_test(tBTA_HL_CB *p_cb, tBTA_HL_DATA *p_data)
     tBTA_HL_STATUS      status = BTA_HL_STATUS_OK;
     UINT8               app_idx, mcl_idx, mdl_idx;
     tBTA_HL_APP_CB      *p_acb;
-    tBTA_HL_MCL_CB      *p_mcb;
+    tBTA_HL_MCL_CB      *p_mcb = NULL;
     tBTA_HL_MDL_CB      *p_dcb;
     tBTA_HL_ECHO_CFG    *p_echo_cfg;
 
@@ -1803,7 +1803,7 @@ static void bta_hl_mca_delete_mdl_ind(tBTA_HL_CB *p_cb, tBTA_HL_DATA *p_data)
     tBTA_HL         evt_data;
     UINT8           app_idx, mcl_idx, mdl_idx;
     tMCA_EVT_HDR    *p_delete_ind = &p_data->mca_evt.mca_data.delete_ind;
-    tBTA_HL_MCL_CB  *p_mcb;
+    tBTA_HL_MCL_CB  *p_mcb = NULL;
     tBTA_HL_MDL_CB  *p_dcb;
     BOOLEAN         send_ind_evt = TRUE;
     tBTA_HL_APP_CB  *p_acb;

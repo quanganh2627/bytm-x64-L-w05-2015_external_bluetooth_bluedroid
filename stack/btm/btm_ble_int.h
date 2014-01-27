@@ -266,6 +266,7 @@ extern void btm_ble_connected (UINT8 *bda, UINT16 handle, UINT8 enc_mode, UINT8 
 extern void btm_ble_read_remote_features_complete(UINT8 *p);
 extern void btm_ble_write_adv_enable_complete(UINT8 * p);
 extern void btm_ble_conn_complete(UINT8 *p, UINT16 evt_len);
+extern void btm_ble_test_command_complete(UINT8 *p);
 extern tBTM_BLE_CONN_ST btm_ble_get_conn_st(void);
 extern void btm_ble_set_conn_st(tBTM_BLE_CONN_ST new_st);
 

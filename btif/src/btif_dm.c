@@ -508,14 +508,16 @@ static void btif_dm_cb_create_bond(bt_bdaddr_t *bd_addr)
 
     bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDING);
 
+#if 0 /* fix for apple magic mouse connection takes long time and reconnection when pairing
+       initiated from DUT*/
     if (is_hid){
-
             int status;
             status = btif_hh_connect(bd_addr);
             if(status != BT_STATUS_SUCCESS)
                 bond_state_changed(status, bd_addr, BT_BOND_STATE_NONE);
     }
     else
+#endif
     {
 #if BLE_INCLUDED == TRUE
         int device_type;

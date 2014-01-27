@@ -944,7 +944,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer,
         /* note: we expect BT stack provide whole frame(s) every time */
         if ((size_t) ret < frame_size)
         {
-            ERROR("got input %ld byte but not enough to resample, drop", ret);
+            ERROR("got input %d byte but not enough to resample, drop", ret);
             ret = -1;
             goto in_done;
         }

@@ -400,9 +400,9 @@ static void cleanup( void )
 }
 
 /** Called to report acl buffer size and LE buffer size */
-void report_buffer_size(uint16_t acl_buffer_size, uint16_t le_buffer_size)
+static void report_buffer_size(unsigned int acl_buffer_size, unsigned int le_buffer_size)
 {
-    p_hci_if->report_buffer_size(acl_buffer_size, le_buffer_size);
+    p_hci_if->report_buffer_size((uint16_t)acl_buffer_size, (uint16_t)le_buffer_size);
 }
 
 static void sco_rx_trigger(int state, uint16_t sco_handle)

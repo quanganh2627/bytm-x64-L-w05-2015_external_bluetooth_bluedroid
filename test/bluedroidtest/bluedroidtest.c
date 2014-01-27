@@ -661,7 +661,7 @@ static void device_found_cb(int num_properties,bt_property_t *properties)
         if(properties[i].type==BT_PROPERTY_BDNAME)
         {
             j=0;
-            printf("Device Name = %s",properties[i].val);
+            printf("Device Name = %s",(char *)properties[i].val);
             name = (char*)properties[i].val;
             while(name[j]!='\0')
             {

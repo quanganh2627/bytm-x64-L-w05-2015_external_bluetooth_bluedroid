@@ -2520,12 +2520,12 @@ void bta_hl_save_mdl_cfg(UINT8 app_idx, UINT8 mcl_idx, UINT8 mdl_idx )
     tBTA_HL_APP_CB      *p_acb  = BTA_HL_GET_APP_CB_PTR(app_idx);
     tBTA_HL_MCL_CB      *p_mcb  = BTA_HL_GET_MCL_CB_PTR(app_idx, mcl_idx);
     tBTA_HL_MDL_CB      *p_dcb  = BTA_HL_GET_MDL_CB_PTR(app_idx, mcl_idx, mdl_idx);
-    UINT8 mdl_cfg_idx;
+    UINT8 mdl_cfg_idx = 0;
     tBTA_HL_MDL_ID mdl_id;
     BOOLEAN      found=TRUE;
     tBTA_HL_MDL_CFG mdl_cfg;
     tBTA_HL_MDEP *p_mdep_cfg;
-    tBTA_HL_L2CAP_CFG_INFO l2cap_cfg;
+    tBTA_HL_L2CAP_CFG_INFO l2cap_cfg = {0, 0};
     UINT8 time_val = 0;
     mdl_id = p_dcb->mdl_id;
     if (!bta_hl_find_mdl_cfg_idx(app_idx, mcl_idx, mdl_id, &mdl_cfg_idx))
@@ -2750,7 +2750,7 @@ BOOLEAN bta_hl_validate_chan_cfg(UINT8 app_idx, UINT8 mcl_idx, UINT8 mdl_idx)
     tBTA_HL_MDL_CB *p_dcb  = BTA_HL_GET_MDL_CB_PTR(app_idx, mcl_idx, mdl_idx);
     BOOLEAN success = FALSE;
     UINT8 mdl_cfg_idx = 0;
-    tBTA_HL_L2CAP_CFG_INFO l2cap_cfg;
+    tBTA_HL_L2CAP_CFG_INFO l2cap_cfg = {0, 0};
     BOOLEAN get_l2cap_result, get_mdl_result;
 
     get_l2cap_result = bta_hl_get_l2cap_cfg(p_dcb->mdl_handle, &l2cap_cfg);

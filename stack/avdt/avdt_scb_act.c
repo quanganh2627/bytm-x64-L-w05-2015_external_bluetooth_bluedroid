@@ -921,7 +921,7 @@ void avdt_scb_hdl_setconfig_cmd(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
                           p_data->msg.hdr.sig_id, &p_data->msg);
         return ;
     }
-#endif AVDTP_TESTER
+#endif //AVDTP_TESTER
 
     if (!p_scb->in_use)
     {

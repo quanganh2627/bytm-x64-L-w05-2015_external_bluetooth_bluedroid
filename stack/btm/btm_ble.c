@@ -1750,7 +1750,7 @@ BOOLEAN BTM_BleDataSignature (BD_ADDR bd_addr, UINT8 *p_text, UINT16 len,
     UINT8   *p_buf, *pp;
 
     BT_OCTET16  er;
-    UINT16      div;
+    UINT16      div = 0;
     UINT8       temp[4]; /* for (r || DIV)  r=1*/
     UINT16      r=1;
     UINT8       *p=temp, *p_mac = (UINT8 *)signature;
