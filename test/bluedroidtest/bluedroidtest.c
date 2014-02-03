@@ -1242,12 +1242,18 @@ void do_bonded_device()
 void do_file (char* param)
 {
     char name_file[100];
-    int iteration;
-    char line[1024], arg[64];
+    int iteration = 0;
+    char line[1024] = {0};
+    char arg[64] = {0};
     int i;
 
     bzero(name_file, 100);
-    sscanf(param,"%s %d", name_file, &iteration);
+    sscanf(param,"%99s %d", name_file, &iteration);
+    if((iteration > 50) || (iteration < 1))
+    {
+        bdt_log("invalid Iteration value %d", iteration);
+        return;
+    }
     bdt_log("%s %d", name_file, iteration);
     if (strncmp (name_file, "", 100) != 0)
     {

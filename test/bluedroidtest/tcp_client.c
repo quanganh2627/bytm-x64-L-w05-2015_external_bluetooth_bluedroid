@@ -49,12 +49,14 @@ int adb_send(char *param)
     if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0)
     {
         printf("\n inet_pton error occured\n");
+        close(sockfd);
         return 1;
     }
 
     if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
        printf("\n Error : Connect Failed errno:%d strerr:%s\n", errno, strerror(errno));
+       close(sockfd);
        return 1;
     }
 

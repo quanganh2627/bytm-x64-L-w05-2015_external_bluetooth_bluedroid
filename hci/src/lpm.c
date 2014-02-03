@@ -555,6 +555,11 @@ void lpm_enable(uint8_t turn_on)
     if (turn_on == BT_VND_LPM_ENABLE)
     {
         lpm_cmd = BT_VND_LPM_ENABLE;
+        if(NULL==bt_vnd_if)
+        {
+            BTLPMDBG("%s bt_vnd_if is NULL",__func__);
+            return;
+        }
         if (bt_vnd_if->op(BT_VND_OP_LPM_SET_MODE, &lpm_cmd) == -1)
         {
             BTLPMDBG("%s lpm is disabled in conf file", __func__);
@@ -582,16 +587,17 @@ void lpm_enable(uint8_t turn_on)
         BTLPMDBG("%s Sending D3", __func__);
         lpm_set_device_state(D3);
         if (bt_vnd_if)
-            bt_vnd_if->op(BT_VND_OP_LPM_SET_RTS_STATE, &state);
-
-        lpm_cmd = BT_VND_LPM_DISABLE;
-        if (bt_vnd_if->op(BT_VND_OP_LPM_SET_MODE, &lpm_cmd) == -1)
         {
-            /* LPM is disabled by configuration file */
-            bt_lpm_cb.state = LPM_DISABLED;
-            return;
+            bt_vnd_if->op(BT_VND_OP_LPM_SET_RTS_STATE, &state);
+            lpm_cmd = BT_VND_LPM_DISABLE;
+            if (bt_vnd_if->op(BT_VND_OP_LPM_SET_MODE, &lpm_cmd) == -1)
+            {
+                /* LPM is disabled by configuration file */
+                bt_lpm_cb.state = LPM_DISABLED;
+                return;
+            }
+            bt_lpm_cb.state = lpm_cmd;
         }
-        bt_lpm_cb.state = lpm_cmd;
     }
 }
 
