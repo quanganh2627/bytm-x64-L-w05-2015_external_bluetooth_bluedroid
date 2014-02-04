@@ -813,7 +813,9 @@ void ConnHashFlush(struct tHCI_H5_CB* h5)
     LIST_FOR_EACH_SAFELY(Iter, Temp, Head)
     {
         Desc = LIST_ENTRY(Iter, HCI_CONN, List);
-        if (Desc)
+        /* Desc can be inconsistent if Iter is NULL therefore test Iter before
+           using Desc pointer */
+        if (Desc && Iter)
         {
             ListDeleteNode(Iter);
             HciConnFree(Desc);
@@ -2113,6 +2115,10 @@ uint8_t hci_rx_dispatch_by_handle(sk_buff* rx_skb)
     {
         uint8_t* data = NULL;
         hci_conn->rx_skb = skb_alloc(skb_get_data_length(rx_skb));
+        if (hci_conn->rx_skb == NULL) {
+            ALOGE("SKB allocation failed in %s", __func__);
+            return 0;
+        }
         data = skb_get_data(hci_conn->rx_skb);
         memcpy(data, skb_get_data(rx_skb), skb_get_data_length(rx_skb));
         hci_conn->rx_skb->Length = skb_get_data_length(rx_skb);
@@ -2777,7 +2783,10 @@ void hci_h5_send_msg(HC_BT_HDR *p_msg)
 
             //
             skb = skb_alloc_and_init(type, p, acl_pkt_size);
-
+            if (skb == NULL) {
+                ALOGE("SKB allocation failed in %s", __func__);
+                return;
+            }
 
             //check whether this ACL conn has ability to send
             ALOGI("hc_cur_acl_total_num(%d), hc_acl_total_num(%d)", rtk_h5.hc_cur_acl_total_num, rtk_h5.hc_acl_total_num);
