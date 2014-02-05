@@ -1392,6 +1392,8 @@ UINT32 gatt_add_sdp_record (tBT_UUID *p_uuid, UINT16 start_hdl, UINT16 end_hdl)
     UINT16              list = UUID_SERVCLASS_PUBLIC_BROWSE_GROUP;
     UINT8               buff[60];
     UINT8               *p = buff;
+    tBT_UUID            uuid;
+    UINT8               *uuid128;
 
     GATT_TRACE_DEBUG2("gatt_add_sdp_record s_hdl=0x%x  s_hdl=0x%x",start_hdl, end_hdl);
 
@@ -1404,10 +1406,23 @@ UINT32 gatt_add_sdp_record (tBT_UUID *p_uuid, UINT16 start_hdl, UINT16 end_hdl)
             SDP_AddServiceClassIdList(sdp_handle, 1, &p_uuid->uu.uuid16);
             break;
         case LEN_UUID_128:
-            UINT8_TO_BE_STREAM (p, (UUID_DESC_TYPE << 3) | SIZE_SIXTEEN_BYTES);
-            ARRAY_TO_BE_STREAM (p, p_uuid->uu.uuid128, LEN_UUID_128);
-            SDP_AddAttribute (sdp_handle, ATTR_ID_SERVICE_CLASS_ID_LIST, DATA_ELE_SEQ_DESC_TYPE,
-                              (UINT32) (p - buff), buff);
+            // try to compress 128 bits UUID to 16 bits one
+            uuid128 = p_uuid->uu.uuid128;
+            gatt_parse_uuid_from_cmd(&uuid, LEN_UUID_128, &uuid128);
+
+            if (uuid.len == LEN_UUID_16)
+            {
+                GATT_TRACE_DEBUG1("gatt_add_sdp_record compressed UUID to 16 bits -> 0x%04x", uuid.uu.uuid16);
+                SDP_AddServiceClassIdList(sdp_handle, 1, &uuid.uu.uuid16);
+            }
+            // LEN_UUID_128
+            else
+            {
+                UINT8_TO_BE_STREAM (p, (UUID_DESC_TYPE << 3) | SIZE_SIXTEEN_BYTES);
+                ARRAY_TO_BE_STREAM (p, p_uuid->uu.uuid128, LEN_UUID_128);
+                SDP_AddAttribute (sdp_handle, ATTR_ID_SERVICE_CLASS_ID_LIST, DATA_ELE_SEQ_DESC_TYPE,
+                                  (UINT32) (p - buff), buff);
+            }
             break;
 
         default:
