@@ -37,6 +37,7 @@
 #include "btm_int.h"
 #include "l2c_int.h"
 #include "hcidefs.h"
+#include "bd.h"
 
 static void btm_establish_continue (tACL_CONN *p_acl_cb);
 static void btm_read_remote_features (UINT16 handle);
@@ -1062,8 +1063,11 @@ tBTM_STATUS BTM_SetLinkPolicy (BD_ADDR remote_bda, UINT16 *settings)
     }
 
     if ((p = btm_bda_to_acl(remote_bda)) != NULL)
-        return(btsnd_hcic_write_policy_set (p->hci_handle, *settings) ?
-                                                BTM_CMD_STARTED : BTM_NO_RESOURCES);
+    {
+        // Hack to not to allow role switch once connected
+        *settings &= (~HCI_ENABLE_MASTER_SLAVE_SWITCH);
+        return(btsnd_hcic_write_policy_set (p->hci_handle, *settings) ? BTM_CMD_STARTED : BTM_NO_RESOURCES);
+    }
 
     /* If here, no BD Addr found */
     return(BTM_UNKNOWN_ADDR);
