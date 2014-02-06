@@ -34,6 +34,10 @@ LOCAL_CFLAGS  += -DAVDTP_TESTER
 LOCAL_CFLAGS  += -DL2CAP_TESTER
 endif
 
+ifdef BDT_FM_TEST
+LOCAL_CFLAGS  += -DBDT_BTA_FM_DEBUG
+endif
+
 LOCAL_SRC_FILES:=     \
     bluedroidtest.c \
     tcp_client.c

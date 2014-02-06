@@ -90,6 +90,9 @@ static void adapter_properties_cb(bt_status_t status,int num_properties,bt_prope
 static void device_found_cb(int num_properties,bt_property_t *properties);
 static void remote_device_properties_cb(bt_status_t status,bt_bdaddr_t *bd_addr,int num_properties,bt_property_t *properties);
 static void bond_state_changed_cb(bt_status_t status,bt_bdaddr_t *bd_addr,bt_bond_state_t state);
+#ifdef BDT_BTA_FM_DEBUG
+static void bdt_fm_mitigation_cb(uint32_t status, uint32_t sequence);
+#endif
 /************************************************************************************
 **  Static variables
 ************************************************************************************/
@@ -426,7 +429,7 @@ void get_str(char **p, char *Buffer)
         (*p)++;
         Buffer++;
     }
-
+    skip_blanks(p);
     *Buffer = 0;
 }
 
@@ -769,6 +772,9 @@ static bt_callbacks_t bt_callbacks =
 #else
     NULL
 #endif
+#ifdef BDT_BTA_FM_DEBUG
+    bdt_fm_mitigation_cb, /* FM mitigation call back */
+#endif
 };
 
 void bdt_init(void)
@@ -1049,6 +1055,77 @@ void do_connect(char* param)
     return;
 
 }
+#ifdef BDT_BTA_FM_DEBUG
+#define STREAM_TO_UINT32(u32, p) {u32 = (((uint32_t)(*(p))) + ((((uint32_t)(*((p) + 1)))) << 8) + ((((uint32_t)(*((p) + 2)))) << 16) + ((((uint32_t)(*((p) + 3)))) << 24)); (p) += 4;}
+uint32_t Afh_ch_mask[3] ={0};
+
+uint8_t convert_to_num(uint8_t rec_byte)
+{
+     if(rec_byte >47 && rec_byte < 58) //0,1,2,3,4,5,
+    {
+        rec_byte = (uint8_t)rec_byte - 48;
+    }
+    else if( rec_byte > 96 && rec_byte < 103) //a,b,c,d,e,f
+    {
+        rec_byte= (uint8_t)(rec_byte - 97 + 10);
+    }
+    else if (rec_byte > 64 && (rec_byte < 71))// A,B,C,D,E,F
+    {
+        rec_byte = (uint8_t)(rec_byte - 65 +10);
+    }
+    return rec_byte;
+}
+
+void convert_to_uint32(unsigned char *ch_mask)
+{
+    uint8_t mask[12]={0};
+    uint8_t *p = mask;
+    uint8_t formed_byte = 0;
+    int i;
+    memset(Afh_ch_mask,0x00,sizeof(Afh_ch_mask));
+    for(i =0; i<24;i+= 2)
+    {
+        uint8_t upper_byte = 0;
+        uint8_t lower_byte = 0;
+        upper_byte = ch_mask[i];
+        lower_byte = ch_mask[i+1];
+        upper_byte = convert_to_num(upper_byte);
+        lower_byte = convert_to_num(lower_byte);
+        formed_byte = ((upper_byte << 4)| lower_byte);
+        mask[i/2] = formed_byte;
+    }
+    STREAM_TO_UINT32(Afh_ch_mask[0],p);
+    STREAM_TO_UINT32(Afh_ch_mask[1],p);
+    STREAM_TO_UINT32(Afh_ch_mask[2],p);
+}
+void do_Afh_mitigation(char *param)
+{
+    bdt_log("%s  ", __func__);
+    if(!param)return;
+    if(!bt_enabled)
+    {
+        bdt_log("%s: Bluetooth not enabled... Pls enable",__func__);
+        return;
+    }
+    if(strlen(param)!=24)
+    {
+        bdt_log("%s: Invalid channel mask length %d", __func__,strlen(param));
+        return;
+    }
+    convert_to_uint32((unsigned char *)param);
+    sBtInterface->send_fm_mitigation_req((uint32_t *)Afh_ch_mask);
+}
+
+static void bdt_fm_mitigation_cb(uint32_t status, uint32_t sequence)
+{
+    bdt_log("%s : status = %d, sequence = %d",__func__,status,sequence);
+}
+
+#endif
+
+
+
+
 #ifdef DYNAMIC_HCI_LOGGING
 void do_hci_enable()
 {
@@ -2332,6 +2409,9 @@ const t_cmd console_cmd_list[] =
 
 #endif // TESTER
     /* add here */
+#ifdef BDT_BTA_FM_DEBUG
+    { "send_afh_mitigation",do_Afh_mitigation,":: AFH channel Mitigation request",0},
+#endif
 
     /* last entry */
     {NULL, NULL, "", 0},

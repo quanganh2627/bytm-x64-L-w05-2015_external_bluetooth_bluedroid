@@ -80,6 +80,11 @@ static IuiFmBtInfo *binfo_off=NULL;
 
 static bool bta_fm_registered = false;
 
+#ifdef BDT_BTA_FM_DEBUG
+IuiFmMitigation bdt_mitigation;
+static int sequence;
+#endif
+
 /********************************************************************************************************
 **             FUNCTIONS
 **
@@ -124,7 +129,6 @@ void bta_fm_register()
     bta_fm_registered = true;
 
 }
-
 /*********************************************************************************************************
 **
 ** Function    bta_fm_init
@@ -212,10 +216,11 @@ void bta_fm_deinit()
 
 IuiFmMitigationStatus  bt_iui_fm_mitigation_cb(const IuiFmMacroId macro_id, const IuiFmMitigation *mitigation, const IuiFmMitigationSequence sequence)
 {
-    int i;
+    int i,j;
     btfmmitigation.MacroId = macro_id;
     btfmmitigation.Seq = sequence;
     UINT8  *p=ch_mask;
+    UINT8  Chmask_count=0;
     APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
     ALOGI("%s : ++++ ",__FUNCTION__);
     APPL_TRACE_DEBUG2("%s : macro_id = %d",__FUNCTION__,macro_id);
@@ -256,10 +261,30 @@ IuiFmMitigationStatus  bt_iui_fm_mitigation_cb(const IuiFmMacroId macro_id, cons
         {
             ch_mask[i]=(unsigned char)~ch_mask[i];
             APPL_TRACE_DEBUG1("Mitigation channels requested = %0x",ch_mask[i]);
+            /* check for the Channel mask if it is valid.
+               AFH channel mask is valid only if minimum of 20 BT channels
+               should be enabled. If it is less than 20 channels, it is invalid
+               channel mask. the same can be be intimated to FM with return code */
+            if( Chmask_count < 20)
+            {
+                for(j = 0; j<8; j++)
+                {
+                    if((ch_mask[i] >> j)&(0x01))
+                        Chmask_count++;
+                }
+            }
         }
-        bta_dm_btfm_set_afh_channels(ch_mask);
-        ALOGI("%s : --- IUI_FM_MITIGATION_ASYNC_PENDING",__FUNCTION__);
-        return IUI_FM_MITIGATION_ASYNC_PENDING;
+        if(Chmask_count < 20)
+        {
+            ALOGI("%s : Invalid AFH channel mask for mitigation",__FUNCTION__);
+            return IUI_FM_MITIGATION_COMPLETE_NOT_ACCEPTABLE;
+        }
+        else
+        {
+            bta_dm_btfm_set_afh_channels(ch_mask);
+            ALOGI("%s : --- IUI_FM_MITIGATION_ASYNC_PENDING",__FUNCTION__);
+            return IUI_FM_MITIGATION_ASYNC_PENDING;
+        }
     }
     else
     {
@@ -286,9 +311,13 @@ void bta_btfm_set_afh_channels_evt_cb(UINT8 result)
     ALOGI("%s : ++++ ",__FUNCTION__);
     if(!evt)
     {
+#ifdef BDT_BTA_FM_DEBUG
+        btif_inform_fm_mitigation_status(IUI_FM_MITIGATION_COMPLETE_OK,sequence);
+#else
     // IUI_FM_MITIGATION_COMPLETE_OK success case
         UTA_REMOTE_CALL(IuiFmMitigationComplete)(IUI_FM_MACRO_ID_BT, IUI_FM_MITIGATION_COMPLETE_OK,
                         btfmmitigation.FmMit, btfmmitigation.Seq );
+#endif
         ALOGI("%s : IUI_FM_MITIGATION_COMPLETE_OK ",__FUNCTION__);
     }
     if(btfmmitigation.FmMit)
@@ -297,6 +326,34 @@ void bta_btfm_set_afh_channels_evt_cb(UINT8 result)
         GKI_freebuf(btfm_mask);
     btfmmitigation.FmMit=NULL;
     btfm_mask=NULL;
+#ifdef BDT_BTA_FM_DEBUG
+    if(bdt_mitigation.info.bt_ch_mask)
+    GKI_freebuf(bdt_mitigation.info.bt_ch_mask);
+    bdt_mitigation.info.bt_ch_mask = NULL;
+#endif
 }
+
+#ifdef BDT_BTA_FM_DEBUG
+int bta_btfm_mitigation_req(void *ch_mask)
+{
+    APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
+    int i;
+    uint8_t *p = NULL;
+    IuiFmMitigationStatus test_mitigation_status;
+    bdt_mitigation.type = IUI_FM_MITIGATION_TYPE_BT;
+    bdt_mitigation.info.bt_ch_mask = (IuiFmMitigation  *)GKI_getbuf(sizeof(IuiFmBtChannelMask));
+    if(!bdt_mitigation.info.bt_ch_mask)return 1;
+    for (i=0; i<12;i++)
+    APPL_TRACE_DEBUG3("%s : byte stream [%d] = %0x",__FUNCTION__,i,(unsigned char)(*((uint8_t *)ch_mask+i)));
+    memcpy(&bdt_mitigation.info.bt_ch_mask->bt_ch_mask[0],ch_mask,3*sizeof(uint32_t));
+    p = (uint8_t *)bdt_mitigation.info.bt_ch_mask->bt_ch_mask;
+    for (i=0; i<12;i++)
+     APPL_TRACE_DEBUG3("%s : bdt_mitigation.info.bt_ch_mask->bt_ch_mask[%d] = %02x", __FUNCTION__,i,*(p+i));
+    test_mitigation_status = bt_iui_fm_mitigation_cb(IUI_FM_MACRO_ID_BT,&bdt_mitigation,sequence++);
+    if (test_mitigation_status !=IUI_FM_MITIGATION_COMPLETE_OK)
+        btif_inform_fm_mitigation_status(test_mitigation_status,sequence);
+    return test_mitigation_status;
+}
+#endif
 
 #endif

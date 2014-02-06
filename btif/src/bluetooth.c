@@ -69,7 +69,9 @@ bt_callbacks_t *bt_hal_cbacks = NULL;
 /************************************************************************************
 **  Externs
 ************************************************************************************/
-
+#ifdef BDT_BTA_FM_DEBUG
+extern int btif_bta_fm_mitigation_req(uint32_t *chmask);
+#endif
 /* list all extended interfaces here */
 
 /* handsfree profile */
@@ -410,6 +412,27 @@ int dut_mode_send(uint16_t opcode, uint8_t* buf, uint8_t len)
     return btif_dut_mode_send(opcode, buf, len);
 }
 
+#ifdef BDT_BTA_FM_DEBUG
+int send_fm_mitigation_req( uint32_t *ch_mask)
+{
+/* sanity check */
+    if (interface_ready() == FALSE)
+    return BT_STATUS_NOT_READY;
+    return btif_bta_fm_mitigation_req(ch_mask);
+}
+
+int inform_fm_mitigation_status(uint32_t status,uint32_t sequence)
+{
+    ALOGI("inform_fm_mitigation_status");
+    if(bt_hal_cbacks)
+    {
+        ALOGI("call HCBACK bt_fm_mitigation_cb");
+        HAL_CBACK(bt_hal_cbacks,bt_fm_mitigation_cb,status,sequence);
+    }
+    return 0;
+}
+#endif
+
 #if BLE_INCLUDED == TRUE
 int le_test_mode(uint16_t opcode, uint8_t* buf, uint8_t len)
 {
@@ -465,7 +488,10 @@ static const bt_interface_t bluetoothInterface = {
 #else
     NULL,
 #endif
-    config_hci_snoop_log
+    config_hci_snoop_log,
+#ifdef BDT_BTA_FM_DEBUG
+    send_fm_mitigation_req
+#endif
 };
 
 const bt_interface_t* bluetooth__get_bluetooth_interface ()

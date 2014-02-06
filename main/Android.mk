@@ -22,6 +22,10 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
+ifdef BDT_FM_TEST
+LOCAL_CFLAGS  += -DBDT_BTA_FM_DEBUG
+endif
+
 # HAL layer
 LOCAL_SRC_FILES:= \
     ../btif/src/bluetooth.c

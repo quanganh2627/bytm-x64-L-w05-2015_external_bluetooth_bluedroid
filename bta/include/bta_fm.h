@@ -64,4 +64,9 @@ void bta_fm_deinit(void);
 **
 *******************************************************************************************************/
 void bta_btfm_set_afh_channels_evt_cb(UINT8);
+
+#ifdef BDT_BTA_FM_DEBUG
+int bta_btfm_mitigation_req(void *ch_mask);
+#endif
+
 #endif /* BTA_FM_H  */

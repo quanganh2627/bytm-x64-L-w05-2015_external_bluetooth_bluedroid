@@ -189,6 +189,23 @@ void btif_bta_btfm_deinit(void)
 }
 #endif
 
+#ifdef BDT_BTA_FM_DEBUG
+
+int btif_bta_fm_mitigation_req(UINT32 *chmask)
+{
+    APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
+    return bta_btfm_mitigation_req((void *)chmask);
+}
+
+int btif_inform_fm_mitigation_status(UINT32 status, UINT32 sequence)
+{
+    APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
+    inform_fm_mitigation_status(status,sequence);
+    return 0;
+}
+
+#endif
+
 /*****************************************************************************
 **   Context switching functions
 *****************************************************************************/
