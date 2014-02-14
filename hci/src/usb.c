@@ -48,12 +48,12 @@
 #define USB_DBG FALSE
 #endif
 
+#define USBERR ALOGE
+
 #if (USB_DBG == TRUE)
 #define USBDBG ALOGD
-#define USBERR ALOGE
 #else
 #define USBDBG
-#define USBERR
 #endif
 
 /*
@@ -369,13 +369,13 @@ static libusb_device_handle *libusb_open_bt_device()
         r = libusb_open(dev, &handle);
         if (r < 0)
         {
-            ALOGE("found USB BT device failed to open .....\n");
+            USBERR("found USB BT device failed to open .....\n");
             return NULL;
         }
     }
     else
     {
-        ALOGE("No matching USB BT device found .....\n");
+        USBERR("No matching USB BT device found .....\n");
         return NULL;
     }
 
@@ -383,7 +383,7 @@ static libusb_device_handle *libusb_open_bt_device()
     r = libusb_claim_interface(handle, 0);
     if (r < 0)
     {
-        ALOGE("usb_claim_interface 0 error %d\n", r);
+        USBERR("usb_claim_interface 0 error %d\n", r);
         return NULL;
     }
 
@@ -436,12 +436,12 @@ static void recv_xfer_cb(struct libusb_transfer *transfer)
                     r=libusb_set_interface_alt_setting(usb.handle, USB_SCO_INTERFACE, 0);
                     if (r != LIBUSB_SUCCESS)
                     {
-                        USBDBG("%s : Unable to set the alternate to %d. Error %d", __func__, 0, r);
+                        USBERR("%s : Unable to set the alternate to %d. Error %d", __func__, 0, r);
                     }
                     r = libusb_release_interface(usb.handle, USB_SCO_INTERFACE);
                     if (r != LIBUSB_SUCCESS)
                     {
-                        USBDBG("%s : Unable to release the %d interface", __func__, USB_SCO_INTERFACE);
+                        USBERR("%s : Unable to release the %d interface", __func__, USB_SCO_INTERFACE);
                     }
                 }
                 return;
@@ -471,7 +471,7 @@ static void recv_xfer_cb(struct libusb_transfer *transfer)
                 case BT_BULK_IN:
                     if (transfer->actual_length == 0)
                     {
-                        USBDBG("*******Rxed zero length packet from usb ....");
+                        USBERR("*******Rxed zero length packet from usb ....");
                         skip = 1;
                         break;
                     }
@@ -493,7 +493,7 @@ static void recv_xfer_cb(struct libusb_transfer *transfer)
                     skip = 1;
                     if (iso_actual_length != 51)
                     {
-                        USBDBG("*******Rxed Non-proper length packet from usb ....");
+                        USBERR("*******Rxed Non-proper length packet from usb ....");
                         USBDBG("Length of packet received = %d", iso_actual_length);
                         break;
                     }
@@ -825,7 +825,7 @@ uint8_t usb_open(uint8_t port)
     }
     if (libusb_init(NULL) < 0)
     {
-        ALOGE("libusb_init : failed");
+        USBERR("libusb_init : failed");
         return FALSE;
     }
 
@@ -834,20 +834,20 @@ uint8_t usb_open(uint8_t port)
     bulk_pkt_size = BT_HCI_MAX_FRAME_SIZE;
     if (usb.handle == NULL)
     {
-        ALOGE("usb_open: HCI USB failed to open");
+        USBERR("usb_open: HCI USB failed to open");
         goto out;
     }
     data_rx_xfer = libusb_alloc_transfer(0);
     if (!data_rx_xfer)
     {
-        ALOGE("Failed alloc data_rx_xfer");
+        USBERR("Failed alloc data_rx_xfer");
         goto out;
     }
 
     event_rx_xfer  = libusb_alloc_transfer(0);
     if (!event_rx_xfer)
     {
-        ALOGE("Failed alloc event_rx_xfer");
+        USBERR("Failed alloc event_rx_xfer");
         goto out;
     }
 
@@ -1267,7 +1267,7 @@ void usb_close(void)
     usb_xfer_status |= RX_DEAD;
 
     if ((result=pthread_join(usb.read_thread, NULL)) < 0)
-        ALOGE( "pthread_join() FAILED result:%d \n", result);
+        USBERR( "pthread_join() FAILED result:%d \n", result);
 
     if (usb.handle)
     {
@@ -1463,12 +1463,12 @@ static void submit_transfer(void)
     r = libusb_claim_interface(usb.handle, USB_SCO_INTERFACE);
     if (r != LIBUSB_SUCCESS)
     {
-        USBDBG("%s : Unable to claim interface 1. Errror %d", __func__, r);
+        USBERR("%s : Unable to claim interface 1. Errror %d", __func__, r);
     }
     r = libusb_set_interface_alt_setting(usb.handle, USB_SCO_INTERFACE, ALTERNATE_SETTING);
     if (r != LIBUSB_SUCCESS)
     {
-        USBDBG("%s : Unable to set the alternate to %d. Error %d", __func__, ALTERNATE_SETTING, r);
+        USBERR("%s : Unable to set the alternate to %d. Error %d", __func__, ALTERNATE_SETTING, r);
     }
     for (xx = 0; xx < NO_RX_SUBMITS; xx++)
     {
