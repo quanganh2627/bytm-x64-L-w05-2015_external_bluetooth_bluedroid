@@ -1551,7 +1551,9 @@ void btm_ble_connected (UINT8 *bda, UINT16 handle, UINT8 enc_mode, UINT8 role,
     if (role == HCI_ROLE_SLAVE)
         p_cb->inq_var.adv_mode  = BTM_BLE_ADV_DISABLE;
     p_cb->inq_var.directed_conn = FALSE;
-
+#ifdef BLUEDROID_RTK
+    p_cb->wl_state &= ~BTM_BLE_WL_INIT;
+#endif
     return;
 }
 

@@ -496,9 +496,53 @@ static void btif_dm_cb_hid_remote_name(tBTM_REMOTE_DEV_NAME *p_remote_name)
 static void btif_dm_cb_create_bond(bt_bdaddr_t *bd_addr)
 {
     BOOLEAN is_hid = check_cod(bd_addr, COD_HID_POINTING);
-
-
+#ifdef BLUEDROID_RTK
+    BOOLEAN is_hid_major = check_cod(bd_addr, COD_HID_MAJOR);
+    BTIF_TRACE_DEBUG2("is_hid(%d), is_hid_major(%d)", is_hid, is_hid_major);
+#endif
     bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDING);
+
+#ifdef BLUEDROID_RTK
+#if BLE_INCLUDED == TRUE
+    if (is_hid_major) {
+        int device_type;
+        int addr_type;
+        int status;
+        bdstr_t bdstr;
+        bd2str(bd_addr, &bdstr);
+        if (btif_config_get_int("Remote", (char const *)&bdstr,"DevType", &device_type) &&
+           (btif_storage_get_remote_addr_type(bd_addr, &addr_type) == BT_STATUS_SUCCESS) &&
+           (device_type == BT_DEVICE_TYPE_BLE)) {
+           bt_uuid_t  uuid;
+           int i = 0;
+           int j = 15;
+           {
+              bt_property_t prop;
+              char temp[256];
+              bta_gatt_convert_uuid16_to_uuid128(uuid.uu,UUID_SERVCLASS_LE_HID);
+              while (i < j ) {
+                  unsigned char c = uuid.uu[j];
+                  uuid.uu[j] = uuid.uu[i];
+                  uuid.uu[i] = c;
+                  i++;
+                  j--;
+              }
+              uuid_to_string(&uuid, temp);
+              prop.type = BT_PROPERTY_UUIDS;
+              prop.val = uuid.uu;
+              prop.len = MAX_UUID_SIZE;
+
+              status = btif_storage_set_remote_device_property(bd_addr, &prop);
+              ASSERTC(status == BT_STATUS_SUCCESS, "failed to save remote device property", status);
+              /* Send the event to the BTIF */
+              HAL_CBACK(bt_hal_cbacks, remote_device_properties_cb,
+                               BT_STATUS_SUCCESS, bd_addr, 1, &prop);
+              is_hid = TRUE;
+           }
+        }
+    }
+#endif
+#endif      /*BLUEDROID_RTK*/
 
     if (is_hid){
 
