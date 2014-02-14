@@ -28,7 +28,12 @@
 #if (defined BLE_INCLUDED && BLE_INCLUDED == TRUE)
 #include "bte_appl.h"
 
+#ifndef BLUEDROID_RTK
 tBTE_APPL_CFG bte_appl_cfg = { 0x5, 0x4, 0x7, 0x7, 0x10 };
+#else
+tBTE_APPL_CFG bte_appl_cfg = { 0x5, 0x4, 0x0, 0x1, 0x10 };
+#endif
+
 #endif
 
 /*******************************************************************************

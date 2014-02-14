@@ -1422,6 +1422,14 @@ UINT16 L2CA_SendFixedChnlData (UINT16 fixed_cid, BD_ADDR rem_bda, BT_HDR *p_buf)
     }
 
     p_buf->event = 0;
+#ifdef BLUEDROID_RTK
+    if (fixed_cid == L2CAP_ATT_CID || fixed_cid == L2CAP_BLE_SIGNALLING_CID || fixed_cid == L2CAP_SMP_CID) {
+        L2CAP_TRACE_WARNING0 ("L2CAP_NON_FLUSHABLE_PKT");
+        L2CAP_TRACE_WARNING0 ("irealtek debug: ATT TX packet");
+        p_buf->layer_specific = L2CAP_NON_FLUSHABLE_PKT;
+    }
+    else
+#endif
     p_buf->layer_specific = L2CAP_FLUSHABLE_CH_BASED;
 
     if (!p_lcb->p_fixed_ccbs[fixed_cid - L2CAP_FIRST_FIXED_CHNL])
