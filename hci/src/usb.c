@@ -92,8 +92,8 @@
 #define H4_TYPE_EVENT           4
 
 #define MEMALLOC_WAIT 1000 //in milli sec
-#define MEMALLOC_RETRY_COUNT 10
-#define TRANS_SUMBIT_COUNT 30
+#define MEMALLOC_RETRY_COUNT 0
+#define TRANS_SUMBIT_COUNT 0
 #define TRANS_SUBMIT_WAIT 200 //in milli sec
 #define INVALID_INDEX -1
 #define NO_RX_SUBMITS 3
@@ -1194,7 +1194,6 @@ uint16_t usb_write(uint16_t msg_id, uint8_t *p_data, uint16_t len)
        sco_data = (uint8_t*)malloc((len - 1) * sizeof(uint8_t));
        while (sco_data == NULL)
        {
-           usleep(MEMALLOC_WAIT);
             sco_data = (uint8_t*)malloc((len - 1) * sizeof(uint8_t));
             count++;
             if (count > MEMALLOC_RETRY_COUNT)
@@ -1229,7 +1228,7 @@ uint16_t usb_write(uint16_t msg_id, uint8_t *p_data, uint16_t len)
     while ((r = libusb_submit_transfer(xmit_transfer)) < 0)
     {
 
-        if (retry_submit_count > TRANS_SUMBIT_COUNT)
+        if (retry_submit_count >= TRANS_SUMBIT_COUNT)
         {
             USBERR("libusb_submit_transfer failed with error %d", r);
             return 0;
