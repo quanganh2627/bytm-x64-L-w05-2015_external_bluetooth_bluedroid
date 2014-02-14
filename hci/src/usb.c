@@ -583,8 +583,8 @@ static void recv_xfer_cb(struct libusb_transfer *transfer)
         else
         {
             p_rx = CONTAINER_RX_HDR(transfer->buffer);
+            bt_hc_cbacks->dealloc((TRANSAC)p_rx, (char *)(p_rx + 1));
         }
-        bt_hc_cbacks->dealloc((TRANSAC)p_rx, (char *)(p_rx + 1));
         transfer->buffer = NULL;
         USBERR("libusb_submit_transfer : %d : %d : failed", \
                transfer->endpoint, transfer->status);
@@ -1231,6 +1231,11 @@ uint16_t usb_write(uint16_t msg_id, uint8_t *p_data, uint16_t len)
         if (retry_submit_count >= TRANS_SUMBIT_COUNT)
         {
             USBERR("libusb_submit_transfer failed with error %d", r);
+            if (pkt_type == H4_TYPE_SCO_DATA)
+            {
+                free(xmit_transfer->buffer);
+            }
+            libusb_free_transfer(xmit_transfer);
             return 0;
         }
         retry_submit_count++;
