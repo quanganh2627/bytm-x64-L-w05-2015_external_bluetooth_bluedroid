@@ -44,6 +44,8 @@
 
 #define BTM_EXT_BLE_RMT_NAME_TIMEOUT        30
 
+#define COD_HID_MAJOR                       0x500
+
 /*******************************************************************************
 **  Local functions
 *******************************************************************************/
@@ -1672,6 +1674,78 @@ void btm_ble_process_adv_pkt (UINT8 *p_data)
     btm_ble_process_adv_pkt_cont(bda, addr_type, evt_type, p);
 }
 
+#ifdef BLUEDROID_RTK
+int btm_ble_check_cod(UINT8* data, UINT8* flag)
+{
+    UINT8 data_len = *data;
+    UINT8* p;
+    BOOLEAN isServiceExist = FALSE;
+    int class_of_device = 0;
+    int len, i;
+    int type;
+    int num_service;
+    short service;
+    data ++;
+    if (data_len == 0)
+        return class_of_device;
+
+    BTM_TRACE_ERROR1("data_len = %d", data_len);
+    for (i = 0; i < data_len; i++)
+        BTM_TRACE_ERROR2("data[%d] = %x", i, data[i]);
+
+    while (data_len != 0) {
+        len = *data;
+        if (len >= data_len) {
+            BTM_TRACE_ERROR2("data_len = %d, len = %d, data length is error", data_len
+, data);
+            return class_of_device;
+        }
+
+        data_len -= (len + 1);
+
+        data++;
+        type = *data;
+        data++;
+        switch (type) {
+            case BTM_BLE_AD_TYPE_FLAG:
+                *flag = data[0];
+                break;
+            case BTM_BLE_AD_TYPE_DEV_CLASS:
+                class_of_device = data[0] | data[1] <<8 | data [2] <<16;
+                break;
+
+            case BTM_BLE_AD_TYPE_16SRV_PART:
+            case BTM_BLE_AD_TYPE_16SRV_CMPL:
+                 if (len == 0) {
+                    BTM_TRACE_ERROR0("len value is wrong: len = 0");
+                    break;
+                 }
+                num_service = (len - 1)/2;
+                service = 0;
+                p = data;
+                for (i = 0; i < num_service; i++) {
+                    service = p[0] | p[1] <<8;
+                    p += 2;
+                    if (service == UUID_SERVCLASS_LE_HID) {
+                        isServiceExist = TRUE;
+                        break;
+                    }
+                }
+            break;
+        }
+        data += len - 1;
+    }
+
+    if (class_of_device != 0)
+        return class_of_device;
+
+    if (isServiceExist)
+            class_of_device = COD_HID_MAJOR;
+
+    return class_of_device;
+}
+#endif      /*BLUEDROID_RKT*/
+
 /*******************************************************************************
 **
 ** Function         btm_ble_process_adv_pkt_cont
@@ -1691,6 +1765,11 @@ static void btm_ble_process_adv_pkt_cont(BD_ADDR bda, UINT8 addr_type, UINT8 evt
     tBTM_INQUIRY_VAR_ST  *p_inq = &btm_cb.btm_inq_vars;
     tBTM_INQ_RESULTS_CB  *p_inq_results_cb = p_inq->p_inq_results_cb;
     tBTM_BLE_INQ_CB      *p_le_inq_cb = &btm_cb.ble_ctr_cb.inq_var;
+#ifdef BLUEDROID_RTK
+    UINT8* pp = p;
+    UINT32 cod = 0;
+    UINT8  flag = 0;
+#endif
 
     p_i = btm_inq_db_find (bda);
 
@@ -1711,7 +1790,12 @@ static void btm_ble_process_adv_pkt_cont(BD_ADDR bda, UINT8 addr_type, UINT8 evt
         else
         {
             /* if yes, skip it */
+#ifdef BLUEDROID_RTK
+            BTM_TRACE_DEBUG0("LE in le_bd_db already");
+            to_report = TRUE;
+#else
             return; /* assumption: one result per event */
+#endif
         }
     }
     else /* not been processed int his round */
@@ -1747,6 +1831,13 @@ static void btm_ble_process_adv_pkt_cont(BD_ADDR bda, UINT8 addr_type, UINT8 evt
     if (to_report)
     {
         to_report = btm_ble_update_inq_result(p_i, addr_type, evt_type, p);
+#ifdef BLUEDROID_RTK
+        cod = btm_ble_check_cod(pp , &flag);
+        BTM_TRACE_ERROR1("cod = 0x%x", cod);
+        p_i->inq_info.results.dev_class[2] = (UINT8)(cod &0xff);
+        p_i->inq_info.results.dev_class[1] = (UINT8)((cod &0xff00) >>8);
+        p_i->inq_info.results.dev_class[0] = (UINT8)((cod &0xff0000) >>16);
+#endif
     }
 
 #if BTM_USE_INQ_RESULTS_FILTER == TRUE
@@ -1791,6 +1882,9 @@ static void btm_ble_process_adv_pkt_cont(BD_ADDR bda, UINT8 addr_type, UINT8 evt
     {
         (p_inq_results_cb)((tBTM_INQ_RESULTS *) &p_i->inq_info.results, p_le_inq_cb->adv_data_cache);
     }
+#ifdef BLUEDROID_RTK
+    (p_inq_results_cb)((tBTM_INQ_RESULTS *) &p_i->inq_info.results, p_le_inq_cb->adv_data_cache);
+#endif
 }
 
 /*******************************************************************************

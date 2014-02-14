@@ -34,6 +34,9 @@ LOCAL_C_INCLUDES:= . \
                    $(bdroid_C_INCLUDES) \
 
 LOCAL_CFLAGS += $(bdroid_CFLAGS)
+ifeq ($(BLUETOOTH_BLUEDROID_RTK),true)
+LOCAL_CFLAGS += -DBLUEDROID_RTK
+endif
 
 LOCAL_PRELINK_MODULE:=false
 LOCAL_SRC_FILES:= \
