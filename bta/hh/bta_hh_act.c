@@ -518,7 +518,14 @@ void bta_hh_api_disc_act(tBTA_HH_DEV_CB *p_cb, tBTA_HH_DATA *p_data)
 
 #if BTA_HH_LE_INCLUDED == TRUE
     if (p_cb->is_le_device)
+#ifdef BLUEDROID_RTK
+    {
+        bta_hh_le_remove_dev_bg_conn(p_cb);
+#endif
         bta_hh_le_api_disc_act(p_cb);
+#ifdef BLUEDROID_RTK
+    }
+#endif
     else
 #endif
     {

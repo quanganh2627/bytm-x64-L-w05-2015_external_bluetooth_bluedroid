@@ -52,8 +52,11 @@ void btm_update_scanner_filter_policy(tBTM_BLE_SFP scan_policy)
     BTM_TRACE_EVENT0 ("btm_update_scanner_filter_policy");
 
     p_inq->sfp = scan_policy;
+#ifndef BLUEDROID_RTK
     p_inq->scan_type = (p_inq->scan_type == BTM_BLE_SCAN_MODE_NONE) ? BTM_BLE_SCAN_MODE_ACTI: p_inq->scan_type;
-
+#else
+    p_inq->scan_type = (p_inq->scan_type == BTM_BLE_SCAN_MODE_NONE) ? BTM_BLE_SCAN_MODE_PASS: p_inq->scan_type;
+#endif
     btsnd_hcic_ble_set_scan_params (p_inq->scan_type,
                                     (UINT16)(!p_inq->scan_interval ? BTM_BLE_GAP_DISC_SCAN_INT : p_inq->scan_interval),
                                     (UINT16)(!p_inq->scan_window ? BTM_BLE_GAP_DISC_SCAN_WIN : p_inq->scan_window),
@@ -387,6 +390,9 @@ BOOLEAN btm_ble_start_auto_conn(BOOLEAN start)
             }
             else
             {
+#ifdef BLUEDROID_RTK
+                p_cb->wl_state |= BTM_BLE_WL_INIT;
+#endif
                 btm_ble_set_conn_st (BLE_BG_CONN);
 
             }

@@ -5,6 +5,9 @@ LOCAL_PATH:= $(call my-dir)
 #
 
 include $(CLEAR_VARS)
+ifeq ($(BLUETOOTH_BLUEDROID_RTK),true)
+LOCAL_CFLAGS += -DBLUEDROID_RTK
+endif
 
 # HAL layer
 LOCAL_SRC_FILES:= \

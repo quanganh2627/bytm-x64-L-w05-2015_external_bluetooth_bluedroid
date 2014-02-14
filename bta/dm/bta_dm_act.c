@@ -1201,7 +1201,10 @@ void bta_dm_search_start (tBTA_DM_MSG *p_data)
         return;
     }
 
+#ifndef BLUEDROID_RTK
     BTM_ClearInqDb(NULL);
+#endif
+
     /* save search params */
     bta_dm_search_cb.p_search_cback = p_data->search.p_cback;
     bta_dm_search_cb.services = p_data->search.services;
@@ -5064,7 +5067,13 @@ void bta_dm_ble_broadcast (tBTA_DM_MSG *p_data)
 
 #if ((defined BTA_GATT_INCLUDED) &&  (BTA_GATT_INCLUDED == TRUE))
 #ifndef BTA_DM_GATT_CLOSE_DELAY_TOUT
+
+#ifndef BLUEDROID_RTK
 #define BTA_DM_GATT_CLOSE_DELAY_TOUT    1000
+#else
+#define BTA_DM_GATT_CLOSE_DELAY_TOUT    0
+#endif
+
 #endif
 
 /*******************************************************************************

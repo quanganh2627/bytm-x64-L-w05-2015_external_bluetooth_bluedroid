@@ -87,7 +87,11 @@ typedef UINT8   tBTM_BLE_SFP;
 #define BTM_BLE_SCAN_INT_MAX            0x4000
 #define BTM_BLE_SCAN_WIN_MIN            0x0004
 #define BTM_BLE_SCAN_WIN_MAX            0x4000
+#ifndef BLUEDROID_RTK
 #define BTM_BLE_CONN_INT_MIN            0x0006
+#else
+#define BTM_BLE_CONN_INT_MIN            0x000C
+#endif
 #define BTM_BLE_CONN_INT_MAX            0x0C80
 #define BTM_BLE_CONN_LATENCY_MAX        500
 #define BTM_BLE_CONN_SUP_TOUT_MIN       0x000A
@@ -123,11 +127,19 @@ typedef UINT8   tBTM_BLE_SFP;
 
 /* default connection interval min */
 #ifndef BTM_BLE_CONN_INT_MIN_DEF
+#ifndef BLUEDROID_RTK
 #define BTM_BLE_CONN_INT_MIN_DEF     24      /* recommended min: 30ms  = 24 * 1.25 */
+#else
+#define BTM_BLE_CONN_INT_MIN_DEF     0x0C      /* recommended min: 30ms  = 24 * 1.25 */
+#endif
 #endif
 /* default connectino interval max */
 #ifndef BTM_BLE_CONN_INT_MAX_DEF
+#ifndef BLUEDROID_RTK
 #define BTM_BLE_CONN_INT_MAX_DEF     40      /* recommended max: 50 ms = 56 * 1.25 */
+#else
+#define BTM_BLE_CONN_INT_MAX_DEF     0x0C      /* recommended max: 50 ms = 56 * 1.25 */
+#endif
 #endif
 /* default slave latency */
 #ifndef BTM_BLE_CONN_SLAVE_LATENCY_DEF
@@ -135,7 +147,11 @@ typedef UINT8   tBTM_BLE_SFP;
 #endif
 /* default supervision timeout */
 #ifndef BTM_BLE_CONN_TIMEOUT_DEF
+#ifndef BLUEDROID_RTK
 #define BTM_BLE_CONN_TIMEOUT_DEF    2000
+#else
+#define BTM_BLE_CONN_TIMEOUT_DEF    0x64
+#endif
 #endif
 
 #define BTM_BLE_DIR_CONN_FALLBACK_UNDIR         1
