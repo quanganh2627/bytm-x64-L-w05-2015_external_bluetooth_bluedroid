@@ -728,6 +728,13 @@ static void *usb_read_thread(void *arg)
 
     rx_buf = (RX_HDR *) bt_hc_cbacks->alloc(bulk_pkt_size_wh);
     buf =  rx_buf->data;
+
+    if (!data_rx_xfer)
+    {
+        USBERR("usb_read_thread : data_rx_xfer is null");
+        goto out;
+    }
+
     libusb_fill_bulk_transfer(data_rx_xfer, usb.handle, BT_BULK_IN, \
                               buf, bulk_pkt_size, recv_xfer_cb, NULL, 0);
     r = libusb_submit_transfer(data_rx_xfer);
