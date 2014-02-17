@@ -1,5 +1,5 @@
 /******************************************************************************
- *
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *  Copyright (C) 2000-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
