@@ -1,5 +1,5 @@
 /******************************************************************************
- *
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -814,6 +814,7 @@ void GKI_add_to_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_tle)
     UINT8 tt;
     TIMER_LIST_ENT  *p_temp;
 
+    if((!p_tle) || (!p_timer_listq))return;
     /* Only process valid tick values */
     if (p_tle->ticks >= 0)
     {
@@ -843,7 +844,7 @@ void GKI_add_to_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_tle)
         {
             /* Find the entry that the new one needs to be inserted in front of */
             p_temp = p_timer_listq->p_first;
-            while (p_tle->ticks > p_temp->ticks)
+            while ( (!p_temp) && (p_tle->ticks > p_temp->ticks))
             {
                 /* Update the tick value if looking at an unexpired entry */
                 if (p_temp->ticks > 0)
@@ -861,12 +862,14 @@ void GKI_add_to_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_tle)
             }
             else
             {
+                if(!p_temp)return;
                 p_temp->p_prev->p_next = p_tle;
                 p_tle->p_prev = p_temp->p_prev;
                 p_temp->p_prev = p_tle;
                 p_tle->p_next = p_temp;
             }
-            p_temp->ticks -= p_tle->ticks;
+            if(p_temp)
+                p_temp->ticks -= p_tle->ticks;
         }
 
         p_tle->in_use = TRUE;
