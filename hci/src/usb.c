@@ -81,14 +81,22 @@
 
 
 #define BT_HCI_MAX_FRAME_SIZE      1028
-
-#define BT_MAX_ISO_FRAMES   10
-
+#define ALTERNATE_SETTING 2
+#define USB_SCO_INTERFACE 1
+#define BT_MAX_ISO_FRAMES   3
+#define SCO_PACKET_SIZE 48
+#define BT_MAX_SCO_CONN 1
 #define H4_TYPE_COMMAND         1
 #define H4_TYPE_ACL_DATA        2
 #define H4_TYPE_SCO_DATA        3
 #define H4_TYPE_EVENT           4
 
+#define MEMALLOC_WAIT 1000 //in milli sec
+#define MEMALLOC_RETRY_COUNT 10
+#define TRANS_SUMBIT_COUNT 30
+#define TRANS_SUBMIT_WAIT 200 //in milli sec
+#define INVALID_INDEX -1
+#define NO_RX_SUBMITS 3
 /*
  * USB types, the second of three bRequestType fields
  */
@@ -161,7 +169,14 @@ typedef struct
 **  Static variables
 ******************************************************************************/
 /* The list will grow and will be updated from btusb.c in kernel */
-static struct bt_usb_device btusb_table[] = {
+typedef enum
+{
+    ISO_STOPPED,
+    ISO_STARTED
+}tISO_STATE;
+
+static struct bt_usb_device btusb_table[] =
+{
     /* Generic Bluetooth USB device */
     { BT_USB_DEVICE_INFO(0xe0, 0x01, 0x01) },
     { }     /* Terminating entry */
@@ -201,13 +216,30 @@ static tUSB_CB usb;
 static int usb_xfer_status, usb_running;
 static int intr_pkt_size, iso_pkt_size, bulk_pkt_size;
 static int intr_pkt_size_wh, iso_pkt_size_wh, bulk_pkt_size_wh;
-static struct libusb_transfer *data_rx_xfer, *event_rx_xfer, *iso_rx_xfer,
-                              *xmit_transfer;
+static struct libusb_transfer *data_rx_xfer, *event_rx_xfer, *xmit_transfer, *iso_rx_xfer[NO_RX_SUBMITS];
 static int xmited_len;
 RX_HDR *p_rx_hdr = NULL;
+static tISO_STATE iso_state=ISO_STOPPED;
+static ISO_HDR *cur_iso_pkt[BT_MAX_SCO_CONN];
+static int cur_iso_pkt_idx[BT_MAX_SCO_CONN];
+static uint16_t sco_handle_db[BT_MAX_SCO_CONN];
+static int sco_handle_idx = 0;
+static int prev_sco_db_index = -1;
+static int cur_sco_db_index = 0;
+static int cancelled_packets = 0;
 /******************************************************************************
 **  Static functions
 ******************************************************************************/
+static int check_sco_handle_validity(uint16_t sco_handle);
+static int add_frame_to_cur_packet(uint8_t *buffer, int cur_pkt_idx);
+static void init_sco_db();
+static void cancel_transfer(void);
+static void submit_transfer(void);
+static int delete_sco_conn(uint16_t sco_handle);
+static int add_sco_conn(uint16_t sco_handle);
+static void close_sco_db();
+static void flush_prev_packet(int cur_pkt_idx);
+
 static int is_usb_match_idtable (struct bt_usb_device *id, struct libusb_device_descriptor *desc)
 {
     int ret = TRUE;
@@ -229,33 +261,36 @@ static int check_bt_usb_endpoints (struct bt_usb_device *id, struct libusb_confi
     for(i = 0; i < cfg_desc->interface[0].altsetting[0].bNumEndpoints; i++)
     {
         if(!(endpoint[i].bEndpointAddress == BT_CTRL_EP || \
-              endpoint[i].bEndpointAddress == BT_INT_EP || \
-              endpoint[i].bEndpointAddress == BT_BULK_IN || \
-              endpoint[i].bEndpointAddress == BT_BULK_OUT))
+                endpoint[i].bEndpointAddress == BT_INT_EP || \
+                endpoint[i].bEndpointAddress == BT_BULK_IN || \
+                endpoint[i].bEndpointAddress == BT_BULK_OUT))
             return FALSE;
     }
 
+/*
+    we are using 8khz 16 bits samples for sco, so bluetooth recommended the alternate setting 2 for the same
+*/
     num_altsetting =  cfg_desc->interface[1].num_altsetting;
-    endpoint =  cfg_desc->interface[1].altsetting[num_altsetting-1].endpoint;
-    for(i = 0; i < cfg_desc->interface[1].altsetting[num_altsetting-1]. \
-          bNumEndpoints; i++)
+    endpoint =  cfg_desc->interface[1].altsetting[ALTERNATE_SETTING].endpoint;
+    for(i = 0; i < cfg_desc->interface[1].altsetting[ALTERNATE_SETTING]. \
+            bNumEndpoints; i++)
     {
         if(!(endpoint[i].bEndpointAddress == BT_ISO_IN || \
-              endpoint[i].bEndpointAddress == BT_ISO_OUT))
+                endpoint[i].bEndpointAddress == BT_ISO_OUT))
             return FALSE;
     }
     for(i = 0; i < cfg_desc->interface[1]. \
-                  altsetting[num_altsetting-1].bNumEndpoints; i++)
+            altsetting[ALTERNATE_SETTING].bNumEndpoints; i++)
     {
         if(endpoint[i].bEndpointAddress == BT_ISO_IN)
         {
             iso_pkt_size =  libusb_le16_to_cpu(endpoint[i].wMaxPacketSize);
             USBDBG("iso pkt size is %d", iso_pkt_size);
             iso_pkt_size_wh = iso_pkt_size * BT_MAX_ISO_FRAMES + \
-                  sizeof(ISO_HDR);
+                              sizeof(ISO_HDR);
             USBDBG("iso pkt size wh %d", iso_pkt_size_wh);
         }
-   }
+    }
     return TRUE;
 }
 
@@ -276,8 +311,8 @@ static int is_btusb_device (struct libusb_device *dev)
     {
         if (is_usb_match_idtable (id, &desc) == TRUE)
         {
-                match = 1;
-                break;
+            match = 1;
+            break;
         }
     }
 
@@ -355,13 +390,7 @@ static libusb_device_handle *libusb_open_bt_device()
     intr_pkt_size = libusb_get_max_packet_size(dev, BT_INT_EP);
     USBDBG("Interrupt pkt size is %d", intr_pkt_size);
     intr_pkt_size_wh =  intr_pkt_size + sizeof(RX_HDR);
-
-    r = libusb_claim_interface(handle, 1);
-    if (r < 0)
-    {
-        ALOGE("usb_claim_interface 1 error %d\n", r);
-    }
-
+    init_sco_db();
     return handle;
 }
 
@@ -372,88 +401,156 @@ static void usb_rx_signal_event()
     pthread_cond_signal(&usb.cond);
     if (usb.send_rx_event == TRUE)
     {
-       bthc_signal_event(HC_EVENT_RX);
-       usb.send_rx_event = FALSE;
+        bthc_signal_event(HC_EVENT_RX);
+        usb.send_rx_event = FALSE;
     }
+
     pthread_mutex_unlock(&usb.mutex);
 }
 
 static void recv_xfer_cb(struct libusb_transfer *transfer)
 {
     RX_HDR *p_rx = NULL;
-    ISO_HDR *p_iso = NULL;
-    int r, i, offset = 0, len = 0, skip = 0;
+    int r, skip = 0;
+    int iso_actual_length=0;
     enum libusb_transfer_status status;
+    int xx;
+    uint8_t *buffer = NULL;
+    uint16_t sco_handle = 0;
+    int sco_pkt_length = 0;
+
 
     status = transfer->status;
+    if (status == LIBUSB_TRANSFER_CANCELLED)
+    {
+        if (transfer->endpoint == BT_ISO_IN)
+        {
+            USBDBG("Freeing transfer");
+            free(transfer->buffer);
+            libusb_free_transfer(transfer);
+            cancelled_packets++;
+            if (cancelled_packets == NO_RX_SUBMITS)
+            {
+                cancelled_packets = 0;
+                r=libusb_set_interface_alt_setting(usb.handle, USB_SCO_INTERFACE, 0);
+                if (r != LIBUSB_SUCCESS)
+                {
+                    USBDBG("%s : Unable to set the alternate to %d. Error %d", __func__, 0, r);
+                }
+                r = libusb_release_interface(usb.handle, USB_SCO_INTERFACE);
+                if (r != LIBUSB_SUCCESS)
+                {
+                    USBDBG("%s : Unable to release the %d interface", __func__, USB_SCO_INTERFACE);
+                }
+            }
+            return;
+        }
+    }
     if (status == LIBUSB_TRANSFER_COMPLETED)
     {
         switch (transfer->endpoint)
         {
             struct iso_frames *frames;
-            case BT_INT_EP:
-                if (transfer->actual_length == 0)
-                {
-                    USBDBG("*****Rxed zero length packet from usb ....");
-                    skip = 1;
-                    break;
-                }
-                p_rx = CONTAINER_RX_HDR(transfer->buffer);
-                p_rx->event = H4_TYPE_EVENT;
-                p_rx->len = (uint16_t)transfer->actual_length;
-                utils_enqueue(&(usb.rx_eventq), p_rx);
-                p_rx =  (RX_HDR *) bt_hc_cbacks->alloc(intr_pkt_size_wh);
-                transfer->buffer = p_rx->data;
-                transfer->length = intr_pkt_size;
+        case BT_INT_EP:
+            if (transfer->actual_length == 0)
+            {
+                USBDBG("*****Rxed zero length packet from usb ....");
+                skip = 1;
                 break;
+            }
+            p_rx = CONTAINER_RX_HDR(transfer->buffer);
+            p_rx->event = H4_TYPE_EVENT;
+            p_rx->len = (uint16_t)transfer->actual_length;
+            utils_enqueue(&(usb.rx_eventq), p_rx);
+            p_rx =  (RX_HDR *) bt_hc_cbacks->alloc(intr_pkt_size_wh);
+            transfer->buffer = p_rx->data;
+            transfer->length = intr_pkt_size;
+            break;
 
-            case BT_BULK_IN:
-                if (transfer->actual_length == 0)
-                {
-                    USBDBG("*******Rxed zero length packet from usb ....");
-                    skip = 1;
-                    break;
-                }
-                p_rx = CONTAINER_RX_HDR(transfer->buffer);
-                p_rx->event = H4_TYPE_ACL_DATA;
-                p_rx->len = (uint16_t)transfer->actual_length;
-                utils_enqueue(&(usb.rx_bulkq), p_rx);
-                p_rx =  (RX_HDR *) bt_hc_cbacks->alloc(bulk_pkt_size_wh);
-                transfer->buffer = p_rx->data;
-                transfer->length = bulk_pkt_size;
+        case BT_BULK_IN:
+            if (transfer->actual_length == 0)
+            {
+                USBDBG("*******Rxed zero length packet from usb ....");
+                skip = 1;
                 break;
+            }
+            p_rx = CONTAINER_RX_HDR(transfer->buffer);
+            p_rx->event = H4_TYPE_ACL_DATA;
+            p_rx->len = (uint16_t)transfer->actual_length;
+            utils_enqueue(&(usb.rx_bulkq), p_rx);
+            p_rx =  (RX_HDR *) bt_hc_cbacks->alloc(bulk_pkt_size_wh);
+            transfer->buffer = p_rx->data;
+            transfer->length = bulk_pkt_size;
+            break;
 
-            case BT_ISO_IN:
-                if (transfer->actual_length == 0)
-                {
-                    USBDBG("*******Rxed zero length packet from usb ....");
-                    skip = 1;
-                    break;
-                }
-                p_iso = CONTAINER_ISO_HDR(transfer->buffer);
-                frames = p_iso->frames;
-                memset(frames, 0, sizeof(struct iso_frames) * BT_MAX_ISO_FRAMES);
-                p_iso->event = H4_TYPE_SCO_DATA;
-                for(i = 0; i < transfer->num_iso_packets; i++, frames++)
-                {
-                    frames->length = transfer->iso_packet_desc[i].length;
-                    frames->actual_length = \
-                          transfer->iso_packet_desc[i].actual_length;
-                    len += frames->actual_length;
-                }
-                p_iso->len = (uint16_t)len;
-                utils_enqueue(&(usb.rx_isoq), p_iso);
-                p_iso =  (ISO_HDR *) bt_hc_cbacks->alloc(iso_pkt_size_wh);
-                transfer->buffer = p_iso->data;
-                for(i = 0; i < BT_MAX_ISO_FRAMES; i++)
-                {
-                    transfer->iso_packet_desc[i].length = iso_pkt_size;
-                }
+        case BT_ISO_IN:
+            iso_actual_length = 0;
+            for (xx = 0; xx<transfer->num_iso_packets; xx++)
+            {
+                iso_actual_length += transfer->iso_packet_desc[xx].actual_length;
+            }
+            skip = 1;
+            if (iso_actual_length != 51)
+            {
+                USBDBG("*******Rxed Non-proper length packet from usb ....");
+                USBDBG("Length of packet received = %d", iso_actual_length);
                 break;
+            }
+            USBDBG("Packet Received : Actual length = %d", iso_actual_length);
 
-            default:
-                USBERR("Unexpeted endpoint rx %d\n", transfer->endpoint);
-                return;
+            buffer = transfer->buffer;
+
+            for (xx = 0; xx < BT_MAX_ISO_FRAMES; xx++)
+            {
+                sco_handle = (buffer[1]<<(8)) + buffer[0];
+                USBDBG("Sco Handle of frame %d is %d", xx, sco_handle);
+                sco_pkt_length = buffer[2];
+                USBDBG("Sco Packet Length = %d", sco_pkt_length);
+                cur_sco_db_index = check_sco_handle_validity(sco_handle);
+
+                if (cur_sco_db_index < 0 )
+                {
+                    if (prev_sco_db_index == INVALID_INDEX)
+                    {
+                        buffer = buffer + iso_pkt_size;
+                        continue;
+                    }
+                    if (add_frame_to_cur_packet(buffer, prev_sco_db_index))
+                    {
+                        utils_enqueue(&(usb.rx_isoq), cur_iso_pkt[prev_sco_db_index]);
+                        USBDBG("Enqued iso packet with correct event");
+                        cur_iso_pkt[prev_sco_db_index] = (ISO_HDR *) bt_hc_cbacks->alloc(iso_pkt_size_wh);
+                        flush_prev_packet(prev_sco_db_index);
+                        prev_sco_db_index = INVALID_INDEX;
+                        skip = 0;
+                    }
+
+                }
+                else
+                {
+                    if (sco_pkt_length == SCO_PACKET_SIZE)
+                    {
+                        flush_prev_packet(cur_sco_db_index);
+                        prev_sco_db_index = cur_sco_db_index;
+                        if (add_frame_to_cur_packet(buffer, cur_sco_db_index))
+                        {
+                            utils_enqueue(&(usb.rx_isoq), cur_iso_pkt[cur_sco_db_index]);
+                            USBDBG("Enqued iso packet with correct event");
+                            cur_iso_pkt[cur_sco_db_index] = (ISO_HDR *) bt_hc_cbacks->alloc(iso_pkt_size_wh);
+                            skip = 0;
+                        }
+                    }
+                    else
+                    {
+                        USBERR("Sco Packet size not proper. Size is %d", sco_pkt_length);
+                    }
+                }
+                buffer = buffer + iso_pkt_size;
+            }
+            break;
+        default:
+            USBERR("Unexpeted endpoint rx %d\n", transfer->endpoint);
+            break;
         }
         if (!skip)
             usb_rx_signal_event();
@@ -469,7 +566,7 @@ static void recv_xfer_cb(struct libusb_transfer *transfer)
     {
         if (transfer->endpoint == BT_ISO_IN)
         {
-            p_rx = (RX_HDR *)CONTAINER_ISO_HDR(transfer->buffer);
+           free(transfer->buffer);
         }
         else
         {
@@ -486,8 +583,8 @@ static void recv_xfer_cb(struct libusb_transfer *transfer)
 void handle_usb_events ()
 {
     RX_HDR  *rx_buf;
-    ISO_HDR *iso_buf;
-    int  r, i, iso_xfer;
+    unsigned char *iso_buf = NULL;
+    int  r, xx, yy, iso_xfer;
     struct libusb_transfer *transfer;
     struct timeval timeout = { 1, 0 };
 
@@ -532,24 +629,31 @@ void handle_usb_events ()
                     transfer->length = intr_pkt_size;
                 }
             }
-            else if (iso_rx_xfer->buffer == NULL)
+            else
             {
-                transfer = iso_rx_xfer;
-                iso_buf = (ISO_HDR *) bt_hc_cbacks->alloc(iso_pkt_size_wh);
-                if (iso_buf == NULL)
+                for (xx = 0; xx < NO_RX_SUBMITS; xx++)
                 {
-                    USBERR("%s : Allocation failed", __FUNCTION__);
-                    transfer = NULL;
-                }
-                else
-                {
-                    transfer->buffer = iso_buf->data;
-                    transfer->length = BT_MAX_ISO_FRAMES * iso_pkt_size;
-                    for(i = 0; i < transfer->num_iso_packets; i++)
+                    if (iso_rx_xfer[xx]->buffer == NULL)
                     {
-                        transfer->iso_packet_desc[i].length = iso_pkt_size;
+                        transfer = iso_rx_xfer[xx];
+                        iso_buf = (unsigned char*) malloc(iso_pkt_size*BT_MAX_ISO_FRAMES);
+                        if (iso_buf == NULL)
+                        {
+                            USBERR("%s : Allocation failed", __FUNCTION__);
+                            transfer = NULL;
+                        }
+                        else
+                        {
+                            transfer->buffer = iso_buf;
+                            transfer->length = BT_MAX_ISO_FRAMES * iso_pkt_size;
+                            for(yy = 0; yy < transfer->num_iso_packets; yy++)
+                            {
+                                transfer->iso_packet_desc[yy].length = iso_pkt_size;
+                            }
+                            iso_xfer = 1;
+                        }
                     }
-                    iso_xfer = 1;
+
                 }
             }
             if (transfer != NULL)
@@ -561,33 +665,32 @@ void handle_usb_events ()
                     USBERR("libusb_submit_transfer : data_rx_xfer failed");
                     if (iso_xfer)
                     {
-                        bt_hc_cbacks->dealloc((TRANSAC) iso_buf, \
-                              (char *)(iso_buf + 1));
+                        free(iso_buf);
                     }
                     else
                     {
                         bt_hc_cbacks->dealloc((TRANSAC) rx_buf, \
-                              (char *)(rx_buf + 1));
+                                              (char *)(rx_buf + 1));
                     }
                     transfer->buffer = NULL;
                 }
             }
-         }
-         else if (usb_xfer_status & XMIT_FAILED)
-         {
-             transfer = usb.failed_tx_xfer;
-             USBDBG("Retransmitting xmit packet %d", \
-                    *(transfer->buffer - 1));
-             xmited_len = transfer->length;
-             usb_xfer_status &= ~(XMIT_FAILED);
-             if (libusb_submit_transfer(transfer) < 0)
+        }
+        else if (usb_xfer_status & XMIT_FAILED)
+        {
+            transfer = usb.failed_tx_xfer;
+            USBDBG("Retransmitting xmit packet %d", \
+                   *(transfer->buffer - 1));
+            xmited_len = transfer->length;
+            usb_xfer_status &= ~(XMIT_FAILED);
+            if (libusb_submit_transfer(transfer) < 0)
             {
                 USBERR("libusb_submit_transfer : %d : failed", \
-                      *(transfer->buffer - 1));
+                       *(transfer->buffer - 1));
             }
-         }
-      }
-     usb_running = 0;
+        }
+    }
+    usb_running = 0;
 }
 
 /*******************************************************************************
@@ -602,7 +705,7 @@ void handle_usb_events ()
 static void *usb_read_thread(void *arg)
 {
     RX_HDR  *rx_buf;
-    ISO_HDR *iso_buf;
+
     int size, size_wh, r, i, iso_xfer;
     struct libusb_transfer *transfer;
     unsigned char *buf;
@@ -614,7 +717,7 @@ static void *usb_read_thread(void *arg)
     rx_buf = (RX_HDR *) bt_hc_cbacks->alloc(bulk_pkt_size_wh);
     buf =  rx_buf->data;
     libusb_fill_bulk_transfer(data_rx_xfer, usb.handle, BT_BULK_IN, \
-        buf, bulk_pkt_size, recv_xfer_cb, NULL, 0);
+                              buf, bulk_pkt_size, recv_xfer_cb, NULL, 0);
     r = libusb_submit_transfer(data_rx_xfer);
     if (r < 0)
     {
@@ -625,21 +728,13 @@ static void *usb_read_thread(void *arg)
     rx_buf = (RX_HDR *) bt_hc_cbacks->alloc(intr_pkt_size_wh);
     buf = rx_buf->data;
     libusb_fill_interrupt_transfer(event_rx_xfer, usb.handle, BT_INT_EP, \
-          buf, intr_pkt_size, recv_xfer_cb, NULL, 0);
+                                   buf, intr_pkt_size, recv_xfer_cb, NULL, 0);
     r = libusb_submit_transfer(event_rx_xfer);
     if (r < 0)
     {
         USBERR("libusb_submit_transfer : event_rx_xfer : failed");
         goto out;
     }
-
-    iso_buf =  (ISO_HDR *) bt_hc_cbacks->alloc(iso_pkt_size_wh);
-    buf = iso_buf->data;
-    libusb_fill_iso_transfer(iso_rx_xfer, usb.handle, BT_ISO_IN, buf, \
-          iso_pkt_size * BT_MAX_ISO_FRAMES, BT_MAX_ISO_FRAMES, recv_xfer_cb, \
-          NULL, 0);
-    libusb_set_iso_packet_lengths (iso_rx_xfer, iso_pkt_size);
-
     usb_running = 1;
     handle_usb_events();
 out:
@@ -655,12 +750,6 @@ out:
         rx_buf = CONTAINER_RX_HDR(event_rx_xfer->buffer);
         bt_hc_cbacks->dealloc((TRANSAC) rx_buf, (char *)(rx_buf+1));
         libusb_free_transfer(event_rx_xfer);
-    }
-    if(iso_rx_xfer != NULL)
-    {
-        iso_buf = CONTAINER_ISO_HDR(iso_rx_xfer->buffer);
-        bt_hc_cbacks->dealloc((TRANSAC) iso_buf, (char *)(iso_buf+1));
-        libusb_free_transfer(iso_rx_xfer);
     }
 
     pthread_exit(NULL);
@@ -685,6 +774,7 @@ out:
 uint8_t usb_init(void)
 {
     USBDBG("usb_init");
+    int xx;
     memset(&usb, 0, sizeof(tUSB_CB));
     usb.handle = NULL;
     utils_queue_init(&(usb.rx_eventq));
@@ -692,7 +782,8 @@ uint8_t usb_init(void)
     utils_queue_init(&(usb.rx_isoq));
     pthread_mutex_init(&usb.mutex, NULL);
     pthread_cond_init(&usb.cond, NULL);
-    data_rx_xfer = event_rx_xfer = iso_rx_xfer = NULL;
+    data_rx_xfer = event_rx_xfer = NULL;
+    memset(iso_rx_xfer, 0, (sizeof(iso_rx_xfer[0]) * NO_RX_SUBMITS));
     usb.send_rx_event = TRUE;
     usb.rx_status = RX_NEW_PKT;
 
@@ -713,7 +804,7 @@ uint8_t usb_open(uint8_t port)
 {
 
     USBDBG("usb_open(port:%d)", port);
-
+    int r, xx;
     if (usb_running)
     {
         /* Userial is open; close it first */
@@ -748,16 +839,6 @@ uint8_t usb_open(uint8_t port)
         goto out;
     }
 
-
-    iso_rx_xfer =  libusb_alloc_transfer(BT_MAX_ISO_FRAMES);
-    if (!iso_rx_xfer)
-    {
-        ALOGE("Failed alloc iso_rx_xfer");
-        goto out;
-    }
-
-
-
     USBDBG("usb_read_thread is created ....");
     if (pthread_create(&(usb.read_thread), NULL, \
                        usb_read_thread, NULL) != 0 )
@@ -774,8 +855,8 @@ out :
             libusb_free_transfer(data_rx_xfer);
         if (event_rx_xfer != NULL)
             libusb_free_transfer(event_rx_xfer);
-        if (iso_rx_xfer != NULL)
-            libusb_free_transfer(iso_rx_xfer);
+        for( xx = 0; xx < NO_RX_SUBMITS; xx++)
+            libusb_free_transfer(iso_rx_xfer[xx]);
         libusb_release_interface(usb.handle, 1);
         libusb_release_interface(usb.handle, 0);
         libusb_close(usb.handle);
@@ -806,6 +887,8 @@ uint16_t  usb_read(uint16_t msg_id, uint8_t *p_buffer, uint16_t len)
     int pkt_rxing = 0;
     int rem_len = 0;
     ISO_HDR *p_iso_hdr;
+    int i;
+
 
     if (!usb_running)
         return 0;
@@ -813,6 +896,7 @@ uint16_t  usb_read(uint16_t msg_id, uint8_t *p_buffer, uint16_t len)
     {
         if (p_rx_hdr == NULL)
         {
+
             pthread_mutex_lock(&usb.mutex);
             if (usb.rxed_xfer < 0)
             {
@@ -830,13 +914,14 @@ uint16_t  usb_read(uint16_t msg_id, uint8_t *p_buffer, uint16_t len)
             }
             while (usb.rxed_xfer == 0)
             {
-               pthread_cond_wait(&usb.cond, &usb.mutex);
+                pthread_cond_wait(&usb.cond, &usb.mutex);
             }
             usb.rxed_xfer--;
             pthread_mutex_unlock(&usb.mutex);
 
             if (usb.rx_status == RX_NEW_PKT)
             {
+
                 p_rx_hdr = (RX_HDR *)utils_dequeue(&(usb.rx_eventq));
                 if (p_rx_hdr == NULL)
                 {
@@ -853,73 +938,73 @@ uint16_t  usb_read(uint16_t msg_id, uint8_t *p_buffer, uint16_t len)
                 }
                 switch (p_rx_hdr->event)
                 {
-                    case H4_TYPE_EVENT:
-                        p_data = p_rx_hdr->data;
-                        p_rx_hdr->offset = 0;
-                        usb.rx_pkt_len = p_data[EV_LEN_FIELD] + \
-                              HCI_EVT_PREAMBLE_SIZE;
-                        usb.rx_status = RECEIVING_PKT;
-                        *p_buffer = p_rx_hdr->event;
-                        total_len += 1;
-                        p_buffer++;
-                        break;
+                case H4_TYPE_EVENT:
+                    p_data = p_rx_hdr->data;
+                    p_rx_hdr->offset = 0;
+                    usb.rx_pkt_len = p_data[EV_LEN_FIELD] + \
+                                     HCI_EVT_PREAMBLE_SIZE;
+                    usb.rx_status = RECEIVING_PKT;
+                    *p_buffer = p_rx_hdr->event;
+                    total_len += 1;
+                    p_buffer++;
+                    break;
 
 
-                    case H4_TYPE_SCO_DATA:
-                        p_iso_hdr = (ISO_HDR *)p_rx_hdr;
-                        p_iso_hdr->offset = 0;
-                        usb.rx_pkt_len = 0;
-                        usb.rx_status = RECEIVING_PKT;
-                        usb.iso_frame_ndx = 0;
-                        pthread_mutex_lock(&usb.mutex);
-                        usb.rxed_xfer++;
-                        pthread_mutex_unlock(&usb.mutex);
-                        break;
+                case H4_TYPE_SCO_DATA:
+                    p_iso_hdr = (ISO_HDR *)p_rx_hdr;
+                    p_iso_hdr->offset = 0;
+                    usb.rx_pkt_len = p_iso_hdr->len;
+                    *p_buffer = p_rx_hdr->event;
+                    total_len += 1;
+                    p_buffer++;
+                    usb.rx_status = RECEIVING_PKT;
+                    usb.iso_frame_ndx = 0;
+                    break;
 
 
-                    case H4_TYPE_ACL_DATA:
-                        p_data = p_rx_hdr->data;
-                        p_rx_hdr->offset = 0;
-                        usb.rx_pkt_len = ((uint16_t)p_data[BLK_LEN_LO] | \
-                              (uint16_t)p_data[BLK_LEN_HI] << 8) + \
-                               HCI_ACL_PREAMBLE_SIZE;
-                        usb.rx_status = RECEIVING_PKT;
-                        *p_buffer = p_rx_hdr->event;
-                        total_len += 1;
-                        p_buffer++;
-                        break;
+                case H4_TYPE_ACL_DATA:
+                    p_data = p_rx_hdr->data;
+                    p_rx_hdr->offset = 0;
+                    usb.rx_pkt_len = ((uint16_t)p_data[BLK_LEN_LO] | \
+                                      (uint16_t)p_data[BLK_LEN_HI] << 8) + \
+                                     HCI_ACL_PREAMBLE_SIZE;
+                    usb.rx_status = RECEIVING_PKT;
+                    *p_buffer = p_rx_hdr->event;
+                    total_len += 1;
+                    p_buffer++;
+                    break;
                 }
                 USBDBG("Received packet from usb of len %d of type %x", \
-                      p_rx_hdr->len, p_rx_hdr->event);
+                       p_rx_hdr->len, p_rx_hdr->event);
             }
             else   // rx_status == RECIVING_PKT
             {
                 switch (pkt_rxing)
                 {
-                    case H4_TYPE_EVENT:
-                        p_rx_hdr = (RX_HDR *)utils_dequeue(&(usb.rx_eventq));
-                        break;
+                case H4_TYPE_EVENT:
+                    p_rx_hdr = (RX_HDR *)utils_dequeue(&(usb.rx_eventq));
+                    break;
 
-                    case H4_TYPE_SCO_DATA:
-                        p_rx_hdr = (RX_HDR *)utils_dequeue(&(usb.rx_isoq));
-                        break;
+                case H4_TYPE_SCO_DATA:
+                    p_rx_hdr = (RX_HDR *)utils_dequeue(&(usb.rx_isoq));
+                    break;
 
-                    case H4_TYPE_ACL_DATA:
-                        p_rx_hdr = (RX_HDR *)utils_dequeue(&(usb.rx_bulkq));
-                        break;
-                 }
-                 if (p_rx_hdr == NULL)
-                 {
-                     USBDBG("Rxed packet from different end_point.");
-                     different_xfer++;
-                 }
-                 else
-                 {
-                     p_rx_hdr->offset = 0;
-                     USBDBG("Received packet from usb of len %d of type %x",
-                          p_rx_hdr->len, p_rx_hdr->event);
-                 }
-             }
+                case H4_TYPE_ACL_DATA:
+                    p_rx_hdr = (RX_HDR *)utils_dequeue(&(usb.rx_bulkq));
+                    break;
+                }
+                if (p_rx_hdr == NULL)
+                {
+                    USBDBG("Rxed packet from different end_point.");
+                    different_xfer++;
+                }
+                else
+                {
+                    p_rx_hdr->offset = 0;
+                    USBDBG("Received packet from usb of len %d of type %x",
+                           p_rx_hdr->len, p_rx_hdr->event);
+                }
+            }
         }
         else //if (p_rx_hdr != NULL)
         {
@@ -927,46 +1012,26 @@ uint16_t  usb_read(uint16_t msg_id, uint8_t *p_buffer, uint16_t len)
             {
                 p_iso_hdr = (ISO_HDR *)p_rx_hdr;
                 frames = p_iso_hdr->frames;
-                p_data = p_iso_hdr->data;
+                p_data = p_iso_hdr->data + p_iso_hdr->offset;
                 frames += usb.iso_frame_ndx;
-                if (usb.rx_pkt_len == 0) // Start of new micro frame
+                rem_len = usb.rx_pkt_len;
+                if (usb.rx_pkt_len < (len-total_len))
                 {
-                    if (frames->actual_length == 0)
-                    {
-	                 /* Previous frame has been processed */
-                        usb.iso_frame_ndx++;
-                        p_iso_hdr->offset = usb.iso_frame_ndx * iso_pkt_size;
-                    }
-                    *p_buffer = p_iso_hdr->event;
-                    total_len += 1;
-                    usb.rx_pkt_len = (uint16_t)p_data[p_iso_hdr->offset + \
-                          SCO_LEN_FIELD] + HCI_SCO_PREAMBLE_SIZE;
-                    p_buffer++;
-                    usb.rx_status = RECEIVING_PKT;
+                    copy_len = usb.rx_pkt_len;
                 }
                 else
                 {
-                    frames->actual_length -= len;
+                    copy_len = len - total_len;
                 }
-                if (total_len == len)
-                    break;
-                pkt_rxing = p_iso_hdr->event;
-
-                if((p_iso_hdr->len) <= (len - total_len))
-                    copy_len = p_iso_hdr->len;
-                else
-                    copy_len = (len - total_len);
-
+                rem_len = rem_len - copy_len;
                 p_iso_hdr->offset += copy_len;
-                p_iso_hdr->len -= copy_len;
-                rem_len = p_iso_hdr->len;
             }
             else
             {
                 p_data = p_rx_hdr->data + p_rx_hdr->offset;
                 pkt_rxing = p_rx_hdr->event;
 
-                if((p_rx_hdr->len) <= (len - total_len))
+                if ((p_rx_hdr->len) <= (len - total_len))
                     copy_len = p_rx_hdr->len;
                 else
                     copy_len = (len - total_len);
@@ -981,8 +1046,8 @@ uint16_t  usb_read(uint16_t msg_id, uint8_t *p_buffer, uint16_t len)
 
             if (rem_len == 0)
             {
-               bt_hc_cbacks->dealloc((TRANSAC) p_rx_hdr, (char *)(p_rx_hdr+1));
-               p_rx_hdr = NULL;
+                bt_hc_cbacks->dealloc((TRANSAC) p_rx_hdr, (char *)(p_rx_hdr+1));
+                p_rx_hdr = NULL;
             }
             usb.rx_pkt_len -= copy_len;
             if (usb.rx_pkt_len == 0)
@@ -1021,19 +1086,33 @@ static void xmit_xfer_cb(struct libusb_transfer *transfer)
 {
     enum libusb_transfer_status status = transfer->status;
     static int xmit_acked;
-
-    if(transfer->status != LIBUSB_TRANSFER_COMPLETED)
+    if (transfer->type == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS)
     {
-        USBERR("xfer did not succeeded .....%d", transfer->status);
-        usb_xfer_status |= XMIT_FAILED;
-        usb.failed_tx_xfer = transfer;
-        xmited_len = 0;
-    } else
-    {
-        xmited_len = transfer->actual_length+1;
+        if (transfer->status != LIBUSB_TRANSFER_COMPLETED)
+        {
+            USBERR("xfer did not succeeded .....%d", transfer->status);
+        }
+        if (transfer->buffer != NULL)
+            free(transfer->buffer);
         libusb_free_transfer(transfer);
-        usb_xfer_status  |= XMITTED;
-        USBDBG("Xfer Succeded : count %d", ++xmit_acked);
+        return;
+    }
+    else
+    {
+         if (transfer->status != LIBUSB_TRANSFER_COMPLETED)
+        {
+            USBERR("xfer did not succeeded .....%d", transfer->status);
+            usb_xfer_status |= XMIT_FAILED;
+            usb.failed_tx_xfer = transfer;
+            xmited_len = 0;
+        }
+        else
+        {
+            xmited_len = transfer->actual_length+1;
+            libusb_free_transfer(transfer);
+            usb_xfer_status  |= XMITTED;
+            USBDBG("Xfer Succeded : count %d", ++xmit_acked);
+        }
     }
 }
 /*******************************************************************************
@@ -1049,57 +1128,108 @@ static void xmit_xfer_cb(struct libusb_transfer *transfer)
 uint16_t usb_write(uint16_t msg_id, uint8_t *p_data, uint16_t len)
 {
     struct timeval tv = {60, 0};
-    char buffer[512], pkt_type;;
-    int x, i;
+    char buffer[512], pkt_type;
+    uint8_t *sco_data = NULL;
+    int x, i, r;
+    long time;
+    int count = 0;
     CMD_HDR *cmd_hdr;
     static int xmit_count;
 
-    if(!(xmit_transfer = libusb_alloc_transfer(0)))
-    {
-        USBERR( "libusb_alloc_tranfer() failed");
-        return 0;
-    }
-
-    x = (len > (sizeof(buffer)-1)/2)? ((sizeof(buffer)-1)/2) : len;
-
+    static int sco_count = 0;
+    int retry_submit_count = 0;
     pkt_type = *p_data;
+    if (pkt_type == H4_TYPE_SCO_DATA)
+    {
+        if (!(xmit_transfer = libusb_alloc_transfer(BT_MAX_ISO_FRAMES)))
+        {
+            USBERR( "libusb_alloc_tranfer() failed");
+            return 0;
+        }
+    }
+    else
+    {
+        if (!(xmit_transfer = libusb_alloc_transfer(0)))
+        {
+            USBERR( "libusb_alloc_tranfer() failed");
+            return 0;
+        }
+    }
+    x = (len > (sizeof(buffer)-1)/2)? ((sizeof(buffer)-1)/2) : len;
     switch(pkt_type)
     {
-        case H4_TYPE_COMMAND:
-            /* Make use of BT_HDR space to populate setup */
-            cmd_hdr = CONTAINER_CMD_HDR(p_data + 1);
-            cmd_hdr->setup.bmRequestType = USB_TYPE_REQ;
-            cmd_hdr->setup.wLength = len - 1;
-            cmd_hdr->setup.wIndex = 0;
-            cmd_hdr->setup.wValue = 0;
-            cmd_hdr->setup.bRequest = 0;
-            cmd_hdr->event = H4_TYPE_COMMAND;
-            libusb_fill_control_transfer(xmit_transfer, usb.handle,
-                (uint8_t *)&cmd_hdr->setup, xmit_xfer_cb, NULL, 0);
-            break;
+    case H4_TYPE_COMMAND:
+        /* Make use of BT_HDR space to populate setup */
+        cmd_hdr = CONTAINER_CMD_HDR(p_data + 1);
+        cmd_hdr->setup.bmRequestType = USB_TYPE_REQ;
+        cmd_hdr->setup.wLength = len - 1;
+        cmd_hdr->setup.wIndex = 0;
+        cmd_hdr->setup.wValue = 0;
+        cmd_hdr->setup.bRequest = 0;
+        cmd_hdr->event = H4_TYPE_COMMAND;
+        libusb_fill_control_transfer(xmit_transfer, usb.handle,
+                                     (uint8_t *)&cmd_hdr->setup, xmit_xfer_cb, NULL, 0);
+        break;
 
-        case H4_TYPE_ACL_DATA:
-            libusb_fill_bulk_transfer(xmit_transfer, usb.handle,
-                BT_BULK_OUT, (p_data+1), (len-1), xmit_xfer_cb, NULL, 0);
-            break;
+    case H4_TYPE_ACL_DATA:
+        libusb_fill_bulk_transfer(xmit_transfer, usb.handle,
+                                  BT_BULK_OUT, (p_data+1), (len-1), xmit_xfer_cb, NULL, 0);
+        break;
 
-        case H4_TYPE_SCO_DATA:
-            libusb_fill_iso_transfer(xmit_transfer, usb.handle, \
-                  BT_ISO_OUT, (p_data+1), (len-1), BT_MAX_ISO_FRAMES, \
-                  xmit_xfer_cb, NULL, 0);
-            break;
+    case H4_TYPE_SCO_DATA:
+       retry:
+       sco_data = NULL;
+       sco_data = (uint8_t*)malloc((len - 1) * sizeof(uint8_t));
+       while (sco_data == NULL)
+       {
+           usleep(MEMALLOC_WAIT);
+            sco_data = (uint8_t*)malloc((len - 1) * sizeof(uint8_t));
+            count++;
+            if (count > MEMALLOC_RETRY_COUNT)
+            {
+                USBERR("Mem alloc failed for sco packet tx");
+                return 0;
+            }
+       }
+        memcpy(sco_data, p_data+1, len-1);
+        libusb_fill_iso_transfer(xmit_transfer, usb.handle, \
+                                 BT_ISO_OUT, sco_data, (len-1), BT_MAX_ISO_FRAMES, \
+                                 xmit_xfer_cb, NULL, 0);
+        libusb_set_iso_packet_lengths(xmit_transfer, iso_pkt_size);
+        sco_count++;
+        break;
 
-         default:
-            USBERR("Unknown packet type to transmit %x", *p_data);
-            return 0;
-    }
-
-    if (libusb_submit_transfer(xmit_transfer) < 0)
-    {
-        USBERR("libusb_submit_transfer : %d : failed", *p_data);
+    default:
+        USBERR("Unknown packet type to transmit %x", *p_data);
         return 0;
     }
+    if (pkt_type == H4_TYPE_SCO_DATA)
+    {
+        if (iso_state == ISO_STOPPED)
+        {
+            free(xmit_transfer->buffer);
+            libusb_free_transfer(xmit_transfer);
+            return 0;
+        }
+    }
+
+    while ((r = libusb_submit_transfer(xmit_transfer)) < 0)
+    {
+
+        if (retry_submit_count > TRANS_SUMBIT_COUNT)
+        {
+            USBERR("libusb_submit_transfer failed with error %d", r);
+            return 0;
+        }
+        retry_submit_count++;
+        usleep(TRANS_SUBMIT_WAIT);
+    }
     xmited_len = len;
+
+    if (pkt_type == H4_TYPE_SCO_DATA)
+    {
+        return xmited_len;
+    }
     usb_xfer_status &= ~(XMITTED);
 
     while (!(usb_xfer_status & XMITTED))
@@ -1121,15 +1251,14 @@ void usb_close(void)
 {
     int result;
     TRANSAC p_buf;
-
     USBDBG("usb_close \n");
-
     usb_xfer_status |= RX_DEAD;
 
     if ((result=pthread_join(usb.read_thread, NULL)) < 0)
         ALOGE( "pthread_join() FAILED result:%d \n", result);
 
-    if (usb.handle) {
+    if (usb.handle)
+    {
         libusb_release_interface(usb.handle, 1);
         libusb_release_interface(usb.handle, 0);
         libusb_close(usb.handle);
@@ -1151,6 +1280,7 @@ void usb_close(void)
             bt_hc_cbacks->dealloc(p_buf, (char *) ((RX_HDR *)p_buf+1));
         }
     }
+    close_sco_db();
 }
 
 /*******************************************************************************
@@ -1167,3 +1297,203 @@ void usb_ioctl(usb_ioctl_op_t op, void *p_data)
     return;
 }
 
+void usb_sco_trigger(int state, uint16_t sco_handle)
+{
+    USBDBG("%s", __func__);
+    USBDBG("Sco handle = %d", sco_handle);
+    if (state == 0)
+    {
+        if (delete_sco_conn(sco_handle) < 0)
+        {
+            USBERR("Sco handle not found");
+        }
+    }
+    else
+    {
+        USBDBG("Setting up SCO (ISO_STARTING");
+        if (add_sco_conn(sco_handle) < 0)
+        {
+            USBERR("Maximum sco connection reached");
+        }
+    }
+}
+
+static int check_sco_handle_validity(uint16_t sco_handle)
+{
+    int xx = 0;
+    for (xx = 0; xx < sco_handle_idx; xx++)
+    {
+        if (sco_handle == sco_handle_db[xx])
+        {
+            USBDBG("Valid Sco Handle found at index = %d", xx);
+            return xx;
+        }
+    }
+    return -1;
+}
+
+static int add_frame_to_cur_packet(uint8_t *buffer, int cur_pkt_idx)
+{
+    int xx;
+    if (cur_pkt_idx >= sco_handle_idx)
+    {
+        return 0;
+    }
+    int index = cur_iso_pkt_idx[cur_pkt_idx];
+    if (index < 0 || index >= (iso_pkt_size*BT_MAX_ISO_FRAMES))
+    {
+        return 0;
+    }
+    if (index == 0)
+    {
+        cur_iso_pkt[cur_pkt_idx]->event = H4_TYPE_SCO_DATA;
+        cur_iso_pkt[cur_pkt_idx]->len = 0;
+
+    }
+    for (xx = 0; xx < iso_pkt_size; xx++)
+    {
+        cur_iso_pkt[cur_pkt_idx]->data[index++] = buffer[xx];
+    }
+    cur_iso_pkt_idx[cur_pkt_idx] = index;
+    cur_iso_pkt[cur_pkt_idx]->len += iso_pkt_size;
+    if (index == iso_pkt_size*BT_MAX_ISO_FRAMES)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+static void flush_prev_packet(int cur_pkt_idx)
+{
+    if (cur_pkt_idx > sco_handle_idx)
+    {
+        USBERR("%s : wrong index %d", __func__, cur_pkt_idx);
+        return;
+    }
+    cur_iso_pkt_idx[cur_pkt_idx] = 0;
+}
+
+static void init_sco_db()
+{
+    int xx;
+    for (xx = 0; xx < BT_MAX_SCO_CONN; xx++)
+    {
+        cur_iso_pkt[xx] = (ISO_HDR *) bt_hc_cbacks->alloc(iso_pkt_size_wh);
+        cur_iso_pkt_idx[xx] = 0;
+        sco_handle_db[xx] = -1;
+    }
+    sco_handle_idx = 0;
+    USBDBG("Sco initialised");
+}
+static void close_sco_db()
+{
+    int xx;
+   for (xx = 0; xx < BT_MAX_SCO_CONN; xx++)
+    {
+        bt_hc_cbacks->dealloc((TRANSAC)cur_iso_pkt[xx], (char*)cur_iso_pkt[xx]+1);
+        cur_iso_pkt_idx[xx] = 0;
+        sco_handle_db[xx] = -1;
+    }
+}
+static int add_sco_conn(uint16_t sco_handle)
+{
+
+    if(sco_handle_idx >= BT_MAX_SCO_CONN)
+    {
+        return -1;
+    }
+    else
+    {
+        sco_handle_db[sco_handle_idx] = sco_handle;
+        sco_handle_idx++;
+        USBDBG("Added sco handle %d : Sco_handle_idx = %d", sco_handle, sco_handle_idx);
+        if (sco_handle_idx == 1)
+        {
+            submit_transfer();
+            iso_state = ISO_STARTED;
+        }
+        return 0;
+    }
+}
+
+static int delete_sco_conn(uint16_t sco_handle)
+{
+    int xx;
+    int yy;
+    for (xx = 0; xx < sco_handle_idx; xx++)
+    {
+        if (sco_handle == sco_handle_db[xx])
+        {
+            sco_handle_idx--;
+            sco_handle_db[xx] = sco_handle_db[sco_handle_idx];
+            for (yy = 0; yy < cur_iso_pkt_idx[sco_handle_idx]; yy++)
+            {
+                cur_iso_pkt[xx]->data[yy] = cur_iso_pkt[sco_handle_idx]->data[yy];
+            }
+           if (sco_handle_idx == 0)
+            {
+                cancel_transfer();
+                iso_state = ISO_STOPPED;
+            }
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static void submit_transfer(void)
+{
+    int r = 0, xx;
+    unsigned char *buf;
+    r = libusb_claim_interface(usb.handle, USB_SCO_INTERFACE);
+    if (r != LIBUSB_SUCCESS)
+    {
+        USBDBG("%s : Unable to claim interface 1. Errror %d", __func__, r);
+    }
+    r = libusb_set_interface_alt_setting(usb.handle, USB_SCO_INTERFACE, ALTERNATE_SETTING);
+    if (r != LIBUSB_SUCCESS)
+    {
+        USBDBG("%s : Unable to set the alternate to %d. Error %d", __func__, ALTERNATE_SETTING, r);
+    }
+    for (xx = 0; xx < NO_RX_SUBMITS; xx++)
+    {
+        iso_rx_xfer[xx] = libusb_alloc_transfer(BT_MAX_ISO_FRAMES);
+        if (!iso_rx_xfer[xx])
+        {
+            USBERR("Failed to alloc iso_rx_xfer[%d]", xx);
+            continue;
+        }
+        buf = (unsigned char*) malloc(iso_pkt_size*BT_MAX_ISO_FRAMES);
+        if (buf == NULL)
+        {
+            USBERR("Failed to allocate memory for recv transfer for iso_rx_xfer[%d]", xx);
+            continue;
+        }
+        libusb_fill_iso_transfer(iso_rx_xfer[xx], usb.handle, BT_ISO_IN, buf, \
+                             iso_pkt_size * BT_MAX_ISO_FRAMES, BT_MAX_ISO_FRAMES, recv_xfer_cb, \
+                             NULL, 0);
+        libusb_set_iso_packet_lengths (iso_rx_xfer[xx], iso_pkt_size);
+        r = libusb_submit_transfer(iso_rx_xfer[xx]);
+        if (r < 0)
+        {
+            USBERR("libusb_submit_transfer : iso_rx_xfer[%d] : failed with error %d", xx, r);
+        }
+    }
+    USBDBG("All packets submitted");
+}
+static void cancel_transfer(void)
+{
+    int r, xx;
+    USBDBG("Cancel Transfer");
+    for (xx =0 ; xx < NO_RX_SUBMITS; xx++)
+    {
+        r = libusb_cancel_transfer(iso_rx_xfer[xx]);
+        if (r < 0)
+        {
+            USBERR("libusb_cancel_transfer : iso_rx_xfer[%d] : failed with error %d", xx, r);
+        }
+    }
+}
