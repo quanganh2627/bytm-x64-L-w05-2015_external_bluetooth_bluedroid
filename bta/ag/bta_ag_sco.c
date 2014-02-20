@@ -45,6 +45,8 @@ static char *bta_ag_sco_evt_str(UINT8 event);
 static char *bta_ag_sco_state_str(UINT8 state);
 #endif
 
+static void bta_ag_cback_sco(tBTA_AG_SCB *p_scb, UINT8 event);
+
 #define BTA_AG_NO_EDR_ESCO  (BTM_SCO_PKT_TYPES_MASK_NO_2_EV3 | \
                              BTM_SCO_PKT_TYPES_MASK_NO_3_EV3 | \
                              BTM_SCO_PKT_TYPES_MASK_NO_2_EV5 | \
@@ -136,7 +138,7 @@ static void bta_ag_sco_conn_cback(UINT16 sco_idx)
 {
     UINT16  handle;
     BT_HDR  *p_buf;
-    tBTA_AG_SCB *p_scb;
+    tBTA_AG_SCB *p_scb = NULL;
 
     /* match callback to scb; first check current sco scb */
     if (bta_ag_cb.sco.p_curr_scb != NULL && bta_ag_cb.sco.p_curr_scb->in_use)
@@ -165,6 +167,9 @@ static void bta_ag_sco_conn_cback(UINT16 sco_idx)
     /* no match found; disconnect sco, init sco variables */
     else
     {
+        if (p_scb != NULL) {
+            bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_OPEN_SCO_FAILED_EVT);
+        }
         bta_ag_cb.sco.p_curr_scb = NULL;
         bta_ag_cb.sco.state = BTA_AG_SCO_SHUTDOWN_ST;
         BTM_RemoveSco(sco_idx);
@@ -575,6 +580,7 @@ static void bta_ag_create_sco(tBTA_AG_SCB *p_scb, BOOLEAN is_orig)
         }
         else    /* Initiating the connection, set the current sco handle */
         {
+            bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_OPEN_SCO_EVT);
             bta_ag_cb.sco.cur_idx = p_scb->sco_idx;
         }
     }
@@ -1528,6 +1534,9 @@ void bta_ag_sco_conn_rsp(tBTA_AG_SCB *p_scb, tBTM_ESCO_CONN_REQ_EVT_DATA *p_data
 
         /* Allow any platform specific pre-SCO set up to take place */
         bta_ag_co_audio_state(bta_ag_scb_to_idx(p_scb), p_scb->app_id, BTA_AG_CO_AUD_STATE_SETUP);
+
+        /* Notify to HeadStateMachine SCO is initiated */
+        bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_OPEN_SCO_EVT);
 
 #if (BTM_WBS_INCLUDED == TRUE )
         /* When HS initiated SCO, it cannot be WBS. */

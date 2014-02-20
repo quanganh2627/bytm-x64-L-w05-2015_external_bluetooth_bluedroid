@@ -251,7 +251,8 @@ typedef struct
 #define BTA_AG_AT_BCS_EVT       27 /* Codec select */
 #define BTA_AG_WBS_ON_EVT       28 /* Enable WBS configuration */
 #define BTA_AG_WBS_OFF_EVT      29 /* Disable WBS configuration */
-
+#define BTA_AG_AUDIO_OPEN_SCO_EVT   31 /* Notify to HeadStateMachine SCO is initiated */
+#define BTA_AG_AUDIO_OPEN_SCO_FAILED_EVT   32 /* Notify to HeadStateMachine an error has happened in the SCO initiation */
 typedef UINT8 tBTA_AG_EVT;
 
 /* data associated with most non-AT events */

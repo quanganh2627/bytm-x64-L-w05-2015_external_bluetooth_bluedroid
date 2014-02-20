@@ -407,6 +407,15 @@ static void btif_hf_upstreams_evt(UINT16 event, char* p_param)
             HAL_CBACK(bt_hf_callbacks, wbs_config_cb, BTHF_WBS_CONFIG_OFF);
             break;
 
+        case BTA_AG_AUDIO_OPEN_SCO_EVT:
+            HAL_CBACK(bt_hf_callbacks, sco_resource_cb, BTHF_SCO_RESOURCE_REQUESTED);
+            break;
+
+        case BTA_AG_AUDIO_OPEN_SCO_FAILED_EVT:
+            HAL_CBACK(bt_hf_callbacks, sco_resource_cb, BTHF_SCO_RESOURCE_RELEASED);
+            break;
+
+
         default:
             BTIF_TRACE_WARNING2("%s: Unhandled event: %d", __FUNCTION__, event);
             break;
