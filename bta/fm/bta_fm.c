@@ -153,14 +153,14 @@ void  bta_fm_init()
             return;
         }
     }
+    UTA_REMOTE_CALL(IuiFmRegisterMitigationCallback)( IUI_FM_MACRO_ID_BT, bt_iui_fm_mitigation_cb );
+    APPL_TRACE_DEBUG1("%s : IuiFmRegisterMitigationCallback - BT mitigation cb registered ", __FUNCTION__);
     binfo_on->bt_state=IUI_FM_BT_STATE_ON;
     FmNotification_on.info.bt_info = binfo_on;
     FmNotification_on.type=IUI_FM_FREQ_NOTIFICATION_TYPE_BT;
     UTA_REMOTE_CALL(IuiFmNotifyFrequency)(IUI_FM_MACRO_ID_BT,  notification_on );
     APPL_TRACE_DEBUG1("%s : IuiFmNotifyFrequency - BT on notification ", __FUNCTION__);
     ALOGI("%s:IuiFmNotifyFrequency - BT on notification",__FUNCTION__);
-    UTA_REMOTE_CALL(IuiFmRegisterMitigationCallback)( IUI_FM_MACRO_ID_BT, bt_iui_fm_mitigation_cb );
-    APPL_TRACE_DEBUG1("%s : IuiFmRegisterMitigationCallback - BT mitigation cb registered ", __FUNCTION__);
     GKI_freebuf(binfo_on);
     binfo_on=NULL;
 }
