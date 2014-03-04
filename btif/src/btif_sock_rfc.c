@@ -336,7 +336,7 @@ bt_status_t btsock_rfc_listen(const char* service_name, const uint8_t* service_u
         APPL_TRACE_DEBUG1("BTA_JvCreateRecordByUser:%s", service_name);
         BTA_JvCreateRecordByUser((void *)rs->id);
         *sock_fd = rs->app_fd;
-        /* dont set rs->app_fd to -1. Stack keeps ownership of the fd */
+        rs->app_fd = -1; //the fd ownership is transferred to app
         status = BT_STATUS_SUCCESS;
         btsock_thread_add_fd(pth, rs->fd, BTSOCK_RFCOMM, SOCK_THREAD_FD_EXCEPTION, rs->id);
     }
@@ -371,7 +371,7 @@ bt_status_t btsock_rfc_connect(const bt_bdaddr_t *bd_addr, const uint8_t* servic
                     btsock_thread_add_fd(pth, rs->fd, BTSOCK_RFCOMM,
                                                         SOCK_THREAD_FD_RD, rs->id);
                     *sock_fd = rs->app_fd;
-                    /* dont set rs->app_fd to -1. Stack keeps ownership of the fd */
+                    rs->app_fd = -1; //the fd ownership is transferred to app
                     status = BT_STATUS_SUCCESS;
                 }
                 else cleanup_rfc_slot(rs);
@@ -385,7 +385,7 @@ bt_status_t btsock_rfc_connect(const bt_bdaddr_t *bd_addr, const uint8_t* servic
             memcpy(sdp_uuid.uu.uuid128, service_uuid, sizeof(sdp_uuid.uu.uuid128));
             logu("service_uuid", service_uuid);
             *sock_fd = rs->app_fd;
-            /* dont set rs->app_fd to -1. Stack keeps ownership of the fd */
+            rs->app_fd = -1; //the fd ownership is transferred to app
             status = BT_STATUS_SUCCESS;
             rfc_slot_t* rs_doing_sdp = find_rfc_slot_requesting_sdp();
             if(rs_doing_sdp == NULL)
