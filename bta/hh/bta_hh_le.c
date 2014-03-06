@@ -37,12 +37,7 @@
 
 #define BTA_HH_LE_RPT_TYPE_VALID(x)     ((x) <= BTA_LE_HID_RPT_FEATURE && (x)>=BTA_LE_HID_RPT_INPUT)
 
-#ifndef BLUEDROID_RTK
-#define BTA_HH_LE_RPT_INST_ID_MAP(s,c)  (UINT8)(((s)<<4)||(c))
-#else
 #define BTA_HH_LE_RPT_INST_ID_MAP(s,c)  (UINT8)(((s)<<4)|(c))
-#endif
-
 #define BTA_HH_LE_RPT_GET_SRVC_INST_ID(x)  (UINT8)(x  >> 4)
 #define BTA_HH_LE_RPT_GET_RPT_INST_ID(x)  (UINT8)(x & 0x0f)
 
