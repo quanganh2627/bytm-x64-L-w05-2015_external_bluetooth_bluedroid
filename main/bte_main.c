@@ -24,6 +24,8 @@
  *
  ******************************************************************************/
 #include <fcntl.h>
+#include <lct.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <signal.h>
@@ -339,9 +341,15 @@ static void bte_hci_disable(void)
 *******************************************************************************/
 static void preload_wait_timeout(union sigval arg)
 {
+    char data2[30];
+
     APPL_TRACE_ERROR2("...preload_wait_timeout (retried:%d/max-retry:%d)...",
                         preload_retry_cb.retry_counts,
                         PRELOAD_MAX_RETRY_ATTEMPTS);
+    snprintf(data2, sizeof(data2), "retried:%d / max-retry:%d",
+                        preload_retry_cb.retry_counts,
+                        PRELOAD_MAX_RETRY_ATTEMPTS);
+    lct_log(CT_EV_INFO, "cws.bt", "hci_timeout", 0, "preload_wait_timeout", data2);
 
     if (preload_retry_cb.retry_counts++ < PRELOAD_MAX_RETRY_ATTEMPTS)
     {
