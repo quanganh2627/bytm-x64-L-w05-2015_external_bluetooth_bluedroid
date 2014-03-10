@@ -37,7 +37,12 @@
 
 #define BTA_HH_LE_RPT_TYPE_VALID(x)     ((x) <= BTA_LE_HID_RPT_FEATURE && (x)>=BTA_LE_HID_RPT_INPUT)
 
+#ifndef BLUEDROID_RTK
 #define BTA_HH_LE_RPT_INST_ID_MAP(s,c)  (UINT8)(((s)<<4)||(c))
+#else
+#define BTA_HH_LE_RPT_INST_ID_MAP(s,c)  (UINT8)(((s)<<4)|(c))
+#endif
+
 #define BTA_HH_LE_RPT_GET_SRVC_INST_ID(x)  (UINT8)(x  >> 4)
 #define BTA_HH_LE_RPT_GET_RPT_INST_ID(x)  (UINT8)(x & 0x0f)
 
@@ -47,6 +52,7 @@
 
 #define BTA_HH_SCPP_INST_DEF            0
 
+#ifndef BLUEDROID_RTK
 #define BTA_HH_LE_DISC_CHAR_NUM     8
 static const UINT16 bta_hh_le_disc_char_uuid[BTA_HH_LE_DISC_CHAR_NUM] =
 {
@@ -59,6 +65,16 @@ static const UINT16 bta_hh_le_disc_char_uuid[BTA_HH_LE_DISC_CHAR_NUM] =
     GATT_UUID_HID_BT_MOUSE_INPUT,
     GATT_UUID_HID_PROTO_MODE        /* always make sure this is the last attribute to discover */
 };
+#else
+#define BTA_HH_LE_DISC_CHAR_NUM     4
+static const UINT16 bta_hh_le_disc_char_uuid[BTA_HH_LE_DISC_CHAR_NUM] =
+{
+    GATT_UUID_HID_INFORMATION,
+    GATT_UUID_HID_REPORT_MAP,
+    GATT_UUID_HID_CONTROL_POINT,
+    GATT_UUID_HID_REPORT
+};
+#endif
 
 #define BTA_LE_HID_RTP_UUID_MAX     5
 static const UINT16 bta_hh_uuid_to_rtp_type[BTA_LE_HID_RTP_UUID_MAX][2] =
@@ -902,12 +918,19 @@ BOOLEAN bta_hh_le_write_char_clt_cfg(tBTA_HH_DEV_CB *p_cb,
                                     &descr_cond,
                                     &descr_id) == BTA_GATT_OK)
     {
+#ifdef BLUEDROID_RTK
+        BTA_GATTC_WriteCharDescr(p_cb->conn_id,
+                            &descr_id,
+                            BTA_GATTC_TYPE_WRITE,
+                            &value,
+                            BTA_GATT_AUTH_REQ_NONE);
+#else
         BTA_GATTC_WriteCharDescr(p_cb->conn_id,
                             &descr_id,
                             BTA_GATTC_TYPE_WRITE_NO_RSP,
                             &value,
                             BTA_GATT_AUTH_REQ_NONE);
-
+#endif
         return TRUE;
     }
     return FALSE;
@@ -937,16 +960,39 @@ BOOLEAN bta_hh_le_write_rpt_clt_cfg(tBTA_HH_DEV_CB *p_cb, UINT8 srvc_inst_id)
             else
                 srvc_uuid = UUID_SERVCLASS_LE_HID;
 
+#ifdef BLUEDROID_RTK
+            switch (p_rpt->uuid) {
+                case GATT_UUID_HID_BT_KB_INPUT:
+                case GATT_UUID_HID_BT_MOUSE_INPUT:
+                    p_rpt->client_cfg_value = BTA_GATT_CLT_CONFIG_NONE;
+                break;
+                case GATT_UUID_HID_REPORT:
+                    p_rpt->client_cfg_value = BTA_GATT_CLT_CONFIG_NOTIFICATION;
+                break;
+                default:
+                break;
+            }
+            APPL_TRACE_DEBUG1("bta_hh_le_write_rpt_clt_cfg,  client_cfg_value = 0x%02x",p_rpt->client_cfg_value);
             if (bta_hh_le_write_char_clt_cfg(p_cb,
                                              BTA_HH_LE_RPT_GET_SRVC_INST_ID(p_rpt->inst_id),
                                              srvc_uuid,
                                              BTA_HH_LE_RPT_GET_RPT_INST_ID(p_rpt->inst_id),
                                              p_rpt->uuid,
-                                             BTA_GATT_CLT_CONFIG_NOTIFICATION))
-            {
+                                             p_rpt->client_cfg_value)) {
                 p_cb->clt_cfg_idx = i;
                 return TRUE;
             }
+#else
+            if (bta_hh_le_write_char_clt_cfg(p_cb,
+                                             BTA_HH_LE_RPT_GET_SRVC_INST_ID(p_rpt->inst_id),
+                                             srvc_uuid,
+                                             BTA_HH_LE_RPT_GET_RPT_INST_ID(p_rpt->inst_id),
+                                             p_rpt->uuid,
+                                             BTA_GATT_CLT_CONFIG_NOTIFICATION)) {
+                p_cb->clt_cfg_idx = i;
+                return TRUE;
+            }
+#endif      /*BLUEDROID_RTK*/
         }
 
     }

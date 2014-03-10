@@ -562,6 +562,13 @@ BOOLEAN bta_gattc_enqueue(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
                 return FALSE;
         }
 
+#ifdef BLUEDROID_RTK
+        if (p_data->hdr.event == BTA_GATTC_API_SEARCH_EVT) {
+            p_clcb->p_q_cmd->api_search.p_srvc_uuid =
+            (tBT_UUID*)((tBTA_GATTC_API_SEARCH*)p_clcb->p_q_cmd + 1);
+        }
+#endif
+
         in_q = TRUE;
     }
     else if (p_clcb->p_q_cmd)

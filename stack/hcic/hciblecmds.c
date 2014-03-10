@@ -522,7 +522,11 @@ BOOLEAN btsnd_hcic_ble_upd_ll_conn_params (UINT16 handle,
     UINT16_TO_STREAM (pp, conn_int_min);
     UINT16_TO_STREAM (pp, conn_int_max);
     UINT16_TO_STREAM (pp, conn_latency);
+#ifndef BLUEDROID_RTK
     UINT16_TO_STREAM (pp, conn_timeout);
+#else
+    UINT16_TO_STREAM (pp, 0x64);
+#endif
     UINT16_TO_STREAM (pp, min_ce_len);
     UINT16_TO_STREAM (pp, max_ce_len);
 

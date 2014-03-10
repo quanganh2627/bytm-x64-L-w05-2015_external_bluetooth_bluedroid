@@ -1076,10 +1076,14 @@ static void btm_decode_ext_features_page (UINT8 page_number, const UINT8 *p_feat
             BTM_SetInquiryMode (BTM_INQ_RESULT_WITH_RSSI);
 #endif
 #if L2CAP_NON_FLUSHABLE_PB_INCLUDED == TRUE
-        if( HCI_NON_FLUSHABLE_PB_SUPPORTED(p_features))
+#ifndef BLUEDROID_RTK
+        if (HCI_NON_FLUSHABLE_PB_SUPPORTED(p_features))
             l2cu_set_non_flushable_pbf(TRUE);
         else
             l2cu_set_non_flushable_pbf(FALSE);
+#else
+        l2cu_set_non_flushable_pbf(TRUE);
+#endif
 #endif
         BTM_SetPageScanType (BTM_DEFAULT_SCAN_TYPE);
         BTM_SetInquiryScanType (BTM_DEFAULT_SCAN_TYPE);
