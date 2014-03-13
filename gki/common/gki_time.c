@@ -844,7 +844,7 @@ void GKI_add_to_timer_list (TIMER_LIST_Q *p_timer_listq, TIMER_LIST_ENT  *p_tle)
         {
             /* Find the entry that the new one needs to be inserted in front of */
             p_temp = p_timer_listq->p_first;
-            while ( (!p_temp) && (p_tle->ticks > p_temp->ticks))
+            while ( (p_temp != NULL) && (p_tle->ticks > p_temp->ticks))
             {
                 /* Update the tick value if looking at an unexpired entry */
                 if (p_temp->ticks > 0)
