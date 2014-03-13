@@ -25,6 +25,7 @@
  *
  ******************************************************************************/
 
+#include <lct.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -1529,6 +1530,7 @@ void btu_hcif_cmd_timeout (UINT8 controller_id)
     void    *p_cplt_cback = NULL;
     UINT16  opcode;
     UINT16  event;
+    char data2[50];
 
 #if (defined(BTU_CMD_CMPL_TOUT_DOUBLE_CHECK) && BTU_CMD_CMPL_TOUT_DOUBLE_CHECK == TRUE)
     if (!(p_hci_cmd_cb->checked_hcisu))
@@ -1593,6 +1595,8 @@ void btu_hcif_cmd_timeout (UINT8 controller_id)
     ALOGE("# WARNING : BTU HCI(id=%d) command timeout. opcode=0x%x", controller_id, opcode);
     ALOGE("#");
     ALOGE("######################################################################");
+    snprintf(data2, sizeof(data2), "controller_id=%d. opcode=%d", controller_id, opcode);
+    lct_log(CT_EV_INFO, "cws.bt", "hci_timeout", 0, "HCI command timeout", data2);
 #else
     BT_TRACE_2 (TRACE_LAYER_HCI, TRACE_TYPE_WARNING, "BTU HCI(id=%d) command timeout. opcode=0x%x", controller_id, opcode);
 #endif
