@@ -2857,6 +2857,11 @@ void hci_h5_send_msg(HC_BT_HDR *p_msg)
 
     //
     skb = skb_alloc_and_init(type, p+1, p_msg->len);
+    if (skb == NULL)
+    {
+        ALOGE("skb allocation failed in %s", __func__);
+        return;
+    }
     if (event == MSG_STACK_TO_HC_HCI_ACL)
     {
             //check whether this ACL conn has ability to send
