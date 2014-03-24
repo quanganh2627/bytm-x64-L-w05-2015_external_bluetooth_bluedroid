@@ -62,6 +62,7 @@ int adb_send(char *param)
 
     snprintf(sendBuff, sizeof(sendBuff), "%s", param);
     write(sockfd, sendBuff, strlen(sendBuff));
+    close(sockfd);
 
     return 0;
 }

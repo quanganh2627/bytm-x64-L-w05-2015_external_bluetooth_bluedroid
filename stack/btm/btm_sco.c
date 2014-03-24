@@ -688,6 +688,8 @@ static tBTM_STATUS btm_send_connect_request(UINT16 acl_handle,
                 If enhanced sco setup command is not supported then fw configuration has been done
                 already. Now send leagacy setup esco conn command.
             */
+            if (NULL == p_setup)   /* To make KW happy */
+                return (BTM_NO_RESOURCES);
             BTM_TRACE_API6("      txbw 0x%x, rxbw 0x%x, lat 0x%x, voice 0x%x, retrans 0x%02x, pkt 0x%04x",
                 p_setup->tx_bw, p_setup->rx_bw,
                 p_setup->max_latency, p_setup->voice_contfmt,

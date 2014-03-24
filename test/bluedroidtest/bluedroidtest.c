@@ -1343,9 +1343,9 @@ void do_file (char* param)
                 {
                     //sleep (1);
                     if (line[0] == ' ')
-                        sscanf(line,"%[* ]%[^\n]", arg, line);
+                        sscanf(line,"%63[* ]%1023[^\n]", arg, line);
                     else
-                        sscanf(line,"%[^\n]", line);
+                        sscanf(line,"%1023[^\n]", line);
                     printf("line:%s: args:%s\n", line, arg);
                     process_cmd(line, 0);
                     if (test_result != RESULT_SUCCESS)
