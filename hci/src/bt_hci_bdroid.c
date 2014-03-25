@@ -58,6 +58,10 @@
 
 extern bt_vendor_interface_t *bt_vnd_if;
 extern int num_hci_cmd_pkts;
+#ifdef HCI_USE_RTK_H5
+extern uint8_t h5_log_enable;
+#endif
+
 void lpm_init(void);
 void lpm_cleanup(void);
 void lpm_enable(uint8_t turn_on);
@@ -187,7 +191,7 @@ static int init(const bt_hc_callbacks_t* p_cb, unsigned char *local_bdaddr)
     struct sched_param param;
     int policy, result;
 
-    ALOGI("init");
+    ALOGI("=============init");
 
     if (p_cb == NULL)
     {
@@ -208,9 +212,11 @@ static int init(const bt_hc_callbacks_t* p_cb, unsigned char *local_bdaddr)
     extern tHCI_IF hci_mct_func_table;
     p_hci_if = &hci_mct_func_table;
 #elif defined HCI_USE_RTK_H5
+    ALOGI("=============use H5");
     extern tHCI_IF hci_h5_func_table;
     p_hci_if = &hci_h5_func_table;
 #else
+    ALOGI("=============use H4");
     extern tHCI_IF hci_h4_func_table;
     p_hci_if = &hci_h4_func_table;
 #endif
@@ -347,10 +353,13 @@ static int set_rxflow(bt_rx_flow_state_t state)
 /** Controls HCI logging on/off */
 static int logging(bt_hc_logging_state_t state, char *p_path)
 {
-    BTHCDBG("logging %d", state);
+    BTHCDBG("logging %d, path = %s", state, p_path);
 
     if (state == BT_HC_LOGGING_ON)
     {
+#ifdef HCI_USE_RTK_H5
+        h5_log_enable = 1;
+#endif
         if (p_path != NULL)
             btsnoop_open(p_path);
     }
@@ -401,6 +410,9 @@ static void cleanup( void )
         bt_vnd_if->cleanup();
 
     fwcfg_acked = FALSE;
+    pthread_cond_destroy(&hc_cb.cond);
+    pthread_mutex_destroy(&hc_cb.mutex);
+
     bt_hc_cbacks = NULL;
 }
 
