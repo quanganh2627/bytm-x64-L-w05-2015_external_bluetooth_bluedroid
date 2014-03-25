@@ -40,6 +40,7 @@
 #include <signal.h>
 #include <time.h>
 
+#include <sys/prctl.h>
 
 /******************************************************************************
 **  Constants & Macros
@@ -50,32 +51,36 @@
 #undef ALOGI
 #define ALOGI  //if you want to see log, please commit here
 
+uint8_t h5_log_enable = 0;
 
-#ifndef HCI_DBG
-#define HCI_DBG FALSE
+#ifndef H5_LOG_BUF_SIZE
+#define H5_LOG_BUF_SIZE  1024
 #endif
+#define H5_LOG_MAX_SIZE  (H5_LOG_BUF_SIZE - 12)
 
-#if (HCI_DBG == TRUE)
-#define HCIDBG(param, ...) {LOGD(param, ## __VA_ARGS__);}
-#else
-#define HCIDBG(param, ...) {}
+
+#ifndef H5_LOG_BUF_SIZE
+#define H5_LOG_BUF_SIZE  1024
 #endif
+#define H5_LOG_MAX_SIZE  (H5_LOG_BUF_SIZE - 12)
 
 
 #define TIMER_H5_DATA_RETRANS (SIGRTMAX)
 #define TIMER_H5_SYNC_RETRANS (SIGRTMAX -1)
 #define TIMER_H5_CONF_RETRANS (SIGRTMAX -2)
 #define TIMER_H5_WAIT_CT_BAUDRATE_READY (SIGRTMAX -3)
+#define TIMER_H5_HW_INIT_READY        (SIGRTMAX -4)
 
-#define DATA_RETRANS_COUNT  1000
-#define SYNC_RETRANS_COUNT  100
-#define CONF_RETRANS_COUNT  100
+#define DATA_RETRANS_COUNT  40  //40*100 = 4000ms(4s)
+#define SYNC_RETRANS_COUNT  20  //20*250 = 5000ms(5s)
+#define CONF_RETRANS_COUNT  20
 
 
 #define DATA_RETRANS_TIMEOUT_VALUE  100 //ms
 #define SYNC_RETRANS_TIMEOUT_VALUE   250
 #define CONF_RETRANS_TIMEOUT_VALUE   250
 #define WAIT_CT_BAUDRATE_READY_TIMEOUT_VALUE   400
+#define H5_HW_INIT_READY_TIMEOUT_VALUE   4000//4
 
 #define HCI_VSC_H5_INIT                0xFCEE
 
@@ -119,7 +124,7 @@
 #define HCI_COMMAND_COMPLETE_EVT    0x0E
 #define HCI_COMMAND_STATUS_EVT      0x0F
 #define HCI_NUM_OF_CMP_PKTS_EVT     0x13
-
+#define HCI_BLE_EVT     0x3E
 
 //HCI Command opcodes
 #define HCI_READ_BUFFER_SIZE        0x1005
@@ -131,7 +136,7 @@
 #define READ_DATA_SIZE  16
 
 // HCI data types //
-#define H5_ACK_PKT          0x00
+#define H5_ACK_PKT              0x00
 #define HCI_COMMAND_PKT         0x01
 #define HCI_ACLDATA_PKT         0x02
 #define HCI_SCODATA_PKT         0x03
@@ -139,27 +144,21 @@
 #define H5_VDRSPEC_PKT          0x0E
 #define H5_LINK_CTL_PKT         0x0F
 
+//#define BT_FW_CAL_ENABLE
+
+#ifdef BT_FW_CAL_ENABLE
+#define CAL_INQUIRY_SUCCESS     0
+#define CAL_INQUIRY_UNKNOWN     1
+#define CAL_INQUIRY_FAIL        2
+#define IS_LAST_INQUIRY_SUCCESS     0x0010
+#define BT_CAL_DIRECTORY "/data/misc/bluedroid/"
+uint32_t rtk_set_bt_cal_inqury_result(uint8_t result);
+#endif
 
 /* BD Address */
 typedef struct {
     uint8_t b[6];
 } __packed bdaddr_t;
-
-/* Copy, swap, convert BD Address */
-static inline int bacmp(bdaddr_t *ba1, bdaddr_t *ba2)
-{
-    return memcmp(ba1, ba2, sizeof(bdaddr_t));
-}
-static inline void bacpy(bdaddr_t *dst, bdaddr_t *src)
-{
-    memcpy(dst, src, sizeof(bdaddr_t));
-}
-
-static inline void baPrint(bdaddr_t ba)
-{
-    ALOGI("BT_ADDR: 0x%02X%02X%02X%02X%02X%02X",ba.b[5], ba.b[4], ba.b[3], ba.b[2], ba.b[1], ba.b[0]);
-}
-
 
 
 /******************************************************************************
@@ -199,8 +198,8 @@ struct bt_skb_cb
 };
 
 typedef struct {
-    uint8_t     index;
-    uint8_t     data[252];
+    uint8_t index;
+    uint8_t data[252];
 } __attribute__ ((packed)) download_vendor_patch_cp;
 
 
@@ -210,9 +209,9 @@ typedef struct {
 struct hci_command_hdr {
  uint16_t opcode;     /* OCF & OGF */
  uint8_t    plen;
- } __attribute__ ((packed));
+} __attribute__ ((packed));
 
- struct hci_event_hdr {
+struct hci_event_hdr {
  uint8_t    evt;
  uint8_t    plen;
  } __attribute__ ((packed));
@@ -220,7 +219,7 @@ struct hci_command_hdr {
 struct hci_ev_cmd_complete {
 uint8_t     ncmd;
 uint16_t   opcode;
- } __attribute__ ((packed));
+} __attribute__ ((packed));
 
 #define HCI_CMD_READ_BD_ADDR 0x1009
 #define HCI_VENDOR_CHANGE_BDRATE 0xfc17
@@ -322,9 +321,17 @@ typedef struct _HCI_CONN {
     uint8_t link_type;
     uint8_t encrypt_enabled;
     uint16_t NumOfNotCmpAclPkts;
-    RTB_QUEUE_HEAD *pending_pkts;       // pending pkts to send
+    RTB_QUEUE_HEAD *pending_pkts;    // pending pkts to send
     sk_buff *rx_skb;
 }HCI_CONN, *PHCI_CONN;
+
+
+#define H5_EVENT_RX                    0x0001
+#define H5_EVENT_EXIT                  0x0200
+
+static volatile uint8_t h5_retransfer_running = 0;
+static volatile uint16_t h5_ready_events = 0;
+
 
 /* Control block for HCISU_H5 */
 struct tHCI_H5_CB
@@ -360,14 +367,14 @@ struct tHCI_H5_CB
     RTB_QUEUE_HEAD *unrel;      // Unreliable packets queue
 
 
-    uint8_t rxseq_txack;        // rxseq == txack. // expected rx SeqNumber
-    uint8_t  rxack;         // Last packet sent by us that the peer ack'ed //
+    uint8_t    rxseq_txack;        // rxseq == txack. // expected rx SeqNumber
+    uint8_t    rxack;             // Last packet sent by us that the peer ack'ed //
 
-    uint8_t  use_crc;
-    uint8_t  is_txack_req;      // txack required? Do we need to send ack's to the peer? //
+    uint8_t    use_crc;
+    uint8_t    is_txack_req;      // txack required? Do we need to send ack's to the peer? //
 
     // Reliable packet sequence number - used to assign seq to each rel pkt. */
-    uint8_t msgq_txseq;     //next pkt seq
+    uint8_t    msgq_txseq;         //next pkt seq
 
     uint16_t    message_crc;
     uint32_t    rx_count;       //expected pkts to recv
@@ -383,21 +390,29 @@ struct tHCI_H5_CB
     timer_t  timer_sync_retrans;
     timer_t  timer_conf_retrans;
     timer_t  timer_wait_ct_baudrate_ready;
+    timer_t  timer_h5_hw_init_ready;
 
     uint32_t data_retrans_count;
     uint32_t sync_retrans_count;
     uint32_t conf_retrans_count;
+
+    pthread_mutex_t mutex;
+    pthread_cond_t  cond;
     pthread_t thread_data_retrans;
 
 
     RT_LIST_HEAD    HciConnHash;
 
     uint16_t hc_cur_acl_total_num;
-    uint8_t h5_busy;
+    uint8_t   cleanuping;
 
-} ;
+#ifdef BT_FW_CAL_ENABLE
+    uint8_t  bHasUpdateCalInquiryState;
+#endif
+};
 
 static struct tHCI_H5_CB rtk_h5;
+static pthread_mutex_t h5_wakeup_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /******************************************************************************
 **  Variables
@@ -411,10 +426,10 @@ volatile int num_hci_cmd_pkts = 1;
 ******************************************************************************/
 
 struct patch_struct {
-    int     nTxIndex;   // current sending pkt number
-    int     nTotal;     // total pkt number
-    int     nRxIndex;   // ack index from board
-    int     nNeedRetry; // if no response from board
+    int nTxIndex;   // current sending pkt number
+    int nTotal;     // total pkt number
+    int nRxIndex;   // ack index from board
+    int nNeedRetry; // if no response from board
 };
 static struct patch_struct rtk_patch;
 
@@ -454,6 +469,11 @@ int h5_free_wait_controller_baudrate_ready_timer();
 int h5_stop_wait_controller_baudrate_ready_timer();
 int h5_start_wait_controller_baudrate_ready_timer();
 
+int h5_alloc_hw_init_ready_timer();
+int h5_free_hw_init_ready_timer();
+int h5_stop_hw_init_ready_timer();
+int h5_start_hw_init_ready_timer();
+
 
 // bite reverse in bytes
 // 00000001 -> 10000000
@@ -492,7 +512,46 @@ const uint8_t byte_rev_table[256] = {
     0x0f, 0x8f, 0x4f, 0xcf, 0x2f, 0xaf, 0x6f, 0xef,
     0x1f, 0x9f, 0x5f, 0xdf, 0x3f, 0xbf, 0x7f, 0xff,
 };
+#ifndef H5_LOG_BUF_SIZE
+#define H5_LOG_BUF_SIZE  1024
+#endif
+#define H5_LOG_MAX_SIZE  (H5_LOG_BUF_SIZE - 12)
 
+#define LOGI0(t,s) __android_log_write(ANDROID_LOG_INFO, t, s)
+
+void
+H5_LogMsg(const char *fmt_str, ...)
+{
+    static char buffer[H5_LOG_BUF_SIZE];
+    if (h5_log_enable == 1)
+    {
+        va_list ap;
+        va_start(ap, fmt_str);
+        vsnprintf(&buffer[0], H5_LOG_MAX_SIZE, fmt_str, ap);
+        va_end(ap);
+
+        LOGI0("H5: ", buffer);
+     }
+     else
+     {
+        return;
+     }
+}
+
+/* Copy, swap, convert BD Address */
+static inline int bacmp(bdaddr_t *ba1, bdaddr_t *ba2)
+{
+    return memcmp(ba1, ba2, sizeof(bdaddr_t));
+}
+static inline void bacpy(bdaddr_t *dst, bdaddr_t *src)
+{
+    memcpy(dst, src, sizeof(bdaddr_t));
+}
+
+static inline void baPrint(bdaddr_t ba)
+{
+    H5_LogMsg("BT_ADDR: 0x%02X%02X%02X%02X%02X%02X",ba.b[5], ba.b[4], ba.b[3], ba.b[2], ba.b[1], ba.b[0]);
+}
 // reverse bit
 static __inline uint8_t bit_rev8(uint8_t byte)
 {
@@ -702,14 +761,14 @@ void skb_pull(OUT  sk_buff * skb, IN uint32_t len)
 
 sk_buff *
 skb_alloc_and_init(
-    IN uint8_t  PktType,
-    IN uint8_t *    Data,
-    IN uint32_t     DataLen
+    IN uint8_t PktType,
+    IN uint8_t * Data,
+    IN uint32_t  DataLen
     )
 {
     sk_buff * skb = skb_alloc(DataLen);
     if (NULL == skb)
-        return NULL;
+    return NULL;
     memcpy(skb_put(skb, DataLen), Data, DataLen);
     skb_set_pkt_type(skb, PktType);
 
@@ -764,7 +823,7 @@ HciConnAllocate(
 {
     HCI_CONN * phci_conn = NULL;
     phci_conn = malloc(sizeof(HCI_CONN));
-    if(phci_conn)
+    if (phci_conn)
     {
         phci_conn->handle = handle;
         phci_conn->pending_pkts = RtbQueueInit();
@@ -780,15 +839,14 @@ HciConnFree(
     HCI_CONN* phci_conn
   )
 {
-    if(phci_conn)
+    if (phci_conn)
     {
         RtbQueueFree(phci_conn->pending_pkts);
-        if(phci_conn->rx_skb)
+        if (phci_conn->rx_skb)
             skb_free(&phci_conn->rx_skb);
 
         free(phci_conn);
     }
-
 }
 
 /**
@@ -935,7 +993,7 @@ static void h5_slip_one_byte(sk_buff *skb, uint8_t c)
 
     case 0x11:
     {
-        if(rtk_h5.oof_flow_control)
+        if (rtk_h5.oof_flow_control)
         {
             memcpy(skb_put(skb, 2), &esc_11, 2);
         }
@@ -948,7 +1006,7 @@ static void h5_slip_one_byte(sk_buff *skb, uint8_t c)
 
     case 0x13:
     {
-        if(rtk_h5.oof_flow_control)
+        if (rtk_h5.oof_flow_control)
         {
             memcpy(skb_put(skb, 2), &esc_13, 2);
         }
@@ -998,7 +1056,7 @@ static void h5_unslip_one_byte(struct tHCI_H5_CB *h5, unsigned char byte)
             h5->rx_count--;
         }
     }
-    else if(H5_ESCSTATE_ESC == h5->rx_esc_state)
+    else if (H5_ESCSTATE_ESC == h5->rx_esc_state)
     {
         switch (byte)
         {
@@ -1046,8 +1104,8 @@ static void h5_unslip_one_byte(struct tHCI_H5_CB *h5, unsigned char byte)
 *  |packet header | payload | data integrity check |
 *
 * pakcket header fromat is show below:
-*  | LSB 3 bits         | 3 bits                   | 1 bits                      | 1 bits         |
-*  | 4 bits            | 12 bits     | 8 bits MSB
+*  | LSB 3 bits         | 3 bits             | 1 bits                       | 1 bits          |
+*  | 4 bits     | 12 bits        | 8 bits MSB
 *  |sequence number | acknowledgement number | data integrity check present | reliable packet |
 *  |packet type | payload length | header checksum
 *
@@ -1063,19 +1121,19 @@ static sk_buff * h5_prepare_pkt(struct tHCI_H5_CB *h5, uint8_t *data, signed lon
     uint8_t hdr[4];
     uint16_t H5_CRC_INIT(h5_txmsg_crc);
     int rel, i;
-    ALOGI("HCI h5_prepare_pkt");
+    H5_LogMsg("HCI h5_prepare_pkt");
 
     switch (pkt_type)
     {
     case HCI_ACLDATA_PKT:
     case HCI_COMMAND_PKT:
     case HCI_EVENT_PKT:
-    rel = 1;    // reliable
+    rel = 1;// reliable
     break;
     case H5_ACK_PKT:
     case H5_VDRSPEC_PKT:
     case H5_LINK_CTL_PKT:
-    rel = 0;    // unreliable
+    rel = 0;// unreliable
     break;
     default:
     ALOGE("Unknown packet type");
@@ -1090,8 +1148,8 @@ static sk_buff * h5_prepare_pkt(struct tHCI_H5_CB *h5, uint8_t *data, signed lon
     nskb = skb_alloc((len + 6) * 2 + 2);
     if (!nskb)
     {
-    ALOGI("nskb is NULL");
-    return NULL;
+        H5_LogMsg("nskb is NULL");
+        return NULL;
     }
 
     //Add SLIP start byte: 0xc0
@@ -1100,15 +1158,15 @@ static sk_buff * h5_prepare_pkt(struct tHCI_H5_CB *h5, uint8_t *data, signed lon
     hdr[0] = h5->rxseq_txack << 3;
     h5->is_txack_req = 0;
 
-    ALOGI("We request packet no(%u) to card", h5->rxseq_txack);
-    ALOGI("Sending packet with seqno %u and wait %u", h5->msgq_txseq, h5->rxseq_txack);
+    H5_LogMsg("We request packet no(%u) to card", h5->rxseq_txack);
+    H5_LogMsg("Sending packet with seqno %u and wait %u", h5->msgq_txseq, h5->rxseq_txack);
     if (rel)
     {
-    // set reliable pkt bit and SeqNumber
-    hdr[0] |= 0x80 + h5->msgq_txseq;
-    //ALOGI("Sending packet with seqno(%u)", h5->msgq_txseq);
-    ++(h5->msgq_txseq);
-    h5->msgq_txseq = (h5->msgq_txseq) & 0x07;
+        // set reliable pkt bit and SeqNumber
+        hdr[0] |= 0x80 + h5->msgq_txseq;
+        //H5_LogMsg("Sending packet with seqno(%u)", h5->msgq_txseq);
+        ++(h5->msgq_txseq);
+        h5->msgq_txseq = (h5->msgq_txseq) & 0x07;
     }
 
     // set DicPresent bit
@@ -1124,16 +1182,16 @@ static sk_buff * h5_prepare_pkt(struct tHCI_H5_CB *h5, uint8_t *data, signed lon
     // Put h5 header */
     for (i = 0; i < 4; i++)
     {
-    h5_slip_one_byte(nskb, hdr[i]);
+        h5_slip_one_byte(nskb, hdr[i]);
 
-    if (h5->use_crc)
-        h5_crc_update(&h5_txmsg_crc, hdr[i]);
+        if (h5->use_crc)
+            h5_crc_update(&h5_txmsg_crc, hdr[i]);
     }
 
     // Put payload */
     for (i = 0; i < len; i++)
     {
-    h5_slip_one_byte(nskb, data[i]);
+        h5_slip_one_byte(nskb, data[i]);
 
        if (h5->use_crc)
        h5_crc_update(&h5_txmsg_crc, data[i]);
@@ -1142,9 +1200,9 @@ static sk_buff * h5_prepare_pkt(struct tHCI_H5_CB *h5, uint8_t *data, signed lon
     // Put CRC */
     if (h5->use_crc)
     {
-    h5_txmsg_crc = bit_rev16(h5_txmsg_crc);
-    h5_slip_one_byte(nskb, (uint8_t) ((h5_txmsg_crc >> 8) & 0x00ff));
-    h5_slip_one_byte(nskb, (uint8_t) (h5_txmsg_crc & 0x00ff));
+        h5_txmsg_crc = bit_rev16(h5_txmsg_crc);
+        h5_slip_one_byte(nskb, (uint8_t) ((h5_txmsg_crc >> 8) & 0x00ff));
+        h5_slip_one_byte(nskb, (uint8_t) (h5_txmsg_crc & 0x00ff));
     }
 
     // Add SLIP end byte: 0xc0
@@ -1166,21 +1224,23 @@ static void h5_remove_acked_pkt(struct tHCI_H5_CB *h5)
     int seqno = 0;
     int i = 0;
 
+    pthread_mutex_lock(&h5_wakeup_mutex);
+
     seqno = h5->msgq_txseq;
     pkts_to_be_removed = RtbGetQueueLen(h5->unack);
 
     while (pkts_to_be_removed)
     {
-    if (h5->rxack == seqno)
+        if (h5->rxack == seqno)
         break;
 
         pkts_to_be_removed--;
-    seqno = (seqno - 1) & 0x07;
+        seqno = (seqno - 1) & 0x07;
     }
 
     if (h5->rxack != seqno)
     {
-        ALOGI("Peer acked invalid packet");
+        H5_LogMsg("Peer acked invalid packet");
     }
 
 
@@ -1206,8 +1266,10 @@ static void h5_remove_acked_pkt(struct tHCI_H5_CB *h5)
 
     if (i != pkts_to_be_removed)
     {
-        ALOGI("Removed only (%u) out of (%u) pkts", i, pkts_to_be_removed);
+        H5_LogMsg("Removed only (%u) out of (%u) pkts", i, pkts_to_be_removed);
     }
+
+    pthread_mutex_unlock(&h5_wakeup_mutex);
 
 }
 
@@ -1225,12 +1287,12 @@ static void hci_h5_send_pure_ack(void)
     uint16_t bytes_sent = 0;
 
     sk_buff *nskb = h5_prepare_pkt(&rtk_h5, NULL, 0, H5_ACK_PKT);
-    if(nskb == NULL)
+    if (nskb == NULL)
     {
         ALOGE("h5_prepare_pkt allocate memory fail");
         return;
     }
-    ALOGI("H5: --->>>send pure ack");
+    H5_LogMsg("H5: --->>>send pure ack");
     uint8_t * data = skb_get_data(nskb);
 
 #if H5_TRACE_DATA_ENABLE
@@ -1238,21 +1300,21 @@ static void hci_h5_send_pure_ack(void)
         uint32_t iTemp = 0;
         uint32_t iTempTotal = 16;
 
-        ALOGI("H5 TX: length(%d)", skb_get_data_length(nskb));
-        if(iTempTotal > skb_get_data_length(nskb))
+        H5_LogMsg("H5 TX: length(%d)", skb_get_data_length(nskb));
+        if (iTempTotal > skb_get_data_length(nskb))
         {
             iTempTotal = skb_get_data_length(nskb);
         }
 
-        for(iTemp = 0; iTemp < iTempTotal; iTemp++)
+        for (iTemp = 0; iTemp < iTempTotal; iTemp++)
         {
-            ALOGI("0x%x", data[iTemp]);
+            H5_LogMsg("0x%x", data[iTemp]);
         }
     }
 #endif
 
     bytes_sent = userial_write(MSG_STACK_TO_HC_HCI_CMD, data, skb_get_data_length(nskb));
-    ALOGI("bytes_sent(%d)", bytes_sent);
+    H5_LogMsg("bytes_sent(%d)", bytes_sent);
 
     skb_free(&nskb);
 
@@ -1266,32 +1328,32 @@ static void hci_h5_send_sync_req()
     unsigned char    h5sync[2]     = {0x01, 0x7E};
 
     sk_buff *nskb = h5_prepare_pkt(&rtk_h5, h5sync, sizeof(h5sync), H5_LINK_CTL_PKT);
-    if(nskb == NULL)
+    if (nskb == NULL)
     {
         ALOGE("h5_prepare_pkt allocate memory fail");
         return;
     }
-    ALOGI("H5: --->>>send sync req");
+    H5_LogMsg("H5: --->>>send sync req");
     uint8_t * data = skb_get_data(nskb);
 
 #if H5_TRACE_DATA_ENABLE
     {
         uint32_t iTemp = 0;
         uint32_t iTempTotal = 16;
-        ALOGI("H5 TX: length(%d)", skb_get_data_length(nskb));
-        if(iTempTotal > skb_get_data_length(nskb))
+        H5_LogMsg("H5 TX: length(%d)", skb_get_data_length(nskb));
+        if (iTempTotal > skb_get_data_length(nskb))
         {
             iTempTotal = skb_get_data_length(nskb);
         }
-        for(iTemp = 0; iTemp < iTempTotal; iTemp++)
+        for (iTemp = 0; iTemp < iTempTotal; iTemp++)
         {
-            ALOGI("0x%x", data[iTemp]);
+            H5_LogMsg("0x%x", data[iTemp]);
         }
     }
 #endif
 
     bytes_sent = userial_write(MSG_STACK_TO_HC_HCI_CMD, data, skb_get_data_length(nskb));
-    ALOGI("bytes_sent(%d)", bytes_sent);
+    H5_LogMsg("bytes_sent(%d)", bytes_sent);
 
     skb_free(&nskb);
 
@@ -1304,32 +1366,32 @@ static void hci_h5_send_sync_resp()
     unsigned char h5syncresp[2] = {0x02, 0x7D};
 
     sk_buff *nskb = h5_prepare_pkt(&rtk_h5, h5syncresp, sizeof(h5syncresp), H5_LINK_CTL_PKT);
-    if(nskb == NULL)
+    if (nskb == NULL)
     {
         ALOGE("h5_prepare_pkt allocate memory fail");
         return;
     }
-    ALOGI("H5: --->>>send sync resp");
+    H5_LogMsg("H5: --->>>send sync resp");
     uint8_t * data = skb_get_data(nskb);
 
 #if H5_TRACE_DATA_ENABLE
     {
         uint32_t iTemp = 0;
         uint32_t iTempTotal = 16;
-        ALOGI("H5 TX: length(%d)", skb_get_data_length(nskb));
-        if(iTempTotal > skb_get_data_length(nskb))
+        H5_LogMsg("H5 TX: length(%d)", skb_get_data_length(nskb));
+        if (iTempTotal > skb_get_data_length(nskb))
         {
             iTempTotal = skb_get_data_length(nskb);
         }
-        for(iTemp = 0; iTemp < iTempTotal; iTemp++)
+        for (iTemp = 0; iTemp < iTempTotal; iTemp++)
         {
-            ALOGI("0x%x", data[iTemp]);
+            H5_LogMsg("0x%x", data[iTemp]);
         }
     }
 #endif
 
     bytes_sent = userial_write(MSG_STACK_TO_HC_HCI_CMD, data, skb_get_data_length(nskb));
-    ALOGI("bytes_sent(%d)", bytes_sent);
+    H5_LogMsg("bytes_sent(%d)", bytes_sent);
 
     skb_free(&nskb);
 
@@ -1342,32 +1404,32 @@ static void hci_h5_send_conf_req()
     unsigned char h5conf[3] = {0x03, 0xFC, 0x14};
 
     sk_buff *nskb = h5_prepare_pkt(&rtk_h5, h5conf, sizeof(h5conf), H5_LINK_CTL_PKT);
-    if(nskb == NULL)
+    if (nskb == NULL)
     {
         ALOGE("h5_prepare_pkt allocate memory fail");
         return;
     }
-    ALOGI("H5: --->>>send conf req");
+    H5_LogMsg("H5: --->>>send conf req");
     uint8_t * data = skb_get_data(nskb);
 
 #if H5_TRACE_DATA_ENABLE
     {
         uint32_t iTemp = 0;
         uint32_t iTempTotal = 16;
-        ALOGI("H5 TX: length(%d)", skb_get_data_length(nskb));
-        if(iTempTotal > skb_get_data_length(nskb))
+        H5_LogMsg("H5 TX: length(%d)", skb_get_data_length(nskb));
+        if (iTempTotal > skb_get_data_length(nskb))
         {
             iTempTotal = skb_get_data_length(nskb);
         }
-        for(iTemp = 0; iTemp < iTempTotal; iTemp++)
+        for (iTemp = 0; iTemp < iTempTotal; iTemp++)
         {
-            ALOGI("0x%x", data[iTemp]);
+            H5_LogMsg("0x%x", data[iTemp]);
         }
     }
 #endif
 
     bytes_sent = userial_write(MSG_STACK_TO_HC_HCI_CMD, data, skb_get_data_length(nskb));
-    ALOGI("bytes_sent(%d)", bytes_sent);
+    H5_LogMsg("bytes_sent(%d)", bytes_sent);
 
     skb_free(&nskb);
 
@@ -1381,32 +1443,32 @@ static void hci_h5_send_conf_resp()
     unsigned char h5confresp[2] = {0x04, 0x7B};
 
     sk_buff *nskb = h5_prepare_pkt(&rtk_h5, h5confresp, sizeof(h5confresp), H5_LINK_CTL_PKT);
-    if(nskb == NULL)
+    if (nskb == NULL)
     {
         ALOGE("h5_prepare_pkt allocate memory fail");
         return;
     }
-    ALOGI("H5: --->>>send conf resp");
+    H5_LogMsg("H5: --->>>send conf resp");
     uint8_t * data = skb_get_data(nskb);
 
 #if H5_TRACE_DATA_ENABLE
     {
         uint32_t iTemp = 0;
         uint32_t iTempTotal = 16;
-        ALOGI("H5 TX: length(%d)", skb_get_data_length(nskb));
-        if(iTempTotal > skb_get_data_length(nskb))
+        H5_LogMsg("H5 TX: length(%d)", skb_get_data_length(nskb));
+        if (iTempTotal > skb_get_data_length(nskb))
         {
             iTempTotal = skb_get_data_length(nskb);
         }
-        for(iTemp = 0; iTemp < iTempTotal; iTemp++)
+        for (iTemp = 0; iTemp < iTempTotal; iTemp++)
         {
-            ALOGI("0x%x", data[iTemp]);
+            H5_LogMsg("0x%x", data[iTemp]);
         }
     }
 #endif
 
     bytes_sent = userial_write(MSG_STACK_TO_HC_HCI_CMD, data, skb_get_data_length(nskb));
-    ALOGI("bytes_sent(%d)", bytes_sent);
+    H5_LogMsg("bytes_sent(%d)", bytes_sent);
 
     skb_free(&nskb);
 
@@ -1437,7 +1499,7 @@ static void rtk_notify_hw_h5_init_result(uint8_t result)
 
             memcpy((uint8_t *)(pH5InitResultPkt + 1), h5InitOk, sizeof(h5InitOk));
 
-            if(rtk_h5.cback_h5sync)
+            if (rtk_h5.cback_h5sync)
                 rtk_h5.cback_h5sync(pH5InitResultPkt);
 
         }
@@ -1452,23 +1514,23 @@ h5_dequeue(
     sk_buff *skb = NULL;
     //   First of all, check for unreliable messages in the queue,
     //   since they have higher priority
-    ALOGI("h5_dequeue++");
+    H5_LogMsg("h5_dequeue++");
     if ((skb = (sk_buff*)skb_dequeue_head(rtk_h5.unrel)) != NULL)
     {
-     ALOGI("h5_dequeue11");
+        H5_LogMsg("h5_dequeue11");
         sk_buff *nskb = h5_prepare_pkt(&rtk_h5,
                                          skb_get_data(skb),
                                          skb_get_data_length(skb),
                                          skb_get_pkt_type(skb));
         if (nskb)
         {
-         ALOGI("h5_dequeue12");
+            H5_LogMsg("h5_dequeue12");
             skb_free(&skb);
             return nskb;
         }
         else
         {
-         ALOGI("h5_dequeue13");
+            H5_LogMsg("h5_dequeue13");
             skb_queue_head(rtk_h5.unrel, skb);
         }
     }
@@ -1476,43 +1538,43 @@ h5_dequeue(
     //   reliable packet if the number of packets sent but not yet ack'ed
     //   is < than the winsize
 
-//    ALOGI("RtbGetQueueLen(rtk_h5.unack) = (%d), sliding_window_size = (%d)", RtbGetQueueLen(rtk_h5.unack), rtk_h5.sliding_window_size);
+//    H5_LogMsg("RtbGetQueueLen(rtk_h5.unack) = (%d), sliding_window_size = (%d)", RtbGetQueueLen(rtk_h5.unack), rtk_h5.sliding_window_size);
 
     if (RtbGetQueueLen(rtk_h5.unack)< rtk_h5.sliding_window_size &&
         (skb = (sk_buff *)skb_dequeue_head(rtk_h5.rel)) != NULL)
     {
-     ALOGI("h5_dequeue21");
+        H5_LogMsg("h5_dequeue21");
         sk_buff *nskb = h5_prepare_pkt(&rtk_h5,
                                          skb_get_data(skb),
                                          skb_get_data_length(skb),
                                          skb_get_pkt_type(skb));
         if (nskb)
         {
-            ALOGI("h5_dequeue22");
+            H5_LogMsg("h5_dequeue22");
             skb_queue_tail(rtk_h5.unack, skb);
-         h5_start_data_retrans_timer();
-            ALOGI("h5_dequeue23");
+            h5_start_data_retrans_timer();
+            H5_LogMsg("h5_dequeue23");
             return nskb;
         }
         else
         {
-         ALOGI("h5_dequeue24");
+            H5_LogMsg("h5_dequeue24");
             skb_queue_head(rtk_h5.rel, skb);
         }
     }
     //   We could not send a reliable packet, either because there are
     //   none or because there are too many unack'ed packets. Did we receive
-    //   any packets we have not acknowledged yet ?
-    ALOGI("h5_dequeue3");
+    //   any packets we have not acknowledged yet
+    H5_LogMsg("h5_dequeue3");
     if (rtk_h5.is_txack_req)
     {
         // if so, craft an empty ACK pkt and send it on BCSP unreliable
-        // channel 0
+        // channel
         sk_buff *nskb = h5_prepare_pkt(&rtk_h5, NULL, 0, H5_ACK_PKT);
         return nskb;
     }
     // We have nothing to send
-    ALOGI("h5_dequeue4");
+    H5_LogMsg("h5_dequeue4");
     return NULL;
 }
 
@@ -1540,7 +1602,7 @@ h5_enqueue(
     case H5_LINK_CTL_PKT:
     case H5_ACK_PKT:
     case H5_VDRSPEC_PKT:
-        skb_queue_tail(rtk_h5.unrel, skb);  /* 3-wire LinkEstablishment*/
+        skb_queue_tail(rtk_h5.unrel, skb);/* 3-wire LinkEstablishment*/
         break;
     default:
         skb_free(&skb);
@@ -1549,7 +1611,6 @@ h5_enqueue(
     return 0;
 }
 
-static pthread_mutex_t h5_wakeup_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void h5_wake_up()
 {
@@ -1559,33 +1620,33 @@ static void h5_wake_up()
     uint32_t data_len = 0;
 
     pthread_mutex_lock(&h5_wakeup_mutex);
-    ALOGI("h5_wake_up++");
+    H5_LogMsg("h5_wake_up++");
     while (NULL != (skb = h5_dequeue()))
     {
         data = skb_get_data(skb);
         data_len = skb_get_data_length(skb);
         bytes_sent = userial_write(0, data, data_len);
 
-        ALOGI("bytes_sent(%d)", bytes_sent);
+        H5_LogMsg("bytes_sent(%d)", bytes_sent);
 
 #if H5_TRACE_DATA_ENABLE
         {
             uint32_t iTemp = 0;
             uint32_t iTempTotal = 16;
-            ALOGI("H5 TX: length(%d)", data_len);
-            if(iTempTotal > data_len)
+            H5_LogMsg("H5 TX: length(%d)", data_len);
+            if (iTempTotal > data_len)
             {
                 iTempTotal = data_len;
             }
-            for(iTemp = 0; iTemp < iTempTotal; iTemp++)
+            for (iTemp = 0; iTemp < iTempTotal; iTemp++)
             {
-                ALOGI("0x%x", data[iTemp]);
+                H5_LogMsg("0x%x", data[iTemp]);
             }
         }
 #endif
         skb_free(&skb);
     }
-    ALOGI("h5_wake_up--");
+    H5_LogMsg("h5_wake_up--");
 
     pthread_mutex_unlock(&h5_wakeup_mutex);
 }
@@ -1615,7 +1676,7 @@ static uint8_t acl_rx_frame_end_chk (sk_buff * skb_acl)
 
     data = skb_get_data(skb_acl);
     data_len = skb_get_data_length(skb_acl);
-    if(data_len < 6)
+    if (data_len < 6)
     {
         frame_end = FALSE;
         return frame_end;
@@ -1624,7 +1685,7 @@ static uint8_t acl_rx_frame_end_chk (sk_buff * skb_acl)
     STREAM_TO_UINT16 (handle, data);
     STREAM_TO_UINT16 (hci_len, data);
     STREAM_TO_UINT16 (l2cap_len, data);
-    ALOGI("handle(0x%x), hci_len(%d), l2cap_len(%d)", handle, hci_len, l2cap_len);
+    H5_LogMsg("handle(0x%x), hci_len(%d), l2cap_len(%d)", handle, hci_len, l2cap_len);
 
     if (hci_len > 0)
     {
@@ -1633,11 +1694,11 @@ static uint8_t acl_rx_frame_end_chk (sk_buff * skb_acl)
             /* If the L2CAP length has not been reached, tell H5 not to send
              * this buffer to stack */
             frame_end = FALSE;
-            ALOGI("H5: L2CAP fragment PKT, data_len(%d)", data_len);
+            H5_LogMsg("H5: L2CAP fragment PKT, data_len(%d)", data_len);
         }
         else
         {
-            ALOGI("H5: L2CAP Complete PKT, data_len(%d)", data_len);
+            H5_LogMsg("H5: L2CAP Complete PKT, data_len(%d)", data_len);
         }
     }
 
@@ -1663,18 +1724,18 @@ void h5_process_ctl_pkts(void)
     ph5_payload = (uint8_t *)(p_cb->p_rcv_msg + 1);
 
 
-    if(rtk_h5.link_estab_state == H5_UNINITIALIZED) {  //sync
+    if (rtk_h5.link_estab_state == H5_UNINITIALIZED) {  //sync
         if (!memcmp(skb_get_data(skb), h5sync, 2))
         {
-            ALOGI("H5: <<<---recv sync req");
+            H5_LogMsg("H5: <<<---recv sync req");
             hci_h5_send_sync_resp();
         }
         else if (!memcmp(skb_get_data(skb), h5syncresp, 2))
         {
-    ALOGI("H5: <<<---recv sync resp");
-              h5_stop_sync_retrans_timer();
-              rtk_h5.sync_retrans_count  = 0;
-    rtk_h5.link_estab_state = H5_INITIALIZED;
+            H5_LogMsg("H5: <<<---recv sync resp");
+            h5_stop_sync_retrans_timer();
+            rtk_h5.sync_retrans_count  = 0;
+            rtk_h5.link_estab_state = H5_INITIALIZED;
 
               //send config req
               hci_h5_send_conf_req();
@@ -1682,18 +1743,18 @@ void h5_process_ctl_pkts(void)
         }
 
     }
-    else if(rtk_h5.link_estab_state == H5_INITIALIZED) {  //config
+    else if (rtk_h5.link_estab_state == H5_INITIALIZED) {  //config
         if (!memcmp(skb_get_data(skb), h5sync, 0x2)) {
 
-            ALOGI("H5: <<<---recv sync req in H5_INITIALIZED");
+            H5_LogMsg("H5: <<<---recv sync req in H5_INITIALIZED");
             hci_h5_send_sync_resp();
         }
         else if (!memcmp(skb_get_data(skb), h5conf, 0x2)) {
-             ALOGI("H5: <<<---recv conf req");
+             H5_LogMsg("H5: <<<---recv conf req");
              hci_h5_send_conf_resp();
         }
         else if (!memcmp(skb_get_data(skb), h5confresp,  0x2)) {
-            ALOGI("H5: <<<---recv conf resp");
+            H5_LogMsg("H5: <<<---recv conf resp");
             h5_stop_conf_retrans_timer();
             rtk_h5.conf_retrans_count  = 0;
 
@@ -1703,36 +1764,36 @@ void h5_process_ctl_pkts(void)
             rtk_h5.sliding_window_size = f.SlidingWindowSize;
             rtk_h5.oof_flow_control = f.OofFlowControl;
             rtk_h5.dic_type = f.DicType;
-            ALOGI("rtk_h5.sliding_window_size(%d), oof_flow_control(%d), dic_type(%d)",
-                rtk_h5.sliding_window_size, rtk_h5.oof_flow_control, rtk_h5.dic_type);
-         if(rtk_h5.dic_type)
+            H5_LogMsg("rtk_h5.sliding_window_size(%d), oof_flow_control(%d), dic_type(%d)",
+            rtk_h5.sliding_window_size, rtk_h5.oof_flow_control, rtk_h5.dic_type);
+         if (rtk_h5.dic_type)
             rtk_h5.use_crc = 1;
 
             rtk_notify_hw_h5_init_result(1);
         }
         else {
-            ALOGI("H5_INITIALIZED receive event, ingnore");
+            H5_LogMsg("H5_INITIALIZED receive event, ingnore");
         }
     }
-    else if(rtk_h5.link_estab_state == H5_ACTIVE) {
+    else if (rtk_h5.link_estab_state == H5_ACTIVE) {
         if (!memcmp(skb_get_data(skb), h5sync, 0x2)) {
 
-            ALOGI("H5: <<<---recv sync req in H5_ACTIVE");
+            H5_LogMsg("H5: <<<---recv sync req in H5_ACTIVE");
             hci_h5_send_sync_resp();
-            ALOGI("H5 : H5_ACTIVE transit to H5_UNINITIALIZED");
+            H5_LogMsg("H5 : H5_ACTIVE transit to H5_UNINITIALIZED");
             rtk_h5.link_estab_state = H5_UNINITIALIZED;
             hci_h5_send_sync_req();
             h5_start_sync_retrans_timer();
         }
         else if (!memcmp(skb_get_data(skb), h5conf, 0x2)) {
-             ALOGI("H5: <<<---recv conf req in H5_ACTIVE");
+             H5_LogMsg("H5: <<<---recv conf req in H5_ACTIVE");
              hci_h5_send_conf_resp();
         }
         else if (!memcmp(skb_get_data(skb), h5confresp,  0x2)) {
-            ALOGI("H5: <<<---recv conf resp in H5_ACTIVE, discard");
+            H5_LogMsg("H5: <<<---recv conf resp in H5_ACTIVE, discard");
         }
         else {
-            ALOGI("H5_ACTIVE receive unknown link control msg, ingnore");
+            H5_LogMsg("H5_ACTIVE receive unknown link control msg, ingnore");
         }
 
     }
@@ -1740,7 +1801,7 @@ void h5_process_ctl_pkts(void)
 
 uint8_t isRtkInternalCommand(uint16_t opcode)
 {
-    if(opcode == 0xFC17
+    if (opcode == 0xFC17
         || opcode == 0xFC6D
         || opcode == 0xFC20)
     {
@@ -1782,7 +1843,7 @@ uint8_t internal_event_intercept_h5(void)
 
     event_code = *p++;
     len = *p++;
-    ALOGI("event_code(0x%x)", event_code);
+    H5_LogMsg("event_code(0x%x)", event_code);
 
     if (event_code == HCI_COMMAND_COMPLETE_EVT)
     {
@@ -1792,7 +1853,7 @@ uint8_t internal_event_intercept_h5(void)
     if (opcode == HCI_READ_BUFFER_SIZE)
     {
         uint8_t status = 0;
-        status =    *p++;
+        status = *p++;
         if (status == 0)
         {
             uint16_t   hc_acl_data_size = 0;
@@ -1810,7 +1871,7 @@ uint8_t internal_event_intercept_h5(void)
             rtk_h5.hc_acl_total_num = hc_acl_total_num;
             rtk_h5.hc_sco_total_num = hc_sco_total_num;
 
-            ALOGI("hc_acl_data_size:(%d), hc_sco_data_size:(%d), hc_acl_total_num:(%d), hc_sco_total_num(%d)", \
+            H5_LogMsg("hc_acl_data_size:(%d), hc_sco_data_size:(%d), hc_acl_total_num:(%d), hc_sco_total_num(%d)", \
             hc_acl_data_size, hc_sco_data_size, hc_acl_total_num, hc_sco_total_num);
 
             rtk_h5.hc_cur_acl_total_num = hc_acl_total_num;
@@ -1820,9 +1881,9 @@ uint8_t internal_event_intercept_h5(void)
     if (opcode == HCI_LE_READ_BUFFER_SIZE)
     {
         uint8_t status = 0;
-        status =    *p++;
-            if (status == 0)
-            {
+        status = *p++;
+        if (status == 0)
+        {
             uint16_t   hc_ble_acl_data_size = 0;
             uint8_t hc_ble_acl_total_num = 0;
 
@@ -1830,18 +1891,18 @@ uint8_t internal_event_intercept_h5(void)
             hc_ble_acl_total_num = *p++;
             rtk_h5.hc_ble_acl_data_size = (hc_ble_acl_data_size) ? hc_ble_acl_data_size : rtk_h5.hc_acl_data_size;
             rtk_h5.hc_ble_acl_total_num = hc_ble_acl_total_num;
-            ALOGI("hc_ble_acl_data_size:(%d), hc_ble_acl_total_num:(%d)",  \
+            H5_LogMsg("hc_ble_acl_data_size:(%d), hc_ble_acl_total_num:(%d)",  \
             hc_ble_acl_data_size, hc_ble_acl_total_num);
-            }
+        }
     }
 
         if (p_cb->int_cmd_rsp_pending > 0)
         {
 
-            HCIDBG("CommandCompleteEvent for command (0x%04X)", opcode);
+            H5_LogMsg("CommandCompleteEvent for command (0x%04X)", opcode);
             if (opcode == p_cb->int_cmd[p_cb->int_cmd_rd_idx].opcode)
             {
-                if(opcode == 0xFC17)
+                if (opcode == 0xFC17)
                 {
                     //need to set a timer, add wait for retransfer packet from controller.
                     //if there is no packet rx from controller, we can assure baudrate change success.
@@ -1851,7 +1912,7 @@ uint8_t internal_event_intercept_h5(void)
                 else
                 {
 
-                    if(opcode == 0xFC6D)
+                    if (opcode == 0xFC6D)
                         internal_command = 1;
 
                     if (p_cb->int_cmd[p_cb->int_cmd_rd_idx].cback != NULL)
@@ -1880,13 +1941,13 @@ uint8_t internal_event_intercept_h5(void)
 
         num_hci_cmd_pkts = *(++p);
         STREAM_TO_UINT16(opcode, p);
-        if(opcode == 0x0001)
+        if (opcode == 0x0001)
         {
             //it is internal command
             internal_command = 1;
         }
     }
-    else if(event_code == HCI_NUM_OF_CMP_PKTS_EVT)
+    else if (event_code == HCI_NUM_OF_CMP_PKTS_EVT)
     {
         uint8_t i = 0;
         uint8_t num_of_handle =  *p++;
@@ -1899,27 +1960,27 @@ uint8_t internal_event_intercept_h5(void)
         phandle_list = p;
         pNocp_list = p + num_of_handle*sizeof(handle);
 
-        if (len < num_of_handle*4+sizeof(num_of_handle))
+        if (len < num_of_handle * 4 + sizeof(num_of_handle))
         {
             ALOGE("len is error");
             internal_command = 0;
             return internal_command;
         }
 
-        for (i = 0; i< num_of_handle; i++)
+        for (i = 0; i < num_of_handle; i++)
         {
             STREAM_TO_UINT16(handle, phandle_list)
             phci_conn = ConnHashLookupByHandle(&rtk_h5, handle);
             if (phci_conn)
             {
                 STREAM_TO_UINT16(NumOcp, pNocp_list)
-                ALOGI("NumOcp(%d), hc_cur_acl_total_num(%d)", NumOcp, rtk_h5.hc_cur_acl_total_num);
+                H5_LogMsg("NumOcp(%d), hc_cur_acl_total_num(%d)", NumOcp, rtk_h5.hc_cur_acl_total_num);
                 rtk_h5.hc_cur_acl_total_num += NumOcp;
                 phci_conn->NumOfNotCmpAclPkts -= NumOcp;
 
                 //queue data to h5 to send
-                while(rtk_h5.hc_cur_acl_total_num>0
-                &&(NULL != (skb = skb_dequeue_head(phci_conn->pending_pkts))) )
+                while (rtk_h5.hc_cur_acl_total_num > 0
+                && (NULL != (skb = skb_dequeue_head(phci_conn->pending_pkts))))
                 {
                     h5_enqueue(skb);
                     rtk_h5.hc_cur_acl_total_num--;
@@ -1931,7 +1992,7 @@ uint8_t internal_event_intercept_h5(void)
         }
 
     }
-    else if(event_code == HCI_CONNECTION_COMP_EVT)
+    else if (event_code == HCI_CONNECTION_COMP_EVT)
     {
         uint8_t status = 0;
         uint16_t handle = 0;
@@ -1944,20 +2005,77 @@ uint8_t internal_event_intercept_h5(void)
         status = *p++;
         STREAM_TO_UINT16 (handle, p);
         memcpy(&bd_addr, p, 6);
-        p +=6;
+        p += 6;
         link_type = *p++;
         encrypt_enabled = *p;
 
-        ALOGI("CCP EVT: status(%d), handle(0x%x), link_type(0x%x), encrypt_enabled(%d)", status, handle, link_type, encrypt_enabled);
+        H5_LogMsg("CCP EVT: status(%d), handle(0x%x), link_type(0x%x), encrypt_enabled(%d)", status, handle, link_type, encrypt_enabled);
         baPrint(bd_addr);
 
-        if(status == 0)
+        if (status == 0)
         {
             hci_conn = ConnHashLookupByHandle(&rtk_h5, handle);
-            if(hci_conn == NULL)
+            if (hci_conn == NULL)
             {
                 hci_conn = HciConnAllocate(handle);
-                if(hci_conn)
+                if (hci_conn)
+                {
+                    ConnHashAdd(&rtk_h5, hci_conn);
+                    bacpy(&hci_conn->bd_addr, &bd_addr);
+                    hci_conn->link_type = link_type;
+                    hci_conn->encrypt_enabled = encrypt_enabled;
+                    hci_conn->NumOfNotCmpAclPkts = 0;
+
+                }
+                else
+                {
+                    ALOGE("HciConnAllocate fail");
+                }
+            }
+            else
+            {
+                ALOGE("HCI Connection handle(0x%x) has already exist!", handle);
+                bacpy(&hci_conn->bd_addr, &bd_addr);
+                hci_conn->link_type = link_type;
+                hci_conn->encrypt_enabled = encrypt_enabled;
+                hci_conn->NumOfNotCmpAclPkts = 0;
+
+            }
+            H5_LogMsg("hc_cur_acl_total_num(%d)", rtk_h5.hc_cur_acl_total_num);
+        }
+
+    }
+    //add for le connection start
+    else if (event_code == HCI_BLE_EVT)
+    {
+        uint8_t status = 0;
+        uint16_t handle = 0;
+        bdaddr_t bd_addr ;
+        uint8_t link_type = 0;
+        uint8_t encrypt_enabled = 0;
+        uint8_t role;
+        uint8_t addr_type;
+        uint8_t ble_sub_code;
+
+        HCI_CONN * hci_conn = NULL;
+        ble_sub_code = *p++;
+        H5_LogMsg("HCI_BLE_EVT with sub event code 0x%x", ble_sub_code);
+        if (ble_sub_code != 0x01)
+            return 0;
+        status = *p++;
+        STREAM_TO_UINT16 (handle, p);
+        p += 2;
+        memcpy(&bd_addr, p, 6);
+        p +=6;
+        baPrint(bd_addr);
+
+        if (status == 0)
+        {
+            hci_conn = ConnHashLookupByHandle(&rtk_h5, handle);
+            if (hci_conn == NULL)
+            {
+                hci_conn = HciConnAllocate(handle);
+                if (hci_conn)
                 {
                     ConnHashAdd(&rtk_h5, hci_conn);
                     bacpy(&hci_conn->bd_addr, &bd_addr);
@@ -1984,7 +2102,8 @@ uint8_t internal_event_intercept_h5(void)
         }
 
     }
-    else if(event_code == HCI_DISCONNECTION_COMP_EVT)
+    //add for le connection end
+    else if (event_code == HCI_DISCONNECTION_COMP_EVT)
     {
         uint8_t status = 0;
         uint16_t handle = 0;
@@ -1993,15 +2112,14 @@ uint8_t internal_event_intercept_h5(void)
         status = *p++;
         STREAM_TO_UINT16(handle, p);
         reason = *p;
-        ALOGI("DCP EVT: status(%d), handle(0x%x), reason(0x%x)", status, handle, reason);
-        ALOGI("hc_cur_acl_total_num(%d)", rtk_h5.hc_cur_acl_total_num);
-        if(status == 0)
+        H5_LogMsg("DCP EVT: status(%d), handle(0x%x), reason(0x%x)", status, handle, reason);
+        H5_LogMsg("hc_cur_acl_total_num(%d)", rtk_h5.hc_cur_acl_total_num);
         {
             hci_conn = ConnHashLookupByHandle(&rtk_h5, handle);
-            if(hci_conn)
+            if (hci_conn)
             {
                 rtk_h5.hc_cur_acl_total_num += hci_conn->NumOfNotCmpAclPkts;
-                ALOGI("hc_cur_acl_total_num(%d)", rtk_h5.hc_cur_acl_total_num);
+                H5_LogMsg("hc_cur_acl_total_num(%d)", rtk_h5.hc_cur_acl_total_num);
                 ConnHashDelete(hci_conn);
             }
             else
@@ -2011,6 +2129,19 @@ uint8_t internal_event_intercept_h5(void)
         }
     }
 
+#ifdef BT_FW_CAL_ENABLE
+   else if (event_code == 0x02||
+        event_code == 0x22||
+        event_code == 0x2f)
+    {
+        if (rtk_h5.bHasUpdateCalInquiryState == FALSE)
+        {
+            H5_LogMsg("H5: Update CAL Inquiry success info to cal file");
+            rtk_set_bt_cal_inqury_result(CAL_INQUIRY_SUCCESS);
+            rtk_h5.bHasUpdateCalInquiryState = TRUE;
+        }
+    }
+#endif
 
     return internal_command;
 
@@ -2030,32 +2161,32 @@ static void hci_recv_frame(sk_buff *skb, uint8_t pkt_type)
     uint8_t *data = skb_get_data(skb);
     uint32_t data_len = skb_get_data_length(skb);
 
-    ALOGI("UART H5 RX: length = %d", data_len);
+    H5_LogMsg("UART H5 RX: length = %d", data_len);
 
 #if H5_TRACE_DATA_ENABLE
     {
         uint32_t iTemp = 0;
         uint32_t iTempTotal = 16;
-        ALOGI("H5 RX: length(%d)", data_len);
-        if(iTempTotal > data_len)
+        H5_LogMsg("H5 RX: length(%d)", data_len);
+        if (iTempTotal > data_len)
         {
             iTempTotal = data_len;
         }
-        for(iTemp = 0; iTemp < iTempTotal; iTemp++)
+        for (iTemp = 0; iTemp < iTempTotal; iTemp++)
         {
-            ALOGI("0x%x", data[iTemp]);
+            H5_LogMsg("0x%x", data[iTemp]);
         }
     }
 #endif
     //we only intercept evt packet here
-    if(pkt_type == HCI_EVENT_PKT)
+    if (pkt_type == HCI_EVENT_PKT)
     {
         intercepted = internal_event_intercept_h5();
     }
 
     //if you want to intercept more pakcets such as acl data, you can add code here
 
-    ALOGI("intercepted = %d", intercepted);
+    H5_LogMsg("intercepted = %d", intercepted);
     if ((bt_hc_cbacks) && (intercepted == FALSE))
     {
         bt_hc_cbacks->data_ind((TRANSAC) rtk_h5.p_rcv_msg, \
@@ -2084,16 +2215,36 @@ uint8_t hci_rx_dispatch_by_handle(sk_buff* rx_skb)
     //get acl handle from acl data
     rx_skb_data = skb_get_data(rx_skb);
     rx_skb_data_len = skb_get_data_length(rx_skb);
+
+    //print snoop log
+    if (h5_log_enable == 1)
+    {
+        HC_BT_HDR *p_rcv_msg = NULL;          /* Buffer to hold current rx HCI message */
+        p_rcv_msg = (HC_BT_HDR *) bt_hc_cbacks->alloc(BT_HC_HDR_SIZE + rx_skb_data_len);
+        if (p_rcv_msg != NULL)
+        {
+            /* Initialize buffer with received h5 data */
+            p_rcv_msg->offset = 0;
+            p_rcv_msg->layer_specific = 0;
+            p_rcv_msg->event = MSG_HC_TO_STACK_HCI_ACL;
+            p_rcv_msg->len = rx_skb_data_len;
+            memcpy((uint8_t *)(p_rcv_msg + 1), rx_skb_data, rx_skb_data_len);
+            btsnoop_capture(p_rcv_msg, TRUE);
+            bt_hc_cbacks->dealloc((TRANSAC) p_rcv_msg);
+        }
+    }
+    //end print snoop log
+
     STREAM_TO_UINT16 (handle, rx_skb_data);
     //get acl handle, 12bit only.
     handle = handle & 0x0FFF ;
-    ALOGI("hci_rx_dispatch_by_handle: (0x%x)",handle);
+    H5_LogMsg("hci_rx_dispatch_by_handle: (0x%x)",handle);
     //look up hci connection by handle
     hci_conn = ConnHashLookupByHandle(&rtk_h5, handle);
-    if(hci_conn == NULL)
+    if (hci_conn == NULL)
     {
         hci_conn = HciConnAllocate(handle);
-        if(hci_conn)
+        if (hci_conn)
         {
             ConnHashAdd(&rtk_h5, hci_conn);
         }
@@ -2105,7 +2256,7 @@ uint8_t hci_rx_dispatch_by_handle(sk_buff* rx_skb)
     }
 
     //if it is first packet
-    if(hci_conn->rx_skb == NULL)
+    if (hci_conn->rx_skb == NULL)
     {
         uint8_t* data = NULL;
         hci_conn->rx_skb = skb_alloc(skb_get_data_length(rx_skb));
@@ -2129,7 +2280,7 @@ uint8_t hci_rx_dispatch_by_handle(sk_buff* rx_skb)
         //add rx_skb to hci_conn->rx_skb
         len_total = skb_get_data_length(rx_skb) + skb_get_data_length(hci_conn->rx_skb);
         skb_total = skb_alloc(len_total);
-        if(skb_total)
+        if (skb_total)
         {
 
             data_total = skb_get_data(skb_total);
@@ -2154,7 +2305,7 @@ uint8_t hci_rx_dispatch_by_handle(sk_buff* rx_skb)
     }
 
     //check if it is a complete acl packet, if it is, then replace hci_conn->rx_skb with orignal rx_skb
-    if(TRUE == acl_rx_frame_end_chk(hci_conn->rx_skb))
+    if (TRUE == acl_rx_frame_end_chk(hci_conn->rx_skb))
     {
         skb_free(&rx_skb);
         rtk_h5.rx_skb = hci_conn->rx_skb;
@@ -2188,15 +2339,15 @@ static void h5_complete_rx_pkt(struct tHCI_H5_CB *h5)
     H5_PKT_HEADER* h5_hdr = NULL;
     uint8_t complete_pkt = TRUE;
     uint8_t pkt_type = 0;
-    struct  tHCI_H5_CB  *p_cb=&rtk_h5;
+    struct tHCI_H5_CB *p_cb=&rtk_h5;
 
-    //ALOGI("HCI 3wire h5_complete_rx_pkt");
+    //H5_LogMsg("HCI 3wire h5_complete_rx_pkt");
     h5_hdr = (H5_PKT_HEADER * )skb_get_data(h5->rx_skb);
-    ALOGI("SeqNumber(%d), AckNumber(%d)", h5_hdr->SeqNumber, h5_hdr->AckNumber);
+    H5_LogMsg("SeqNumber(%d), AckNumber(%d)", h5_hdr->SeqNumber, h5_hdr->AckNumber);
 
     if (h5_hdr->ReliablePkt)
     {
-        ALOGI("Received reliable seqno %u from card", h5->rxseq_txack);
+        H5_LogMsg("Received reliable seqno %u from card", h5->rxseq_txack);
         h5->rxseq_txack = h5_hdr->SeqNumber + 1;
         h5->rxseq_txack %= 8;
         h5->is_txack_req = 1;
@@ -2245,7 +2396,7 @@ static void h5_complete_rx_pkt(struct tHCI_H5_CB *h5)
     // remove h5 header and send packet to hci
     h5_remove_acked_pkt(h5);
 
-    if(h5_hdr->PktType == H5_LINK_CTL_PKT)
+    if (h5_hdr->PktType == H5_LINK_CTL_PKT)
     {
         skb_pull(h5->rx_skb, sizeof(H5_PKT_HEADER));
         h5_process_ctl_pkts();
@@ -2257,13 +2408,13 @@ static void h5_complete_rx_pkt(struct tHCI_H5_CB *h5)
 
         skb_pull(h5->rx_skb, sizeof(H5_PKT_HEADER));
 
-        if(eventtype == MSG_HC_TO_STACK_HCI_ACL)
+        if (eventtype == MSG_HC_TO_STACK_HCI_ACL)
         {
             complete_pkt = hci_rx_dispatch_by_handle(h5->rx_skb);
         }
 
         //send command or complete acl data it to bluedroid stack
-        if(complete_pkt)
+        if (complete_pkt)
         {
             uint16_t len = 0;
             sk_buff * skb_complete_pkt = h5->rx_skb;
@@ -2316,7 +2467,7 @@ static int h5_recv(struct tHCI_H5_CB *h5, void *data, int count)
     uint8_t * skb_data = NULL;
     H5_PKT_HEADER * hdr = NULL;
 
-    //ALOGI("count %d rx_state %d rx_count %ld", count, h5->rx_state, h5->rx_count);
+    //H5_LogMsg("count %d rx_state %d rx_count %ld", count, h5->rx_state, h5->rx_count);
     ptr = (unsigned char *)data;
 
     while (count)
@@ -2325,7 +2476,7 @@ static int h5_recv(struct tHCI_H5_CB *h5, void *data, int count)
         {
             if (*ptr == 0xc0)
             {
-        ALOGE("short h5 packet");
+                ALOGE("short h5 packet");
                 skb_free(&h5->rx_skb);
                 h5->rx_state = H5_W4_PKT_START;
                 h5->rx_count = 0;
@@ -2381,7 +2532,7 @@ static int h5_recv(struct tHCI_H5_CB *h5, void *data, int count)
             else
             {
                 h5_complete_rx_pkt(h5); //Send ACK
-                //ALOGI(DF_SLIP,("--------> H5_W4_DATA ACK\n"));
+                //H5_LogMsg(DF_SLIP,("--------> H5_W4_DATA ACK\n"));
             }
             continue;
 
@@ -2491,7 +2642,7 @@ void get_acl_data_length_cback_h5(void *p_mem)
     }
 
 
-    ALOGI("get_acl_data_length_cback_h5: opcode(0x%x)", opcode);
+    H5_LogMsg("get_acl_data_length_cback_h5: opcode(0x%x)", opcode);
     if (opcode == HCI_READ_BUFFER_SIZE)
     {
         if (status == 0)
@@ -2508,7 +2659,7 @@ void get_acl_data_length_cback_h5(void *p_mem)
             rtk_h5.hc_acl_total_num = hc_acl_total_num;
             rtk_h5.hc_sco_total_num = hc_sco_total_num;
 
-            ALOGI("hc_acl_data_size:(%d), hc_sco_data_size:(%d), hc_acl_total_num:(%d), hc_sco_total_num(%d)", \
+            H5_LogMsg("hc_acl_data_size:(%d), hc_sco_data_size:(%d), hc_acl_total_num:(%d), hc_sco_total_num(%d)", \
                len, hc_sco_data_size, hc_acl_total_num, hc_sco_total_num);
 
             rtk_h5.hc_cur_acl_total_num = hc_acl_total_num;
@@ -2539,7 +2690,7 @@ void get_acl_data_length_cback_h5(void *p_mem)
             hc_ble_acl_total_num = *p++;
             rtk_h5.hc_ble_acl_data_size = (len) ? len : rtk_h5.hc_acl_data_size;
             rtk_h5.hc_ble_acl_total_num = hc_ble_acl_total_num;
-            ALOGI("hc_ble_acl_data_size:(%d), hc_ble_acl_total_num:(%d)",  \
+            H5_LogMsg("hc_ble_acl_data_size:(%d), hc_ble_acl_total_num:(%d)",  \
                len, hc_ble_acl_total_num);
         }
 
@@ -2554,38 +2705,125 @@ void get_acl_data_length_cback_h5(void *p_mem)
 
 static void data_retransfer_thread(void *arg)
 {
+    uint16_t events;
+    uint32_t data_len = 0;
+    uint8_t* pdata = NULL;
+    uint32_t i = 0;
 
-    sk_buff *skb;
-    ALOGE("retransmitting (%u) pkts, retransfer count(%d)", skb_queue_get_length(rtk_h5.unack), rtk_h5.data_retrans_count);
-    if(rtk_h5.data_retrans_count < DATA_RETRANS_COUNT)
+    H5_LogMsg("data_retransfer_thread started");
+
+    prctl(PR_SET_NAME, (unsigned long)"data_retransfer_thread", 0, 0, 0);
+
+    while (h5_retransfer_running)
     {
-        while ((skb = skb_dequeue_tail(rtk_h5.unack)) != NULL)
+        pthread_mutex_lock(&rtk_h5.mutex);
+        while (h5_ready_events == 0)
         {
-            rtk_h5.msgq_txseq = (rtk_h5.msgq_txseq - 1) & 0x07;
-            skb_queue_head(rtk_h5.rel, skb);
+            pthread_cond_wait(&rtk_h5.cond, &rtk_h5.mutex);
         }
-        rtk_h5.data_retrans_count++;
-        h5_wake_up();
+        events = h5_ready_events;
+        h5_ready_events = 0;
+        pthread_mutex_unlock(&rtk_h5.mutex);
 
-    }
-    else
-    {
-        //do not put packet to rel queue, and do not send
-    }
-    ALOGI("data_retransfer_thread--");
+        if (events & H5_EVENT_RX)
+        {
+            sk_buff *skb;
+            ALOGE("retransmitting (%u) pkts, retransfer count(%d)", skb_queue_get_length(rtk_h5.unack), rtk_h5.data_retrans_count);
+            if (rtk_h5.data_retrans_count < DATA_RETRANS_COUNT)
+            {
+                while ((skb = skb_dequeue_tail(rtk_h5.unack)) != NULL)
+                {
+                    data_len = skb_get_data_length(skb);
+                    pdata = skb_get_data(skb);
+                    if (data_len > 16)
+                     data_len = 16;
+
+                    for (i = 0 ; i < data_len; i++)
+                        ALOGE("0x%02X", pdata[i]);
+
+                    rtk_h5.msgq_txseq = (rtk_h5.msgq_txseq - 1) & 0x07;
+                    skb_queue_head(rtk_h5.rel, skb);
+
+                }
+                rtk_h5.data_retrans_count++;
+                h5_wake_up();
+
+            }
+            else
+            {
+            //do not put packet to rel queue, and do not send
+            //Kill bluetooth
+            kill(getpid(), SIGKILL);
+            }
+
+        }
+        else
+        if (events & H5_EVENT_EXIT)
+        {
+            break;
+        }
+
 }
 
-void create_data_retransfer_thread()
+    H5_LogMsg("data_retransfer_thread exiting");
+    pthread_exit(NULL);
+
+}
+
+void h5_retransfer_signal_event(uint16_t event)
 {
+    pthread_mutex_lock(&rtk_h5.mutex);
+    h5_ready_events |= event;
+    pthread_cond_signal(&rtk_h5.cond);
+    pthread_mutex_unlock(&rtk_h5.mutex);
+}
+
+
+
+static int create_data_retransfer_thread()
+{
+    struct sched_param param;
+    int policy;
+
     pthread_attr_t thread_attr;
+
+
+    if (h5_retransfer_running)
+    {
+        ALOGW("create_data_retransfer_thread has been called repeatedly without calling cleanup ?");
+    }
+
+    h5_retransfer_running = 1;
+    h5_ready_events = 0;
+
     pthread_attr_init(&thread_attr);
+    pthread_mutex_init(&rtk_h5.mutex, NULL);
+    pthread_cond_init(&rtk_h5.cond, NULL);
 
     if (pthread_create(&rtk_h5.thread_data_retrans, &thread_attr, \
-                   (void*)data_retransfer_thread, NULL) != 0)
+               (void*)data_retransfer_thread, NULL) != 0)
     {
-        ALOGE("H5 pthread_create failed!");
-        return;
+        ALOGE("pthread_create failed!");
+        h5_retransfer_running = 0;
+        return -1 ;
     }
+/*
+    if (pthread_getschedparam(hc_cb.worker_thread, &policy, &param)==0)
+    {
+        policy = BTHC_LINUX_BASE_POLICY;
+
+#if (BTHC_LINUX_BASE_POLICY!=SCHED_NORMAL)
+        param.sched_priority = BTHC_MAIN_THREAD_PRIORITY;
+#endif
+        result = pthread_setschedparam(hc_cb.worker_thread, policy, &param);
+        if (result != 0)
+        {
+            ALOGW("create_data_retransfer_thread pthread_setschedparam failed (%s)", \
+            strerror(result));
+        }
+    }
+*/
+    return 0;
 
 }
 
@@ -2604,14 +2842,14 @@ void create_data_retransfer_thread()
 *******************************************************************************/
 void hci_h5_init(void)
 {
-    HCIDBG("hci_h5_init");
+    H5_LogMsg("hci_h5_init");
 
     memset(&rtk_h5, 0, sizeof(struct tHCI_H5_CB));
     utils_queue_init(&(rtk_h5.acl_rx_q));
 
     /* Per HCI spec., always starts with 1 */
     num_hci_cmd_pkts = 1;
-
+    h5_log_enable = 0;
     /* Give an initial values of Host Controller's ACL data packet length
      * Will update with an internal HCI(_LE)_Read_Buffer_Size request
      */
@@ -2624,8 +2862,13 @@ void hci_h5_init(void)
     h5_alloc_sync_retrans_timer();
     h5_alloc_conf_retrans_timer();
     h5_alloc_wait_controller_baudrate_ready_timer();
+    h5_alloc_hw_init_ready_timer();
 
     rtk_h5.thread_data_retrans = -1;
+
+    if (create_data_retransfer_thread() != 0)
+        ALOGE("H5 create_data_retransfer_thread failed");
+
 
     rtk_h5.unack = RtbQueueInit();
     rtk_h5.rel = RtbQueueInit();
@@ -2636,7 +2879,10 @@ void hci_h5_init(void)
     rtk_h5.rx_state = H5_W4_PKT_DELIMITER;
     rtk_h5.rx_esc_state = H5_ESCSTATE_NOESC;
 
-    rtk_h5.h5_busy =0;
+#ifdef BT_FW_CAL_ENABLE
+    rtk_h5.bHasUpdateCalInquiryState = FALSE;
+#endif
+
 }
 
 /*******************************************************************************
@@ -2650,29 +2896,41 @@ void hci_h5_init(void)
 *******************************************************************************/
 void hci_h5_cleanup(void)
 {
-    HCIDBG("hci_h5_cleanup");
+    H5_LogMsg("hci_h5_cleanup++");
     uint8_t try_cnt=10;
     int result;
+
+    rtk_h5.cleanuping = 1;
+
+    btsnoop_close();
 
     h5_free_data_retrans_timer();
     h5_free_sync_retrans_timer();
     h5_free_conf_retrans_timer();
     h5_free_wait_controller_baudrate_ready_timer();
-
-    if ((result=pthread_join(rtk_h5.thread_data_retrans, NULL)) < 0)
-        ALOGE( "H5 pthread_join() FAILED result:%d", result);
+    h5_free_hw_init_ready_timer();
 
 
-    while(rtk_h5.h5_busy &&(try_cnt--)>0)
+    if (h5_retransfer_running)
     {
-        ms_delay(100);
-        HCIDBG("hci_h5_cleanup try_cnt=%d");
+        h5_retransfer_running = 0;
+        h5_retransfer_signal_event(H5_EVENT_EXIT);
+        if ((result=pthread_join(rtk_h5.thread_data_retrans, NULL)) < 0)
+        ALOGE( "H5 pthread_join() FAILED result:%d", result);
     }
+
+    ms_delay(200);
+
+    pthread_mutex_destroy(&rtk_h5.mutex);
+    pthread_cond_destroy(&rtk_h5.cond);
 
     RtbQueueFree(rtk_h5.unack);
     RtbQueueFree(rtk_h5.rel);
     RtbQueueFree(rtk_h5.unrel);
     ConnHashFlush(&rtk_h5);
+
+    H5_LogMsg("hci_h5_cleanup--");
+
 }
 
 
@@ -2710,7 +2968,7 @@ void hci_h5_send_msg(HC_BT_HDR *p_msg)
     sk_buff * skb = NULL;
     HCI_CONN * hci_conn = NULL;
 
-    ALOGI("hci_h5_send_msg, len =%d", p_msg->len);
+    H5_LogMsg("hci_h5_send_msg, len =%d", p_msg->len);
 
 
     if (event == MSG_STACK_TO_HC_HCI_ACL)
@@ -2730,7 +2988,7 @@ void hci_h5_send_msg(HC_BT_HDR *p_msg)
         acl_data_size = rtk_h5.hc_ble_acl_data_size;
         acl_pkt_size = rtk_h5.hc_ble_acl_data_size + HCI_ACL_PREAMBLE_SIZE;
     }
-    ALOGI("acl_data_size = %d, acl_pkt_size = (%d), p_msg->offset=(%d)", acl_data_size, acl_pkt_size, p_msg->offset);
+    H5_LogMsg("acl_data_size = %d, acl_pkt_size = (%d), p_msg->offset=(%d)", acl_data_size, acl_pkt_size, p_msg->offset);
 
     //
     if (event == MSG_STACK_TO_HC_HCI_ACL)
@@ -2740,7 +2998,7 @@ void hci_h5_send_msg(HC_BT_HDR *p_msg)
         //get acl handle, 12bit only.
         handle = handle & 0x0FFF ;
         hci_conn = ConnHashLookupByHandle(&rtk_h5, handle);
-        if(hci_conn == NULL)
+        if (hci_conn == NULL)
         {
             ALOGE("HCI connection handle (0x%x) has been disconnected or not connected", handle);
             ALOGE("Return NOT Send this packet!!");
@@ -2771,8 +3029,8 @@ void hci_h5_send_msg(HC_BT_HDR *p_msg)
 
 
             //check whether this ACL conn has ability to send
-            ALOGI("hc_cur_acl_total_num(%d), hc_acl_total_num(%d)", rtk_h5.hc_cur_acl_total_num, rtk_h5.hc_acl_total_num);
-            if(rtk_h5.hc_cur_acl_total_num>0)
+            H5_LogMsg("hc_cur_acl_total_num(%d), hc_acl_total_num(%d)", rtk_h5.hc_cur_acl_total_num, rtk_h5.hc_acl_total_num);
+            if (rtk_h5.hc_cur_acl_total_num > 0)
             {
                 h5_enqueue(skb);
                 rtk_h5.hc_cur_acl_total_num--;
@@ -2842,9 +3100,9 @@ void hci_h5_send_msg(HC_BT_HDR *p_msg)
     if (event == MSG_STACK_TO_HC_HCI_ACL)
     {
             //check whether this ACL conn has ability to send
-            ALOGI("hc_cur_acl_total_num(%d), hc_acl_total_num(%d)", rtk_h5.hc_cur_acl_total_num, rtk_h5.hc_acl_total_num);
+            H5_LogMsg("hc_cur_acl_total_num(%d), hc_acl_total_num(%d)", rtk_h5.hc_cur_acl_total_num, rtk_h5.hc_acl_total_num);
 
-            if(rtk_h5.hc_cur_acl_total_num>0)
+            if (rtk_h5.hc_cur_acl_total_num > 0)
             {
                 h5_enqueue(skb);
                 rtk_h5.hc_cur_acl_total_num--;
@@ -2875,7 +3133,12 @@ void hci_h5_send_msg(HC_BT_HDR *p_msg)
          */
          p++;
         STREAM_TO_UINT16(lay_spec, p);
-        ALOGI("HCI Command opcode(0x%04X)", lay_spec);
+        H5_LogMsg("HCI Command opcode(0x%04X)", lay_spec);
+        if (lay_spec == 0x0c03)
+        {
+            H5_LogMsg("RX HCI RESET Command, stop hw init timer");
+            h5_stop_hw_init_ready_timer();
+        }
     }
 
     /* generate snoop trace message */
@@ -2952,21 +3215,22 @@ uint8_t hci_h5_send_int_cmd(uint16_t opcode, HC_BT_HDR *p_buf, \
 {
     uint8_t * p =  (uint8_t *) (p_buf + 1);
 
-    if(rtk_h5.link_estab_state == H5_UNINITIALIZED)
+    if (rtk_h5.link_estab_state == H5_UNINITIALIZED)
     {
-        if(opcode == HCI_VSC_H5_INIT)
+        if (opcode == HCI_VSC_H5_INIT)
         {
+            h5_start_hw_init_ready_timer();
             rtk_h5.cback_h5sync = p_cback;
             hci_h5_send_sync_req();
             h5_start_sync_retrans_timer();
         }
     }
-    else if(rtk_h5.link_estab_state == H5_ACTIVE)
+    else if (rtk_h5.link_estab_state == H5_ACTIVE)
     {
-    if(opcode == 0xFC17)
+        if (opcode == 0xFC17)
             rtk_h5.cback_h5sync = p_cback;
 
-        ALOGI("hci_h5_send_int_cmd(0x%x)", opcode);
+        H5_LogMsg("hci_h5_send_int_cmd(0x%x)", opcode);
         if (rtk_h5.int_cmd_rsp_pending > INT_CMD_PKT_MAX_COUNT)
         {
             ALOGE( \
@@ -2982,7 +3246,7 @@ uint8_t hci_h5_send_int_cmd(uint16_t opcode, HC_BT_HDR *p_buf, \
 
         p_buf->layer_specific = opcode;
 
-        if(opcode == 0xFC17
+        if (opcode == 0xFC17
             ||opcode == 0xFC20
             ||opcode == 0xFC6D
             ||opcode == 0x1001
@@ -3019,7 +3283,7 @@ void hci_h5_get_acl_data_length(void)
     {
         p_buf = (HC_BT_HDR *) bt_hc_cbacks->alloc(BT_HC_HDR_SIZE + \
                                                        HCI_CMD_PREAMBLE_SIZE);
-    }
+
 
     if (p_buf)
     {
@@ -3080,7 +3344,7 @@ static timer_t OsAllocateTimer(int signo)
 {
     int ret = 0;
     ret = timer_delete(timerid);
-    if(ret != 0)
+    if (ret != 0)
         ALOGE("timer_delete fail with errno(%d)", errno);
 
     return ret;
@@ -3127,16 +3391,20 @@ static void h5_timeout_handler(int signo, siginfo_t * info, void *context)
  {
 
     ALOGE("h5_timeout_handler");
-    rtk_h5.h5_busy=1;
+    if (rtk_h5.cleanuping)
+    {
+        ALOGE("H5 is cleanuping, EXIT here!");
+        return;
+    }
     if (signo == TIMER_H5_DATA_RETRANS)
     {
-        create_data_retransfer_thread();
+        h5_retransfer_signal_event(H5_EVENT_RX);
     }
     else
     if (signo == TIMER_H5_SYNC_RETRANS)
     {
         ALOGE("Wait H5 Sync Resp timeout, %d times", rtk_h5.sync_retrans_count);
-        if(rtk_h5.sync_retrans_count < SYNC_RETRANS_COUNT)
+        if (rtk_h5.sync_retrans_count < SYNC_RETRANS_COUNT)
         {
             hci_h5_send_sync_req();
             rtk_h5.sync_retrans_count ++;
@@ -3150,7 +3418,7 @@ static void h5_timeout_handler(int signo, siginfo_t * info, void *context)
     if (signo == TIMER_H5_CONF_RETRANS)
     {
         ALOGE("Wait H5 Conf Resp timeout, %d times", rtk_h5.conf_retrans_count);
-        if(rtk_h5.conf_retrans_count < CONF_RETRANS_COUNT)
+        if (rtk_h5.conf_retrans_count < CONF_RETRANS_COUNT)
         {
             hci_h5_send_conf_req();
             rtk_h5.conf_retrans_count++;
@@ -3163,7 +3431,7 @@ static void h5_timeout_handler(int signo, siginfo_t * info, void *context)
     else
     if (signo == TIMER_H5_WAIT_CT_BAUDRATE_READY)
     {
-        ALOGI("No Controller retransfer, baudrate of controller ready");
+        H5_LogMsg("No Controller retransfer, baudrate of controller ready");
         if (rtk_h5.cback_h5sync!= NULL)
         {
             rtk_h5.cback_h5sync(rtk_h5.p_rcv_msg);
@@ -3179,10 +3447,16 @@ static void h5_timeout_handler(int signo, siginfo_t * info, void *context)
         }
     }
     else
+    if (signo == TIMER_H5_HW_INIT_READY)
+    {
+        H5_LogMsg("TIMER_H5_HW_INIT_READY timeout, kill restart BT");
+        kill(getpid(), SIGKILL);
+
+    }
+    else
     {
         ALOGE("H5 timer rx unspported signo(%d)", signo);
     }
-    rtk_h5.h5_busy=0;
 }
 
 int h5_alloc_data_retrans_timer()
@@ -3198,7 +3472,7 @@ int h5_alloc_data_retrans_timer()
     // Set up sigaction to catch signal first timer
     if (sigaction(TIMER_H5_DATA_RETRANS, &sigact, NULL) == -1)
     {
-        ALOGI("sigaction failed");
+        H5_LogMsg("sigaction failed");
         return -1;
     }
 
@@ -3239,7 +3513,7 @@ int h5_alloc_sync_retrans_timer()
     // Set up sigaction to catch signal first timer
     if (sigaction(TIMER_H5_SYNC_RETRANS, &sigact, NULL) == -1)
     {
-        ALOGI("sigaction failed");
+        H5_LogMsg("sigaction failed");
         return -1;
     }
 
@@ -3280,7 +3554,7 @@ int h5_alloc_conf_retrans_timer()
     // Set up sigaction to catch signal first timer
     if (sigaction(TIMER_H5_CONF_RETRANS, &sigact, NULL) == -1)
     {
-        ALOGI("sigaction failed");
+        H5_LogMsg("sigaction failed");
         return -1;
     }
 
@@ -3322,7 +3596,7 @@ int h5_alloc_wait_controller_baudrate_ready_timer()
     // Set up sigaction to catch signal first timer
     if (sigaction(TIMER_H5_WAIT_CT_BAUDRATE_READY, &sigact, NULL) == -1)
     {
-        ALOGI("sigaction failed");
+        H5_LogMsg("sigaction failed");
         return -1;
     }
 
@@ -3349,6 +3623,48 @@ int h5_stop_wait_controller_baudrate_ready_timer()
     return OsStopTimer(rtk_h5.timer_wait_ct_baudrate_ready);
 }
 
+
+int h5_alloc_hw_init_ready_timer()
+ {
+    struct sigaction sigact;
+
+    sigemptyset(&sigact.sa_mask);
+    sigact.sa_flags = SA_SIGINFO;
+
+    //register the Signal Handler
+    sigact.sa_sigaction = h5_timeout_handler;
+
+    // Set up sigaction to catch signal first timer
+    if (sigaction(TIMER_H5_HW_INIT_READY, &sigact, NULL) == -1)
+    {
+        H5_LogMsg("sigaction failed");
+        return -1;
+    }
+
+    // Create and set the timer when to expire
+    rtk_h5.timer_h5_hw_init_ready = OsAllocateTimer(TIMER_H5_HW_INIT_READY);
+
+    return 0;
+
+ }
+
+int h5_free_hw_init_ready_timer()
+{
+    return OsFreeTimer(rtk_h5.timer_h5_hw_init_ready);
+}
+
+
+int h5_start_hw_init_ready_timer()
+{
+    return OsStartTimer(rtk_h5.timer_h5_hw_init_ready, H5_HW_INIT_READY_TIMEOUT_VALUE, 0);
+}
+
+int h5_stop_hw_init_ready_timer()
+{
+    return OsStopTimer(rtk_h5.timer_h5_hw_init_ready);
+}
+
+
 /******************************************************************************
 **  HCI H5 Services interface table
 ******************************************************************************/
@@ -3363,3 +3679,64 @@ const tHCI_IF hci_h5_func_table =
     hci_h5_receive_msg
 };
 
+#ifdef BT_FW_CAL_ENABLE
+uint32_t rtk_set_bt_cal_inqury_result(uint8_t result)
+{
+    char bt_cal_file_name[PATH_MAX] = {0};
+    int fd = -1;
+    off_t offset = 0;
+ssize_t ret_len = 0;
+uint16_t host_info = 0;
+
+    sprintf(bt_cal_file_name, BT_CAL_DIRECTORY"rtlbt_cal");
+    if ((fd = open(bt_cal_file_name, O_RDWR)) < 0)
+    {
+        ALOGE("Can't open bt cal file, errno = %d", errno);
+        return -1;
+    }
+
+    offset = lseek(fd, 3, SEEK_SET);
+    if (offset != 3)
+    {
+        ALOGE("lseek for read fail return, errno = %d", errno);
+        close(fd);
+        return -1;
+    }
+
+    ret_len = read(fd, &host_info, sizeof(host_info));
+    if (ret_len != sizeof(host_info)) {
+        ALOGE("read host_info fail, ret_len(%d), errno = %d", ret_len, errno);
+        close(fd);
+        return -1;
+    }
+    H5_LogMsg("Get CAL Host info success, host_info = 0x%04x", host_info);
+    if (result == CAL_INQUIRY_SUCCESS)
+    {
+        host_info |= IS_LAST_INQUIRY_SUCCESS;
+    }
+    else
+    {
+        host_info &= (~IS_LAST_INQUIRY_SUCCESS);
+    }
+
+    H5_LogMsg("Update CAL Host info to file, host_info = 0x%04x", host_info);
+
+    offset = lseek(fd, 3, SEEK_SET);
+    if (offset != 3)
+    {
+        ALOGE("lseek for write fail return, errno = %d", errno);
+        close(fd);
+        return -1;
+    }
+
+    ret_len = write(fd, &host_info, sizeof(host_info));
+    if (ret_len != sizeof(host_info)) {
+        ALOGE("write host_info fail, ret_len = %d, errno = %d", ret_len, errno);
+        close(fd);
+        return -1;
+    }
+
+    close(fd);
+    return ret_len;
+}
+#endif
