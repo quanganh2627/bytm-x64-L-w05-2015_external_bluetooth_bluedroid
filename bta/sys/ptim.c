@@ -27,6 +27,9 @@
 #include "ptim.h"
 #include "bta_sys.h"
 
+#include <cutils/log.h>
+static pthread_mutex_t pt_time_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 /*******************************************************************************
 **
 ** Function         ptim_init
@@ -126,6 +129,7 @@ void ptim_timer_update(tPTIM_CB *p_cb)
 *******************************************************************************/
 void ptim_start_timer(tPTIM_CB *p_cb, TIMER_LIST_ENT *p_tle, UINT16 type, INT32 timeout)
 {
+    pthread_mutex_lock(&pt_time_mutex);
     /* if timer list is currently empty, start periodic GKI timer */
     if (p_cb->timer_queue.p_first == NULL)
     {
@@ -139,6 +143,7 @@ void ptim_start_timer(tPTIM_CB *p_cb, TIMER_LIST_ENT *p_tle, UINT16 type, INT32 
     p_tle->ticks = timeout;
 
     GKI_add_to_timer_list(&p_cb->timer_queue, p_tle);
+    pthread_mutex_unlock(&pt_time_mutex);
 }
 
 /*******************************************************************************
