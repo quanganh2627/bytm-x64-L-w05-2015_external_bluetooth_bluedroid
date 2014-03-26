@@ -64,7 +64,11 @@
 
 #ifndef BTHC_USERIAL_READ_MEM_SIZE
 /* Buffer size value fixed for supporting any possible chip */
+#ifndef BLUEDROID_RTK
 #define BTHC_USERIAL_READ_MEM_SIZE (1026 + BT_HC_HDR_SIZE)
+#else
+#define BTHC_USERIAL_READ_MEM_SIZE (2048)
+#endif
 #endif
 
 #ifndef BTSNOOPDISP_INCLUDED
