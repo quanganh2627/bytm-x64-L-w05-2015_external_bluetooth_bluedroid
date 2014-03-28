@@ -375,6 +375,23 @@ static BOOLEAN btif_av_state_opening_handler(btif_sm_event_t event, void *p_data
         default:
             BTIF_TRACE_WARNING2("%s : unhandled event:%s", __FUNCTION__,
                                 dump_av_sm_event_name(event));
+            if (event == BTA_AV_PENDING_EVT)
+            {
+                btav_connection_state_t state;
+                btif_sm_state_t av_state;
+                static int no_of_attempts = 0;
+                no_of_attempts++;
+                if (no_of_attempts > 3)
+                {
+                    tBTA_AV *p_bta_data = (tBTA_AV*)p_data;
+                    state = BTAV_CONNECTION_STATE_DISCONNECTED;
+                    av_state  = BTIF_AV_STATE_IDLE;
+                    HAL_CBACK(bt_av_callbacks, connection_state_cb, state, &(btif_av_cb.peer_bda));
+                    BTA_AvDisconnect(p_bta_data->open.bd_addr);
+                    no_of_attempts = 0;
+                    return TRUE;
+                }
+            }
             return FALSE;
 
    }

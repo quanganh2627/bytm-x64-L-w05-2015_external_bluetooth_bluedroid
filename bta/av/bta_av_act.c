@@ -864,7 +864,7 @@ void bta_av_rc_msg(tBTA_AV_CB *p_cb, tBTA_AV_DATA *p_data)
     BOOLEAN is_inquiry = ((p_data->rc_msg.msg.hdr.ctype == AVRC_CMD_SPEC_INQ) || p_data->rc_msg.msg.hdr.ctype == AVRC_CMD_GEN_INQ);
 #if (AVRC_METADATA_INCLUDED == TRUE)
     tAVRC_STS   res;
-    UINT8       ctype;
+    UINT8       ctype = 0;
     tAVRC_RESPONSE  rc_rsp;
 
     rc_rsp.rsp.status = BTA_AV_STS_NO_RSP;
@@ -1390,6 +1390,7 @@ void bta_av_disable(tBTA_AV_CB *p_cb, tBTA_AV_DATA *p_data)
 void bta_av_api_disconnect(tBTA_AV_DATA *p_data)
 {
     AVDT_DisconnectReq(p_data->api_discnt.bd_addr, bta_av_conn_cback);
+    APPL_TRACE_DEBUG1("\nCalling bta_sys_stop_timer", NULL);
     bta_sys_stop_timer(&bta_av_cb.sig_tmr);
 }
 
