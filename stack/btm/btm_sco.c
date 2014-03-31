@@ -259,7 +259,11 @@ void btm_sco_check_send_pkts (UINT16 sco_inx)
         BTM_TRACE_DEBUG1 ("btm: [%d] buf in xmit_data_q", p_ccb->xmit_data_q.count );
 #endif
         p_buf = (BT_HDR *)GKI_dequeue (&p_ccb->xmit_data_q);
-
+        if (NULL == p_buf)
+        {
+            BTM_TRACE_ERROR0("buffer is NULL");
+            break;
+        }
         HCI_SCO_DATA_TO_LOWER (p_buf);
     }
 }
