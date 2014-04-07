@@ -62,6 +62,9 @@
 
 #define BTIF_DM_DEFAULT_INQ_MAX_RESULTS     0
 #define BTIF_DM_DEFAULT_INQ_MAX_DURATION    10
+#ifdef BLUEDROID_RTK
+#define BOND_RETRY_MAXIMUM_RETRY_TIMES      3 //add by realtek, For retry device bond
+#endif
 #define BTIF_DM_MAX_SDP_ATTEMPTS_AFTER_PAIRING 2
 
 #define PROPERTY_PRODUCT_MODEL "ro.product.model"
@@ -122,6 +125,10 @@ typedef struct
     BT_OCTET16 sp_r;
     BD_ADDR  oob_bdaddr;  /* peer bdaddr*/
 } btif_dm_oob_cb_t;
+#ifdef BLUEDROID_RTK
+bt_bdaddr_t tempAddr;
+int bond_retry_times = 0;
+#endif
 #define BTA_SERVICE_ID_TO_SERVICE_MASK(id)       (1 << (id))
 
 /* This flag will be true if HCI_Inquiry is in progress */
@@ -341,17 +348,27 @@ static void bond_state_changed(bt_status_t status, bt_bdaddr_t *bd_addr, bt_bond
     }
     BTIF_TRACE_DEBUG3("%s: state=%d prev_state=%d", __FUNCTION__, state, pairing_cb.state);
 
-    HAL_CBACK(bt_hal_cbacks, bond_state_changed_cb, status, bd_addr, state);
+#ifdef BLUEDROID_RTK
+    if (pairing_cb.state == BT_BOND_STATE_BONDING &&
+        state == BT_BOND_STATE_NONE &&
+        status == BT_STATUS_RMT_DEV_DOWN &&
+        bond_retry_times < BOND_RETRY_MAXIMUM_RETRY_TIMES) {
+                   bond_retry_times++;
+                   btif_dm_cb_create_bond(&tempAddr);
+        } else {
+            bond_retry_times = 0;
+#endif
+            HAL_CBACK(bt_hal_cbacks, bond_state_changed_cb, status, bd_addr, state);
 
-    if (state == BT_BOND_STATE_BONDING)
-    {
-        pairing_cb.state = state;
-        bdcpy(pairing_cb.bd_addr, bd_addr->address);
-    }
-    else
-    {
-        memset(&pairing_cb, 0, sizeof(pairing_cb));
-    }
+            if (state == BT_BOND_STATE_BONDING) {
+                pairing_cb.state = state;
+                bdcpy(pairing_cb.bd_addr, bd_addr->address);
+            } else {
+                memset(&pairing_cb, 0, sizeof(pairing_cb));
+            }
+#ifdef BLUEDROID_RTK
+        }
+#endif
 
 }
 
@@ -1921,7 +1938,9 @@ bt_status_t btif_dm_cancel_discovery(void)
 bt_status_t btif_dm_create_bond(const bt_bdaddr_t *bd_addr)
 {
     bdstr_t bdstr;
-
+#ifdef BLUEDROID_RTK
+    memcpy(&tempAddr, bd_addr, sizeof(bt_bdaddr_t));
+#endif
     BTIF_TRACE_EVENT2("%s: bd_addr=%s", __FUNCTION__, bd2str((bt_bdaddr_t *) bd_addr, &bdstr));
     if (pairing_cb.state != BT_BOND_STATE_NONE)
         return BT_STATUS_BUSY;

@@ -27,6 +27,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <stddef.h>
+#ifdef BLUEDROID_RTK
+#include <fcntl.h>
+#endif
 
 #include "bt_types.h"
 #include "hcimsgs.h"
@@ -904,6 +907,15 @@ void btm_read_local_version_complete (UINT8 *p, UINT16 evt_len)
         STREAM_TO_UINT8  (p_vi->lmp_version, p);
         STREAM_TO_UINT16 (p_vi->manufacturer, p);
         STREAM_TO_UINT16 (p_vi->lmp_subversion, p);
+
+
+#ifdef BLUEDROID_RTK
+        if (p_vi->hci_version == 0x06&& p_vi->hci_revision == 0x000b) {
+            usleep(10000); /* 10 milliseconds */
+            /* Killing the process to force a restart as part of fault tolerance */
+            kill(getpid(), SIGKILL);
+        }
+#endif
     }
 
     if (p_vi->hci_version >= HCI_PROTO_VERSION_1_2)

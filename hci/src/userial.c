@@ -489,6 +489,10 @@ uint16_t userial_write(uint16_t msg_id, uint8_t *p_data, uint16_t len)
         log_userial_tx_timing(len);
 #endif
         ret = write(userial_cb.fd, p_data+total, len);
+        if (ret == -1) {
+            ALOGE("ret = %d, errno = %d", ret,errno);
+            break;
+        }
         total += ret;
         len -= ret;
     }
