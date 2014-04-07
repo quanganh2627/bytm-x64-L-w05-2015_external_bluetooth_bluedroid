@@ -29,6 +29,7 @@
 #include <stddef.h>
 #ifdef BLUEDROID_RTK
 #include <fcntl.h>
+#include <lct.h>
 #endif
 
 #include "bt_types.h"
@@ -893,6 +894,10 @@ void btm_read_local_version_complete (UINT8 *p, UINT16 evt_len)
     tBTM_VERSION_INFO   *p_vi = &btm_cb.devcb.local_version;
     UINT8                status;
 
+#ifdef BLUEDROID_RTK
+    char data2[60];
+#endif
+
 #ifdef BTA_PRM_CHECK_FW_VER
     if(BTA_PRM_CHECK_FW_VER(p))
         return;
@@ -910,7 +915,16 @@ void btm_read_local_version_complete (UINT8 *p, UINT16 evt_len)
 
 
 #ifdef BLUEDROID_RTK
-        if (p_vi->hci_version == 0x06&& p_vi->hci_revision == 0x000b) {
+        if (p_vi->hci_version == 0x06 && p_vi->hci_revision == 0x000b) {
+            /* Crashtool log */
+            snprintf(data2, sizeof(data2), "Version lmp:0x%02x, lmp_sub:0x%04x, manufacturer:0x%04x",
+                             p_vi->lmp_version,
+                             p_vi->lmp_subversion,
+                             p_vi->manufacturer);
+            lct_log(CT_EV_INFO, "cws.bt", "realtek", 0,
+                            "Killing the process to force a restart in btm_read_local_version_complete",
+                            data2);
+
             usleep(10000); /* 10 milliseconds */
             /* Killing the process to force a restart as part of fault tolerance */
             kill(getpid(), SIGKILL);
