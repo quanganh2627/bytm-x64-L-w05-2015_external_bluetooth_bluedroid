@@ -363,8 +363,8 @@ bt_status_t btif_set_channel_classification(uint8_t *bt_channel, uint8_t *le_cha
 ** Function         btif_set_mws_channel_parameters
 **
 ** Description      Implement the set MWS channel Parameters command as described in
-**                  Core Spec Addendum 3 Rev 2
-**                  CHANGE #2 - VOLUME 2, PART E (HCI), SECTION 7
+**                  Core Spec 4.1
+**                  VOLUME 2, PART E (HCI), SECTION 7
 **                  7.3.80 Set MWS Channel Parameters Command
 **
 ** Returns          BT_STATUS_SUCCESS on success
@@ -382,8 +382,8 @@ bt_status_t btif_set_mws_channel_parameters(uint8_t enable,
 ** Function         btif_set_mws_transport_layer
 **
 ** Description      Implement the set MWS Transport Layer command as described in
-**                  Core Spec Addendum 3 Rev 2
-**                  CHANGE #2 - VOLUME 2, PART E (HCI), SECTION 7
+**                  Core Spec 4.1
+**                  VOLUME 2, PART E (HCI), SECTION 7
 **                  7.3.83 Set MWS Transport Layer Command
 **
 ** Returns          BT_STATUS_SUCCESS on success
@@ -393,4 +393,22 @@ bt_status_t btif_set_mws_transport_layer(uint8_t transport_layer,
                                          uint32_t to_baud_rate,
                                          uint32_t from_baud_rate);
 
+/*******************************************************************************
+**
+** Function         btif_set_external_frame_config
+**
+** Description      Implement the set External Frame Configuration  command as described in
+**                  Core Spec 4.1
+**                  VOLUME 2, PART E (HCI), SECTION 7
+**                  7.3.81 Set External Frame Configuration Command
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_set_external_frame_config(uint16_t ext_frame_duration,
+                                            uint16_t ext_frame_sync_offset,
+                                            uint16_t ext_frame_sync_assert_jitter,
+                                            uint8_t ext_num_period,
+                                            uint16_t *ext_period_duration,
+                                            uint8_t *ext_period_type);
 #endif /* BTIF_API_H */

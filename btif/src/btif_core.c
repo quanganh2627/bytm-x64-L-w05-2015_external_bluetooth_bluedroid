@@ -1070,8 +1070,8 @@ static void btif_set_mws_channel_parameters_cback( tBTM_VSC_CMPL *p )
 ** Function         btif_set_mws_channel_parameters
 **
 ** Description      Implement the set MWS channel Parameters command as described in
-**                  Core Spec Addendum 3 Rev 2
-**                  CHANGE #2 - VOLUME 2, PART E (HCI), SECTION 7
+**                  Core Spec 4.1
+**                  VOLUME 2, PART E (HCI), SECTION 7
 **                  7.3.80 Set MWS Channel Parameters Command
 **
 ** Returns          BT_STATUS_SUCCESS on success
@@ -1088,6 +1088,11 @@ bt_status_t btif_set_mws_channel_parameters(uint8_t enable,
     UINT8 *pp;
 
     BTIF_TRACE_DEBUG2("%s: enable = 0x%02x", __FUNCTION__, enable);
+    BTIF_TRACE_DEBUG2("%s: rx_center_freq = 0x%02x", __FUNCTION__, rx_center_freq);
+    BTIF_TRACE_DEBUG2("%s: tx_center_freq = 0x%02x", __FUNCTION__, tx_center_freq);
+    BTIF_TRACE_DEBUG2("%s: rx_channel_bandwidth = 0x%02x", __FUNCTION__, rx_channel_bandwidth);
+    BTIF_TRACE_DEBUG2("%s: tx_channel_bandwidth = 0x%02x", __FUNCTION__, tx_channel_bandwidth);
+    BTIF_TRACE_DEBUG2("%s: channel_type = 0x%02x", __FUNCTION__, channel_type);
 
     /* Send setMWSChannelParameters command */
     if ((p_msg = HCI_GET_CMD_BUF(sizeof(BT_HDR) + sizeof (void *)
@@ -1126,9 +1131,9 @@ bt_status_t btif_set_mws_channel_parameters(uint8_t enable,
 
 /*******************************************************************************
 **
-** Function         btif_set_mws_channel_parameters_cback
+** Function         btif_set_mws_transport_layer_cback
 **
-** Description     Callback invoked on completion of MWS set Channel Parameters command
+** Description     Callback invoked on completion of MWS set Transport Layer command
 **
 ** Returns          None
 **
@@ -1147,8 +1152,8 @@ static void btif_set_mws_transport_layer_cback( tBTM_VSC_CMPL *p )
 ** Function         btif_set_mws_transport_layer
 **
 ** Description      Implement the set MWS Transport Layer command as described in
-**                  Core Spec Addendum 3 Rev 2
-**                  CHANGE #2 - VOLUME 2, PART E (HCI), SECTION 7
+**                  Core Spec 4.1
+**                  VOLUME 2, PART E (HCI), SECTION 7
 **                  7.3.83 Set MWS Transport Layer Command
 **
 ** Returns          BT_STATUS_SUCCESS on success
@@ -1163,7 +1168,7 @@ bt_status_t btif_set_mws_transport_layer(uint8_t transport_layer,
 
     BTIF_TRACE_DEBUG2("%s: Baud rate = %d MHz", __FUNCTION__, to_baud_rate);
 
-    /* Send setMWSChannelParameters command */
+    /* Send setMWSTransportLayer command */
     if ((p_msg = HCI_GET_CMD_BUF(sizeof(BT_HDR) + sizeof (void *)
                                 + 9 + HCIC_PREAMBLE_SIZE)) == NULL)
     {
@@ -1187,6 +1192,98 @@ bt_status_t btif_set_mws_transport_layer(uint8_t transport_layer,
     UINT8_TO_STREAM (pp, transport_layer);
     UINT32_TO_STREAM (pp, to_baud_rate);
     UINT32_TO_STREAM (pp, from_baud_rate);
+
+    /* Can not call BTM_VendorSpecificCommand directly, because we are not in BTU task context */
+    /* send message to BTU to process instead */
+    GKI_send_msg(BTU_TASK, BTU_HCI_RCV_MBOX, p_msg);
+
+    return BT_STATUS_SUCCESS;
+}
+
+/*******************************************************************************
+**
+** Function         btif_set_external_frame_config_cback
+**
+** Description     Callback invoked on completion of Set External Frame Configuration Command
+**
+** Returns          None
+**
+*******************************************************************************/
+static void btif_set_external_frame_config_cback( tBTM_VSC_CMPL *p )
+{
+    if (*p->p_param_buf == 0) {
+        BTIF_TRACE_DEBUG1("%s: Set_External_Frame_Configuration OK", __FUNCTION__);
+    } else {
+        BTIF_TRACE_DEBUG1("%s: Set_External_Frame_Configuration FAILED", __FUNCTION__);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         btif_set_external_frame_config
+**
+** Description      Implement the set External Frame Configuration  command as described in
+**                  Core Spec 4.1
+**                  VOLUME 2, PART E (HCI), SECTION 7
+**                  7.3.81 Set External Frame Configuration Command
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_set_external_frame_config(uint16_t ext_frame_duration,
+                                            uint16_t ext_frame_sync_offset,
+                                            uint16_t ext_frame_sync_assert_jitter,
+                                            uint8_t ext_num_period,
+                                            uint16_t *ext_period_duration,
+                                            uint8_t *ext_period_type)
+{
+    BT_HDR *p_msg;
+    UINT8 *pp;
+
+    UINT8 i;
+    UINT8 length;
+
+    BTIF_TRACE_DEBUG2("%s: frame duration = %d MHz", __FUNCTION__, ext_frame_duration);
+    BTIF_TRACE_DEBUG2("%s: frame sync offset = %d MHz", __FUNCTION__, ext_frame_sync_offset);
+    BTIF_TRACE_DEBUG2("%s: frame sync jitter = %d micro seconds", __FUNCTION__, ext_frame_sync_assert_jitter);
+    BTIF_TRACE_DEBUG2("%s: num period = %d (1->32)", __FUNCTION__, ext_num_period);
+
+    // length depends on the number of periods
+    length = (7 + ext_num_period * 3);
+
+    /* Send Set External Frame Configuration command */
+    if ((p_msg = HCI_GET_CMD_BUF(sizeof(BT_HDR) + sizeof (void *)
+                                + length + HCIC_PREAMBLE_SIZE)) == NULL)
+    {
+        BTIF_TRACE_ERROR1("%s: failed to allocate buffer.", __FUNCTION__);
+        return (BT_STATUS_FAIL);
+    }
+
+    pp = (UINT8 *)(p_msg + 1);
+
+    p_msg->event = BT_EVT_TO_BTU_HCI_CMD | LOCAL_BR_EDR_CONTROLLER_ID;
+    p_msg->len = HCIC_PREAMBLE_SIZE + length;
+    p_msg->offset = sizeof(void *);
+
+    /* Store cmd complete cb in buffer */
+    *((void **)pp) = btif_set_external_frame_config_cback;
+    pp += sizeof(void *);               /* Skip over callback pointer */
+
+    UINT16_TO_STREAM (pp, HCI_SET_EXTERNAL_FRAME_CONFIGURATION);
+    UINT8_TO_STREAM (pp, length);
+
+    UINT16_TO_STREAM (pp, ext_frame_duration);
+    UINT16_TO_STREAM (pp, ext_frame_sync_offset);
+    UINT16_TO_STREAM (pp, ext_frame_sync_assert_jitter);
+    UINT8_TO_STREAM (pp, ext_num_period);
+    for (i = 0; i < ext_num_period; i++) {
+        BTIF_TRACE_DEBUG3("%s: ext_period_duration[%d] = %d micro seconds", __FUNCTION__, i, ext_period_duration[i]);
+        UINT16_TO_STREAM (pp, ext_period_duration[i]);
+    }
+    for (i = 0; i < ext_num_period; i++) {
+        BTIF_TRACE_DEBUG3("%s: ext_period_type[%d] = %d (1-3)", __FUNCTION__, i, ext_period_type[i]);
+        UINT8_TO_STREAM (pp, ext_period_type[i]);
+    }
 
     /* Can not call BTM_VendorSpecificCommand directly, because we are not in BTU task context */
     /* send message to BTU to process instead */
