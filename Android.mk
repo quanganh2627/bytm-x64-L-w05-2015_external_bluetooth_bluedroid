@@ -1,6 +1,6 @@
 ifneq ($(BOARD_HAVE_BLUETOOTH),false)
 
-ifneq ($(BOARD_USES_WCS),true)
+ifneq ($(COMBO_CHIP_VENDOR), intel)
 
 LOCAL_PATH := $(call my-dir)
 
@@ -19,6 +19,6 @@ include $(call all-subdir-makefiles)
 bdroid_C_INCLUDES :=
 bdroid_CFLAGS :=
 
-endif # BOARD_USES_WCS != true
+endif # COMBO_CHIP_VENDOR != intel
 
-endif
+endif # BOARD_HAVE_BLUETOOTH
