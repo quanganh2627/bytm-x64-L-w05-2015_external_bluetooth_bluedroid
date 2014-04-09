@@ -1281,6 +1281,75 @@ bt_status_t btif_set_external_frame_config(uint16_t ext_frame_duration,
     return BT_STATUS_SUCCESS;
 }
 
+/*******************************************************************************
+**
+** Function         btif_set_mws_signaling_cback
+**
+** Description     Callback invoked on completion of Set MWS Signaling Command
+**
+** Returns          None
+**
+*******************************************************************************/
+static void btif_set_mws_signaling_cback( tBTM_VSC_CMPL *p )
+{
+    if (*p->p_param_buf == 0) {
+        BTIF_TRACE_DEBUG1("%s: Set_MWS_Signaling OK", __FUNCTION__);
+    } else {
+        BTIF_TRACE_DEBUG1("%s: Set_MWS_Signaling FAILED", __FUNCTION__);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         btif_set_mws_signaling
+**
+** Description      Implement the set MWS signaling  command as described in
+**                  Core Spec 4.1
+**                  VOLUME 2, PART E (HCI), SECTION 7
+**                  7.3.82 Set MWS signaling Command
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_set_mws_signaling(uint16_t *parameters)
+{
+    BT_HDR *p_msg;
+    UINT8 *pp;
+
+    UINT8 i;
+
+    /* Send Set MWS signaling command */
+    if ((p_msg = HCI_GET_CMD_BUF(sizeof(BT_HDR) + sizeof (void *)
+                                + 30 + HCIC_PREAMBLE_SIZE)) == NULL)
+    {
+        BTIF_TRACE_ERROR1("%s: failed to allocate buffer.", __FUNCTION__);
+        return (BT_STATUS_FAIL);
+    }
+
+    pp = (UINT8 *)(p_msg + 1);
+
+    p_msg->event = BT_EVT_TO_BTU_HCI_CMD | LOCAL_BR_EDR_CONTROLLER_ID;
+    p_msg->len = HCIC_PREAMBLE_SIZE + 30;
+    p_msg->offset = sizeof(void *);
+
+    /* Store cmd complete cb in buffer */
+    *((void **)pp) = btif_set_mws_signaling_cback;
+    pp += sizeof(void *);               /* Skip over callback pointer */
+
+    UINT16_TO_STREAM (pp, HCI_SET_MWS_SIGNALING);
+    UINT8_TO_STREAM (pp, 30);
+    for (i = 0; i < 15; i++) {
+        BTIF_TRACE_DEBUG3("%s: parameter[%d] = %d MHz", __FUNCTION__, i, parameters[i]);
+        UINT16_TO_STREAM (pp, parameters[i]);
+    }
+
+    /* Can not call BTM_VendorSpecificCommand directly, because we are not in BTU task context */
+    /* send message to BTU to process instead */
+    GKI_send_msg(BTU_TASK, BTU_HCI_RCV_MBOX, p_msg);
+
+    return BT_STATUS_SUCCESS;
+}
+
 /*****************************************************************************
 **
 **   btif api adapter property functions

@@ -411,4 +411,18 @@ bt_status_t btif_set_external_frame_config(uint16_t ext_frame_duration,
                                             uint8_t ext_num_period,
                                             uint16_t *ext_period_duration,
                                             uint8_t *ext_period_type);
+
+/*******************************************************************************
+**
+** Function         btif_set_mws_signaling
+**
+** Description      Implement the set MWS Signaling command as described in
+**                  Core Spec 4.1
+**                  VOLUME 2, PART E (HCI), SECTION 7
+**                  7.3.82 Set External Frame Configuration Command
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_set_mws_signaling(uint16_t *parameters);
 #endif /* BTIF_API_H */
