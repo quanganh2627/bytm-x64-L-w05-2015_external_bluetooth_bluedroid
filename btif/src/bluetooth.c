@@ -418,7 +418,7 @@ int set_mws_transport_layer(uint8_t transport_layer,
                             uint32_t to_baud_rate,
                             uint32_t from_baud_rate)
 {
-    ALOGI("set_mws_transport_layer(");
+    ALOGI("set_mws_transport_layer");
 
     /* sanity check */
     if (interface_ready() == FALSE)
@@ -436,7 +436,7 @@ int set_external_frame_config(uint16_t ext_frame_duration,
                               uint16_t *ext_period_duration,
                               uint8_t *ext_period_type)
 {
-    ALOGI("set_external_frame_config(");
+    ALOGI("set_external_frame_config");
 
     /* sanity check */
     if (interface_ready() == FALSE)
@@ -448,6 +448,17 @@ int set_external_frame_config(uint16_t ext_frame_duration,
                                         ext_num_period,
                                         ext_period_duration,
                                         ext_period_type);
+}
+
+int set_mws_signaling(uint16_t *parameters)
+{
+    ALOGI("set_mws_signaling");
+
+    /* sanity check */
+    if (interface_ready() == FALSE)
+        return BT_STATUS_NOT_READY;
+
+    return btif_set_mws_signaling(parameters);
 }
 
 static const bt_interface_t bluetoothInterface = {
@@ -487,7 +498,8 @@ static const bt_interface_intel_t bluetoothInterfaceIntel = {
     set_channel_classification,
     set_mws_channel_parameters,
     set_mws_transport_layer,
-    set_external_frame_config
+    set_external_frame_config,
+    set_mws_signaling
 };
 
 const bt_interface_t* bluetooth__get_bluetooth_interface ()
