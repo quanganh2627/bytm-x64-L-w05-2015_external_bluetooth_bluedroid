@@ -82,7 +82,8 @@ enum {
     D0I1,                               /* Not used */
     D0I2,                               /* Some clocks are powered down */
     D0I3,                               /* Most aggresive power save mode */
-    D3                                  /* Fully powered down */
+    D3,                                 /* Fully powered down */
+    ANY
 };
 
 /* LPM BT WAKE / HOST WAKE / RTS / CTS state */
@@ -176,7 +177,7 @@ void lpm_tx_done(uint8_t is_tx_done);
 void lpm_wake_assert(void);
 void lpm_allow_bt_device_sleep(void);
 void lpm_wake_deassert(void);
-void lpm_set_device_state(uint8_t state);
+int lpm_set_device_state(uint8_t source_state, uint8_t next_state);
 void lpm_set_bt_wake_state(uint8_t state);
 void lpm_host_wake_handler(uint8_t state);
 /******************************************************************************
@@ -199,43 +200,34 @@ static void lpm_periodic_pkt_rate_timeout(union sigval arg)
     {
         /* calculate packet rate */
         bt_lpm_cb.pkt_rate_params.pkt_rate = bt_lpm_cb.pkt_rate_params.pkt_count;
-        if(bt_lpm_cb.pkt_rate_params.pkt_rate <= \
+        if(bt_lpm_cb.pkt_rate_params.pkt_rate < \
             bt_lpm_cb.pkt_rate_params.pkt_rate_threshold + \
             bt_lpm_cb.pkt_rate_params.pkt_rate_threshold_correction)
         {
             /* go to D0I2 */
-            pthread_mutex_lock(&device_state_mutex);
-            if (bt_lpm_cb.device_state == D0)
-            {
-                pthread_mutex_unlock(&device_state_mutex);
-                lpm_set_device_state(D0I2);
-            }
-            else
-            {
-                pthread_mutex_unlock(&device_state_mutex);
-            }
+            lpm_set_device_state(D0, D0I2);
         }
         else if(bt_lpm_cb.pkt_rate_params.pkt_rate >= \
             bt_lpm_cb.pkt_rate_params.pkt_rate_threshold - \
             bt_lpm_cb.pkt_rate_params.pkt_rate_threshold_correction)
         {
             /* go to D0 */
-            pthread_mutex_lock(&device_state_mutex);
-            if (bt_lpm_cb.device_state == D0I2)
-            {
-                pthread_mutex_unlock(&device_state_mutex);
-                lpm_set_device_state(D0);
-            }
-            else
-            {
-                pthread_mutex_unlock(&device_state_mutex);
-            }
+            lpm_set_device_state(D0I2, D0);
         }
         /* Make pkt count 0 for next time slot */
         pthread_mutex_lock(&pkt_count_mutex);
         bt_lpm_cb.pkt_rate_params.pkt_count = 0;
         pthread_mutex_unlock(&pkt_count_mutex);
-        lpm_periodic_pkt_rate_start_timer();
+
+        /* Restart the timer only if device is in D0/D0I2 state */
+        pthread_mutex_lock(&device_state_mutex);
+        if (bt_lpm_cb.device_state == D0 || bt_lpm_cb.device_state == D0I2)
+        {
+            pthread_mutex_unlock(&device_state_mutex);
+            lpm_periodic_pkt_rate_start_timer();
+        }
+        else
+            pthread_mutex_unlock(&device_state_mutex);
     }
 }
 
@@ -278,7 +270,7 @@ static void lpm_periodic_pkt_rate_start_timer(void)
     {
         //BTLPMDBG("%s bt_lpm_cb.pkt_rate_params.timeout_ms: %d", __func__, bt_lpm_cb.pkt_rate_params.timeout_ms);
         ts.it_value.tv_sec = bt_lpm_cb.pkt_rate_params.timeout_ms/1000;
-        ts.it_value.tv_nsec = 1000*(bt_lpm_cb.pkt_rate_params.timeout_ms%1000);
+        ts.it_value.tv_nsec = 1000*1000*(bt_lpm_cb.pkt_rate_params.timeout_ms%1000);
         ts.it_interval.tv_sec = 0;
         ts.it_interval.tv_nsec = 0;
 
@@ -398,7 +390,7 @@ static void lpm_start_transport_idle_timer(void)
     if (bt_lpm_cb.timer_created == TRUE)
     {
         ts.it_value.tv_sec = bt_lpm_cb.timeout_ms/1000;
-        ts.it_value.tv_nsec = 1000*(bt_lpm_cb.timeout_ms%1000);
+        ts.it_value.tv_nsec = 1000*1000*(bt_lpm_cb.timeout_ms%1000);
         ts.it_interval.tv_sec = 0;
         ts.it_interval.tv_nsec = 0;
 
@@ -576,7 +568,7 @@ void lpm_enable(uint8_t turn_on)
         bt_lpm_cb.host_wake_state = LOW;
         bt_lpm_cb.start_transport_idle_timer = START_TRANSPORT_IDLE_TIMER;
         //lpm_periodic_pkt_rate_start_timer();
-        lpm_set_device_state(D0);
+        lpm_set_device_state(ANY, D0);
         //lpm_host_wake_handler(HIGH);
         lpm_set_bt_wake_state(HIGH);
     }
@@ -584,11 +576,12 @@ void lpm_enable(uint8_t turn_on)
     {
         lpm_periodic_pkt_rate_stop_timer();
         lpm_set_bt_wake_state(LOW);
+        if (bt_vnd_if)
+            bt_vnd_if->op(BT_VND_OP_LPM_SET_RTS_STATE, &state);
         BTLPMDBG("%s Sending D3", __func__);
-        lpm_set_device_state(D3);
+        lpm_set_device_state(ANY, D3);
         if (bt_vnd_if)
         {
-            bt_vnd_if->op(BT_VND_OP_LPM_SET_RTS_STATE, &state);
             lpm_cmd = BT_VND_LPM_DISABLE;
             if (bt_vnd_if->op(BT_VND_OP_LPM_SET_MODE, &lpm_cmd) == -1)
             {
@@ -641,17 +634,7 @@ void lpm_wake_assert(void)
     if (bt_lpm_cb.state != LPM_DISABLED)
     {
         /* Change device state if required */
-        pthread_mutex_lock(&device_state_mutex);
-        BTLPMDBG("%s device state:%d", __func__, bt_lpm_cb.device_state);
-        if (bt_lpm_cb.device_state == D0I3)
-        {
-            pthread_mutex_unlock(&device_state_mutex);
-            lpm_set_device_state(D0);
-        }
-        else
-        {
-            pthread_mutex_unlock(&device_state_mutex);
-        }
+        lpm_set_device_state(D0I3, D0);
         /* Check CTS state */
         pthread_mutex_lock(&cts_state_mutex);
         if (bt_lpm_cb.cts_state == LOW)
@@ -704,29 +687,39 @@ void lpm_allow_bt_device_sleep(void)
 *******************************************************************************/
 void lpm_wake_deassert(void)
 {
-    pthread_mutex_lock(&device_state_mutex);
+    pthread_mutex_lock(&bt_wake_mutex);
+    if (bt_lpm_cb.bt_wake_state) {
+        pthread_mutex_unlock(&bt_wake_mutex);
+        return;
+    }
+    pthread_mutex_unlock(&bt_wake_mutex);
+
+    pthread_mutex_lock(&host_wake_mutex);
+    if (bt_lpm_cb.host_wake_state) {
+        pthread_mutex_unlock(&host_wake_mutex);
+        return;
+    }
+    pthread_mutex_unlock(&host_wake_mutex);
+
     // FIXME: Profile latency requirement is not considered for now.
-    if (bt_lpm_cb.device_state != D0I3/* && bt_lpm_cb.min_profile_latency > \
-                                                    bt_lpm_cb.D0I3_wake_time*/)
+    //if (bt_lpm_cb.min_profile_latency > bt_lpm_cb.D0I3_wake_time)
+    if (lpm_set_device_state(ANY, D0I3) != 0)
     {
-        /* Change D state to D0I2 if current state is not D0I2. Because
-         * D0->D0I3 is not possible. So we will go D0->D0I2->D0I3
-         */
-        if (bt_lpm_cb.device_state != D0I2)
+        BTLPMDBG("D0I3 is not possible now.");
+        /* Restart idle timer now */
+        pthread_mutex_lock(&start_transport_idle_timer_mutex);
+        if (bt_lpm_cb.start_transport_idle_timer == \
+                                        START_TRANSPORT_IDLE_TIMER)
         {
-            pthread_mutex_unlock(&device_state_mutex);
-            lpm_set_device_state(D0I2);
+            BTLPMDBG("%s start transport_idle_timer", __func__);
+            lpm_start_transport_idle_timer();
         }
-        else
-        {
-            pthread_mutex_unlock(&device_state_mutex);
-        }
-        /* Finaly Set state D0I3 */
-        lpm_set_device_state(D0I3);
+        pthread_mutex_unlock(&start_transport_idle_timer_mutex);
     }
     else
     {
-        pthread_mutex_unlock(&device_state_mutex);
+        /* In D0I3, Stop the packet rate timer */
+        lpm_periodic_pkt_rate_stop_timer();
     }
 }
 
@@ -739,25 +732,81 @@ void lpm_wake_deassert(void)
 ** Returns          None
 **
 *******************************************************************************/
-void lpm_set_device_state(uint8_t state)
+int lpm_set_device_state(uint8_t source_state, uint8_t next_state)
 {
-    pthread_mutex_lock(&device_state_mutex);
-    if ((bt_lpm_cb.state == LPM_ENABLED))
-    {
-        if (bt_lpm_cb.device_state != state)
-        {
-            if (bt_vnd_if)
-            {
-                BTLPMDBG("%s PREV STATE:%d", __func__, bt_lpm_cb.device_state);
-                //FIXME: D0I3 is not enabled
-                //if (state != D0I3)
-                bt_vnd_if->op(BT_VND_OP_LPM_SET_DEVICE_STATE, &state);
-                bt_lpm_cb.device_state = state;
-                BTLPMDBG("%s NEXT STATE:%d", __func__, bt_lpm_cb.device_state);
-            }
-        }
+    uint8_t intermediate_state = 0;
+    int retval = 0;
+
+    if (bt_lpm_cb.state != LPM_ENABLED || (!bt_vnd_if)) {
+        BTLPMDBG("%s LPM is not enabled!", __func__);
+        return -1;
     }
+
+    pthread_mutex_lock(&device_state_mutex);
+
+    /* Sanity checks */
+
+    if (bt_lpm_cb.device_state == next_state) {
+        retval = -1;
+        goto done;
+    }
+
+    if (source_state != ANY && source_state != bt_lpm_cb.device_state) {
+        retval = -1;
+        goto done;
+    }
+
+    /* Feasibility checks */
+
+    switch (next_state) {
+    case D0:
+        break;
+    case D0I2:
+        if (bt_lpm_cb.device_state != D0) {
+            BTLPMDBG("%s Cannot go to D0I2 from %d!", __func__, bt_lpm_cb.device_state);
+            retval = -1;
+        }
+        break;
+    case D0I3:
+        if (bt_lpm_cb.device_state == D3) {
+            BTLPMDBG("%s Cannot go to D0I3 from %d!", __func__, bt_lpm_cb.device_state);
+            retval = -1;
+        }
+        break;
+    case D3:
+        break;
+    default:
+        BTLPMDBG("%s Invalid state %d!", __func__, next_state);
+        retval = -1;
+    }
+
+    /* Special handling for D0 > D0I3 transition */
+    if (next_state == D0I3 && bt_lpm_cb.device_state == D0) {
+        intermediate_state = 1;
+        next_state = D0I2;
+    }
+
+again:
+    if (retval == -1)
+        goto done;
+
+    BTLPMDBG("%s PREV STATE:%d", __func__, bt_lpm_cb.device_state);
+    if ((retval = bt_vnd_if->op(BT_VND_OP_LPM_SET_DEVICE_STATE, &next_state)) == 0) {
+        bt_lpm_cb.device_state = next_state;
+        BTLPMDBG("%s NEXT STATE:%d", __func__, bt_lpm_cb.device_state);
+    }
+    else
+        BTLPMDBG("%s State transition into %d failed!", __func__, next_state);
+
+    if (intermediate_state) {
+        intermediate_state = 0;
+        next_state = D0I3;
+        goto again;
+    }
+
+done:
     pthread_mutex_unlock(&device_state_mutex);
+    return retval;
 }
 
 /*******************************************************************************
@@ -836,7 +885,10 @@ void lpm_host_wake_handler(uint8_t state)
 {
     pthread_mutex_lock(&host_wake_mutex);
     if (bt_lpm_cb.host_wake_state == state)
+    {
+        pthread_mutex_unlock(&host_wake_mutex);
         return; /* Redundent notify. Should never happen */
+    }
 
     if ((bt_lpm_cb.state == LPM_ENABLED))
     {
@@ -844,6 +896,7 @@ void lpm_host_wake_handler(uint8_t state)
         pthread_mutex_lock(&start_transport_idle_timer_mutex);
         if (state == LOW)
         {
+            BTLPMDBG("%s got host_wakeup LOW", __func__);
             /* Host wake low. check bt wake and if low start idle timer */
             bt_lpm_cb.start_transport_idle_timer |= \
                             START_TRANSPORT_IDLE_TIMER_HOST_WAKE;
@@ -856,6 +909,7 @@ void lpm_host_wake_handler(uint8_t state)
         }
         else
         {
+            BTLPMDBG("%s got host_wakeup HIGH", __func__);
             bt_lpm_cb.start_transport_idle_timer &= \
                                     ~START_TRANSPORT_IDLE_TIMER_HOST_WAKE;
             /* Data to receive. Stop transport idle timer */
@@ -863,15 +917,11 @@ void lpm_host_wake_handler(uint8_t state)
         }
         pthread_mutex_unlock(&start_transport_idle_timer_mutex);
         /* Change device state to D0I3 -> D0 */
-        pthread_mutex_lock(&device_state_mutex);
-        if (state == HIGH && bt_lpm_cb.device_state == D0I3)
-        {
-            pthread_mutex_unlock(&device_state_mutex);
-            lpm_set_device_state(D0);
-        }
-        else
-        {
-            pthread_mutex_unlock(&device_state_mutex);
+        if (state == HIGH) {
+            if (!lpm_set_device_state(D0I3, D0)) {
+                /* Start the packet rate timer */
+                lpm_periodic_pkt_rate_start_timer();
+            }
         }
         /* Send RTS to ack host wake receive */
         if (bt_vnd_if)
