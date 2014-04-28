@@ -407,7 +407,7 @@ void *GKI_getbuf (UINT16 size)
         {
 // btla-specific ++
         #ifdef GKI_USE_DEFERED_ALLOC_BUF_POOLS
-            if(Q->p_first == 0 && gki_alloc_free_queue(i) != TRUE) {
+            if(gki_alloc_free_queue(i) != TRUE && Q->p_first == 0) {
                 GKI_enable();
                 return NULL;
             }
