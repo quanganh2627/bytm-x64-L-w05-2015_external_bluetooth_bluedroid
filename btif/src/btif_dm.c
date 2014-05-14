@@ -363,8 +363,10 @@ static void bond_state_changed(bt_status_t status, bt_bdaddr_t *bd_addr, bt_bond
             if (state == BT_BOND_STATE_BONDING) {
                 pairing_cb.state = state;
                 bdcpy(pairing_cb.bd_addr, bd_addr->address);
-            } else {
-                memset(&pairing_cb, 0, sizeof(pairing_cb));
+            } else if (memcmp(pairing_cb.bd_addr, bd_addr->address, sizeof(pairing_cb.bd_addr)) == 0) {
+                    /* Reset the Data structure only if the BD address matches, else we shall notice
+                    issues while un-paring a paired device & pairing a new device simultaneously */
+                    memset(&pairing_cb, 0, sizeof(pairing_cb));
             }
 #ifdef BLUEDROID_RTK
         }
