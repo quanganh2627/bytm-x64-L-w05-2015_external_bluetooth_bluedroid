@@ -36,6 +36,11 @@
 #include <ctype.h>
 #include <cutils/properties.h>
 
+#ifdef BLUEDROID_RTK
+#include <stdio.h>
+#include <lct.h>
+#endif
+
 #define LOG_TAG "BTIF_CORE"
 #include "btif_api.h"
 #include "bta_api.h"
@@ -534,11 +539,22 @@ static bt_status_t btif_associate_evt(void)
 
 bt_status_t btif_enable_bluetooth(void)
 {
+
+#ifdef BLUEDROID_RTK
+    char data2[30];
+#endif
+
     BTIF_TRACE_DEBUG0("BTIF ENABLE BLUETOOTH");
 
     if (btif_core_state != BTIF_CORE_STATE_DISABLED)
     {
 #ifdef BLUEDROID_RTK
+        /* Crashtool log */
+        snprintf(data2, sizeof(data2), "Current btif_core_state: %d",
+                         btif_core_state);
+        lct_log(CT_EV_INFO, "cws.bt", "realtek", 0,
+                        "Killing the process to force a restart in btif_enable_bluetooth", data2);
+
         usleep(10000); /* 10 milliseconds */
         kill(getpid(), SIGKILL);
 #endif
