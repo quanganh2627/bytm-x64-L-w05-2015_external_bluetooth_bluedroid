@@ -906,6 +906,41 @@ bt_status_t btif_dut_mode_send(uint16_t opcode, uint8_t *buf, uint8_t len)
 
 /****************************************************************************
 **
+**   BTIF Vendor Specific APIs
+**
+*****************************************************************************/
+/*******************************************************************************
+**
+** Function         btif_vs_cback
+**
+** Description     Callback invoked on completion of vendor specific command
+**
+** Returns          None
+**
+*******************************************************************************/
+static void btif_vs_cback( tBTM_VSC_CMPL *p )
+{
+    /* For now nothing to be done. */
+}
+
+/*******************************************************************************
+**
+** Function         btif_vs_send
+**
+** Description     Sends a HCI Vendor specific command to the controller
+**
+** Returns          BT_STATUS_SUCCESS on success
+**
+*******************************************************************************/
+bt_status_t btif_vs_send(uint16_t opcode, uint8_t *buf, uint8_t len)
+{
+    BTIF_TRACE_DEBUG1("%s", __FUNCTION__);
+    BTM_VendorSpecificCommand(opcode, len, buf, btif_vs_cback);
+    return BT_STATUS_SUCCESS;
+}
+
+/****************************************************************************
+**
 **   BTIF Set AFH Channel Classification APIs
 **
 *****************************************************************************/

@@ -461,6 +461,17 @@ int set_mws_signaling(uint16_t *parameters)
     return btif_set_mws_signaling(parameters);
 }
 
+int set_vendor_specific(uint16_t opcode, uint8_t *parameters, uint8_t length)
+{
+    ALOGI("set_vendor_specific");
+
+    /* sanity check */
+    if (interface_ready() == FALSE)
+        return BT_STATUS_NOT_READY;
+
+    return btif_vs_send(opcode, parameters, length);
+}
+
 static const bt_interface_t bluetoothInterface = {
     sizeof(bluetoothInterface),
     init,
@@ -493,6 +504,11 @@ static const bt_interface_t bluetoothInterface = {
     config_hci_snoop_log
 };
 
+static const bt_vs_interface_t bluetoothVendorInterface = {
+    sizeof(bluetoothVendorInterface),
+    set_vendor_specific
+};
+
 static const bt_interface_intel_t bluetoothInterfaceIntel = {
     sizeof(bluetoothInterfaceIntel),
     set_channel_classification,
@@ -507,6 +523,11 @@ const bt_interface_t* bluetooth__get_bluetooth_interface ()
     /* fixme -- add property to disable bt interface ? */
 
     return &bluetoothInterface;
+}
+
+const bt_vs_interface_t* bluetooth__get_bluetooth_vs_interface ()
+{
+    return &bluetoothVendorInterface;
 }
 
 const bt_interface_intel_t* bluetooth__get_bluetooth_interface_intel ()
@@ -531,6 +552,7 @@ struct hw_device_t** abstraction)
     stack->common.close = close_bluetooth_stack;
     stack->get_bluetooth_interface = bluetooth__get_bluetooth_interface;
     stack->get_bluetooth_interface_intel = bluetooth__get_bluetooth_interface_intel;
+    stack->get_bluetooth_vs_interface = bluetooth__get_bluetooth_vs_interface;
     *abstraction = (struct hw_device_t*)stack;
     return 0;
 }
