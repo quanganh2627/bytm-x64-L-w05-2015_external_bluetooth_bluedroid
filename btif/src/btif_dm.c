@@ -1062,9 +1062,10 @@ static void btif_dm_search_devices_evt (UINT16 event, char *p_param)
 
 
             {
-                bt_property_t properties[5];
+                bt_property_t properties[6];
                 bt_device_type_t dev_type;
                 UINT8 addr_type;
+                int appearance;
                 uint32_t num_properties = 0;
                 bt_status_t status;
 
@@ -1083,10 +1084,6 @@ static void btif_dm_search_devices_evt (UINT16 event, char *p_param)
                     num_properties++;
                 }
 
-                /* DEV_CLASS */
-                BTIF_STORAGE_FILL_PROPERTY(&properties[num_properties],
-                                    BT_PROPERTY_CLASS_OF_DEVICE, sizeof(cod), &cod);
-                num_properties++;
                 /* DEV_TYPE */
 #if (defined(BLE_INCLUDED) && (BLE_INCLUDED == TRUE))
                 /* FixMe: Assumption is that bluetooth.h and BTE enums match */
@@ -1098,6 +1095,28 @@ static void btif_dm_search_devices_evt (UINT16 event, char *p_param)
                 BTIF_STORAGE_FILL_PROPERTY(&properties[num_properties],
                                     BT_PROPERTY_TYPE_OF_DEVICE, sizeof(dev_type), &dev_type);
                 num_properties++;
+
+                /* DEV_CLASS */
+                if (dev_type != BT_DEVICE_TYPE_BLE)
+                {
+                    BTIF_STORAGE_FILL_PROPERTY(&properties[num_properties],
+                                        BT_PROPERTY_CLASS_OF_DEVICE, sizeof(cod), &cod);
+                    num_properties++;
+                }
+#if (defined(BLE_INCLUDED) && (BLE_INCLUDED == TRUE))
+                /* APPEARANCE */
+                else
+                {
+                    BTIF_TRACE_DEBUG2("%s() appearance=%04X", __FUNCTION__,
+                        p_search_data->inq_res.ble_appearance);
+
+                    appearance = p_search_data->inq_res.ble_appearance;
+
+                    BTIF_STORAGE_FILL_PROPERTY(&properties[num_properties],
+                                        BT_PROPERTY_BLE_APPEARANCE, sizeof(appearance), &appearance);
+                    num_properties++;
+                }
+#endif
                 /* RSSI */
                 BTIF_STORAGE_FILL_PROPERTY(&properties[num_properties],
                                     BT_PROPERTY_REMOTE_RSSI, sizeof(int8_t),
