@@ -1515,9 +1515,10 @@ BOOLEAN btm_ble_update_inq_result(tINQ_DB_ENT *p_i, UINT8 addr_type, UINT8 evt_t
     BOOLEAN             to_report = TRUE;
     tBTM_INQ_RESULTS     *p_cur = &p_i->inq_info.results;
     UINT8               len;
-    UINT8               *p_flag;
+    UINT8               *p_value;
     tBTM_INQUIRY_VAR_ST  *p_inq = &btm_cb.btm_inq_vars;
     UINT8                data_len, rssi;
+    UINT16              appearance;
     tBTM_BLE_INQ_CB     *p_le_inq_cb = &btm_cb.ble_ctr_cb.inq_var;
     UINT8 *p1;
 
@@ -1560,8 +1561,18 @@ BOOLEAN btm_ble_update_inq_result(tINQ_DB_ENT *p_i, UINT8 addr_type, UINT8 evt_t
 
     if (p_le_inq_cb->adv_len != 0)
     {
-        if ((p_flag = BTM_CheckAdvData(p_le_inq_cb->adv_data_cache, BTM_BLE_AD_TYPE_FLAG, &len)) != NULL)
-            p_cur->flag = * p_flag;
+        BTM_TRACE_DEBUG0("btm_ble_update_inq_result - handling advertisement data");
+
+        if ((p_value = BTM_CheckAdvData(p_le_inq_cb->adv_data_cache,
+                                        BTM_BLE_AD_TYPE_FLAG, &len)) != NULL)
+            p_cur->flag = * p_value;
+
+        if ((p_value = BTM_CheckAdvData(p_le_inq_cb->adv_data_cache,
+                                        BTM_BLE_AD_TYPE_APPEARANCE, &len)) != NULL)
+        {
+            STREAM_TO_UINT16(appearance, p_value);
+            p_cur->appearance = appearance;
+        }
     }
 
     /* if BR/EDR not supported is not set, assume is a DUMO device */
