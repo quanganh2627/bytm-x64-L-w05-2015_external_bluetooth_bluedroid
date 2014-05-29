@@ -34,6 +34,8 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <stddef.h>
+#include <stdbool.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -55,6 +57,8 @@
 
 #include "bt_hci_bdroid.h"
 #include "utils.h"
+
+static bool ext_parser_thread_running;
 
 #ifndef BTSNOOP_DBG
 #define BTSNOOP_DBG FALSE
@@ -491,17 +495,25 @@ static int ext_parser_accept(int port)
     if (result < 0)
         perror("listen");
 
+    if (fcntl(s_listen, F_SETFL, O_NDELAY) < 0)
+        perror("Can't set socket to non-blocking");
+
     clilen = sizeof(struct sockaddr_in);
 
-    s = accept(s_listen, (struct sockaddr *) &cliaddr, &clilen);
+    while (ext_parser_thread_running)
+    {
+        s = accept(s_listen, (struct sockaddr *) &cliaddr, &clilen);
 
-    if (s < 0)
-{
-        perror("accept");
-        return -1;
+        if (s < 0)
+        {
+            perror("accept");
+            sleep(1);
+            continue;
+        }
+
+        ALOGD("connected (%d)", s);
+        break;
     }
-
-    ALOGD("connected (%d)", s);
 
     return s;
 }
@@ -549,24 +561,17 @@ static void interruptFn (int sig)
 static void ext_parser_thread(void* param)
 {
     int fd;
-    int sig = SIGUSR2;
-    sigset_t sigSet;
-    sigemptyset (&sigSet);
-    sigaddset (&sigSet, sig);
 
     ALOGD("ext_parser_thread");
 
     prctl(PR_SET_NAME, (unsigned long)"BtsnoopExtParser", 0, 0, 0);
 
-    pthread_sigmask (SIG_UNBLOCK, &sigSet, NULL);
-
-    struct sigaction act;
-    act.sa_handler = interruptFn;
-    sigaction (sig, &act, NULL );
-
     do
     {
         fd = ext_parser_accept(EXT_PARSER_PORT);
+
+        if (!ext_parser_thread_running)
+            break;
 
         ext_parser_fd = fd;
 
@@ -584,6 +589,7 @@ void btsnoop_init(void)
 {
 #if defined(BTSNOOP_EXT_PARSER_INCLUDED) && (BTSNOOP_EXT_PARSER_INCLUDED == TRUE)
     ALOGD("btsnoop_init");
+    ext_parser_thread_running = true;
 
     /* always setup ext listener port */
     if (pthread_create(&thread_id, NULL,
@@ -612,7 +618,7 @@ void btsnoop_cleanup (void)
 {
 #if defined(BTSNOOP_EXT_PARSER_INCLUDED) && (BTSNOOP_EXT_PARSER_INCLUDED == TRUE)
     ALOGD("btsnoop_cleanup");
-    pthread_kill(thread_id, SIGUSR2);
+    ext_parser_thread_running = false;
     pthread_join(thread_id, NULL);
     ext_parser_detached();
 #endif
