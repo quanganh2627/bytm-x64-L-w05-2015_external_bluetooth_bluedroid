@@ -622,6 +622,7 @@ typedef struct
     UINT8       ble_addr_type;
     tBTM_BLE_EVT_TYPE       ble_evt_type;
     UINT8                   flag;
+    UINT16                  appearance;
 #endif
 } tBTM_INQ_RESULTS;
 

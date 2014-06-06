@@ -838,6 +838,7 @@ typedef struct
 #if (BLE_INCLUDED == TRUE)
     UINT8               inq_result_type;
     UINT8               ble_addr_type;
+    UINT16              ble_appearance;
     tBTM_BLE_EVT_TYPE   ble_evt_type;
     tBT_DEVICE_TYPE     device_type;
 #endif

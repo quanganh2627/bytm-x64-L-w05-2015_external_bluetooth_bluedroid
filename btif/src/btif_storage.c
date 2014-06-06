@@ -59,6 +59,7 @@
 #define BTIF_STORAGE_PATH_REMOTE_DEVCLASS "DevClass"
 #define BTIF_STORAGE_PATH_REMOTE_DEVTYPE "DevType"
 #define BTIF_STORAGE_PATH_REMOTE_NAME "Name"
+#define BTIF_STORAGE_PATH_REMOTE_BLE_APPEARANCE "Appearance"
 #define BTIF_STORAGE_PATH_REMOTE_VER_MFCT "Manufacturer"
 #define BTIF_STORAGE_PATH_REMOTE_VER_VER "LmpVer"
 #define BTIF_STORAGE_PATH_REMOTE_VER_SUBVER "LmpSubVer"
@@ -297,6 +298,10 @@ static int prop2cfg(bt_bdaddr_t *remote_bd_addr, bt_property_t *prop)
             btif_config_set_int("Remote", bdstr,
                                 BTIF_STORAGE_PATH_REMOTE_DEVTYPE, *(int*)prop->val);
             break;
+        case BT_PROPERTY_BLE_APPEARANCE:
+            btif_config_set_int("Remote", bdstr,
+                                BTIF_STORAGE_PATH_REMOTE_BLE_APPEARANCE, *(int*)prop->val);
+            break;
         case BT_PROPERTY_UUIDS:
         {
             uint32_t i;
@@ -406,6 +411,11 @@ static int cfg2prop(bt_bdaddr_t *remote_bd_addr, bt_property_t *prop)
             if(prop->len >= (int)sizeof(int))
                 ret = btif_config_get_int("Remote",
                                     bdstr, BTIF_STORAGE_PATH_REMOTE_DEVTYPE, (int*)prop->val);
+            break;
+        case BT_PROPERTY_BLE_APPEARANCE:
+            if(prop->len >= (int)sizeof(int))
+                ret = btif_config_get_int("Remote", bdstr,
+                                          BTIF_STORAGE_PATH_REMOTE_BLE_APPEARANCE, (int*)prop->val);
             break;
         case BT_PROPERTY_UUIDS:
         {
@@ -838,7 +848,7 @@ bt_status_t btif_storage_load_bonded_devices(void)
     bt_bdaddr_t *devices_list;
     bt_uuid_t local_uuids[BT_MAX_NUM_UUIDS];
     bt_uuid_t remote_uuids[BT_MAX_NUM_UUIDS];
-    uint32_t cod, devtype;
+    uint32_t cod, devtype, appearance;
 
     btif_in_fetch_bonded_devices(&bonded_devices, 1);
 
@@ -922,6 +932,11 @@ bt_status_t btif_storage_load_bonded_devices(void)
 
             BTIF_STORAGE_GET_REMOTE_PROP(p_remote_addr, BT_PROPERTY_TYPE_OF_DEVICE,
                                          &devtype, sizeof(devtype),
+                                         remote_properties[num_props]);
+            num_props++;
+
+            BTIF_STORAGE_GET_REMOTE_PROP(p_remote_addr, BT_PROPERTY_BLE_APPEARANCE,
+                                         &appearance, sizeof(appearance),
                                          remote_properties[num_props]);
             num_props++;
 
