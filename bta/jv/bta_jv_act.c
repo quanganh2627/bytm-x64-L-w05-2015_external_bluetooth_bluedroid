@@ -1934,6 +1934,8 @@ void bta_jv_l2cap_write(tBTA_JV_MSG *p_data)
 #define DATA_CO_CALLBACK_TYPE_INCOMING          1
 #define DATA_CO_CALLBACK_TYPE_OUTGOING_SIZE     2
 #define DATA_CO_CALLBACK_TYPE_OUTGOING          3
+#define DATA_CO_CALLBACK_TYPE_LOCK_SLOT         4
+#define DATA_CO_CALLBACK_TYPE_UNLOCK_SLOT       5
 */
 static int bta_jv_port_data_co_cback(UINT16 port_handle, UINT8 *buf, UINT16 len, int type)
 {
@@ -1951,6 +1953,10 @@ static int bta_jv_port_data_co_cback(UINT16 port_handle, UINT8 *buf, UINT16 len,
                 return bta_co_rfc_data_outgoing_size(p_pcb->user_data, (int*)buf);
             case DATA_CO_CALLBACK_TYPE_OUTGOING:
                 return bta_co_rfc_data_outgoing(p_pcb->user_data, buf, len);
+            case DATA_CO_CALLBACK_TYPE_LOCK_SLOT:
+                return bta_co_rfc_lock_slot();
+            case DATA_CO_CALLBACK_TYPE_UNLOCK_SLOT:
+                return bta_co_rfc_unlock_slot();
             default:
                 APPL_TRACE_ERROR1("unknown callout type:%d", type);
                 break;

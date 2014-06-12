@@ -101,6 +101,8 @@ typedef int  (tPORT_DATA_CALLBACK) (UINT16 port_handle, void *p_data, UINT16 len
 #define DATA_CO_CALLBACK_TYPE_INCOMING          1
 #define DATA_CO_CALLBACK_TYPE_OUTGOING_SIZE     2
 #define DATA_CO_CALLBACK_TYPE_OUTGOING          3
+#define DATA_CO_CALLBACK_TYPE_LOCK_SLOT         4
+#define DATA_CO_CALLBACK_TYPE_UNLOCK_SLOT       5
 typedef int  (tPORT_DATA_CO_CALLBACK) (UINT16 port_handle, UINT8* p_buf, UINT16 len, int type);
 
 typedef void (tPORT_CALLBACK) (UINT32 code, UINT16 port_handle);
