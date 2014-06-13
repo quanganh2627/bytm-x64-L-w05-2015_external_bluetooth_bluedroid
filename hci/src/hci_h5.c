@@ -522,6 +522,7 @@ const uint8_t byte_rev_table[256] = {
 
 #define LOGI0(t,s) __android_log_write(ANDROID_LOG_INFO, t, s)
 
+#ifdef H5_TRACE_ENABLE
 void
 LogMsg(const char *fmt_str, ...)
 {
@@ -540,6 +541,9 @@ LogMsg(const char *fmt_str, ...)
         return;
      }
 }
+#else
+#define LogMsg
+#endif
 
 /* Copy, swap, convert BD Address */
 static inline int bacmp(bdaddr_t *ba1, bdaddr_t *ba2)
