@@ -1037,7 +1037,7 @@ static void btm_decode_ext_features_page (UINT8 page_number, const UINT8 *p_feat
 #if BTM_SCO_INCLUDED == TRUE
         if (btm_cb.btm_sco_pkt_types_supported & BTM_ESCO_LINK_ONLY_MASK)
         {
-            btm_cb.sco_cb.esco_supported = FALSE;
+            btm_cb.sco_cb.esco_supported = TRUE;
 
             /* Add in EDR related eSCO types */
             if (HCI_EDR_ESCO_2MPS_SUPPORTED(p_features))
