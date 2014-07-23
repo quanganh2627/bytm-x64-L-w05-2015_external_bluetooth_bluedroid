@@ -1,5 +1,7 @@
 ifneq ($(BOARD_HAVE_BLUETOOTH),false)
 
+ifneq ($(CONFIG_USE_INTEL_CERT_CORE_STACK),true)
+
 ifneq ($(BOARD_USES_WCS),true)
 
 LOCAL_PATH := $(call my-dir)
@@ -20,5 +22,7 @@ bdroid_C_INCLUDES :=
 bdroid_CFLAGS :=
 
 endif # BOARD_USES_WCS != true
+
+endif
 
 endif
