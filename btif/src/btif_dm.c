@@ -437,11 +437,13 @@ static void btif_update_remote_properties(BD_ADDR bd_addr, BD_NAME bd_name,
         cod = COD_UNCLASSIFIED;
     }
 
-    BTIF_STORAGE_FILL_PROPERTY(&properties[num_properties],
+    if(cod != COD_UNCLASSIFIED) {
+        BTIF_STORAGE_FILL_PROPERTY(&properties[num_properties],
                         BT_PROPERTY_CLASS_OF_DEVICE, sizeof(cod), &cod);
-    status = btif_storage_set_remote_device_property(&bdaddr, &properties[num_properties]);
-    ASSERTC(status == BT_STATUS_SUCCESS, "failed to save remote device class", status);
-    num_properties++;
+        status = btif_storage_set_remote_device_property(&bdaddr, &properties[num_properties]);
+        ASSERTC(status == BT_STATUS_SUCCESS, "failed to save remote device class", status);
+        num_properties++;
+    }
 
     /* device type */
     dev_type = device_type;
