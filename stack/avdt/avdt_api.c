@@ -1099,6 +1099,7 @@ UINT16 AVDT_GetL2CapChannel(UINT8 handle)
     tAVDT_SCB       *p_scb;
     tAVDT_CCB       *p_ccb;
     UINT8           tcid;
+    UINT8           ccb_idx;
     UINT16          lcid = 0;
 
     /* map handle to scb */
@@ -1107,8 +1108,10 @@ UINT16 AVDT_GetL2CapChannel(UINT8 handle)
     {
         /* get tcid from type, scb */
         tcid = avdt_ad_type_to_tcid(AVDT_CHAN_MEDIA, p_scb);
+        ccb_idx = avdt_ccb_to_idx(p_ccb);
 
-        lcid = avdt_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][tcid].lcid;
+        if (tcid < AVDT_NUM_RT_TBL && ccb_idx < AVDT_NUM_LINKS)
+            lcid = avdt_cb.ad.rt_tbl[ccb_idx][tcid].lcid;
     }
 
     BTTRC_AVDT_API1(AVDT_TRACE_API_GET_L2CAP_CHAN, BTTRC_PARAM_UINT16, lcid);

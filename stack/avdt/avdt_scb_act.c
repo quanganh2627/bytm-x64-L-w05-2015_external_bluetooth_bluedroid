@@ -2018,7 +2018,8 @@ void avdt_scb_clr_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
     tAVDT_CTRL      avdt_ctrl;
     tAVDT_CCB       *p_ccb;
     UINT8           tcid;
-    UINT16          lcid;
+    UINT8           ccb_idx;
+    UINT16          lcid = 0;
 #if AVDT_MULTIPLEXING == TRUE
     BT_HDR          *p_frag;
 #endif
@@ -2031,8 +2032,10 @@ void avdt_scb_clr_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
     {
         /* get tcid from type, scb */
         tcid = avdt_ad_type_to_tcid(AVDT_CHAN_MEDIA, p_scb);
+        ccb_idx = avdt_ccb_to_idx(p_ccb);
 
-        lcid = avdt_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][tcid].lcid;
+        if (tcid < AVDT_NUM_RT_TBL && ccb_idx < AVDT_NUM_LINKS)
+            lcid = avdt_cb.ad.rt_tbl[ccb_idx][tcid].lcid;
         L2CA_FlushChannel (lcid, L2CAP_FLUSH_CHANS_ALL);
     }
 
@@ -2197,6 +2200,7 @@ void avdt_scb_queue_frags(tAVDT_SCB *p_scb, UINT8 **pp_data, UINT32 *p_data_len,
     UINT8   *p;
     BOOLEAN al_hdr = FALSE;
     UINT8   tcid;
+    UINT8   ccb_idx;
     tAVDT_TC_TBL    *p_tbl;
     UINT16          buf_size;
     UINT16          offset = AVDT_MEDIA_OFFSET + AVDT_AL_HDR_SIZE;
@@ -2204,7 +2208,8 @@ void avdt_scb_queue_frags(tAVDT_SCB *p_scb, UINT8 **pp_data, UINT32 *p_data_len,
     BT_HDR          *p_frag;
 
     tcid = avdt_ad_type_to_tcid(AVDT_CHAN_MEDIA, p_scb);
-    lcid = avdt_cb.ad.rt_tbl[avdt_ccb_to_idx(p_scb->p_ccb)][tcid].lcid;
+    ccb_idx = avdt_ccb_to_idx(p_scb->p_ccb);
+    lcid = avdt_cb.ad.rt_tbl[ccb_idx][tcid].lcid;
 
     if( p_scb->frag_off != 0)
     {

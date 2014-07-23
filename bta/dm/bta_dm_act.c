@@ -2062,7 +2062,8 @@ void bta_dm_queue_search (tBTA_DM_MSG *p_data)
     }
 
     bta_dm_search_cb.p_search_queue = (tBTA_DM_MSG *)GKI_getbuf(sizeof(tBTA_DM_API_SEARCH));
-    memcpy(bta_dm_search_cb.p_search_queue, p_data, sizeof(tBTA_DM_API_SEARCH));
+    if (bta_dm_search_cb.p_search_queue != NULL)
+        memcpy(bta_dm_search_cb.p_search_queue, p_data, sizeof(tBTA_DM_API_SEARCH));
 
 }
 
@@ -2083,7 +2084,8 @@ void bta_dm_queue_disc (tBTA_DM_MSG *p_data)
     }
 
     bta_dm_search_cb.p_search_queue = (tBTA_DM_MSG *)GKI_getbuf(sizeof(tBTA_DM_API_DISCOVER));
-    memcpy(bta_dm_search_cb.p_search_queue, p_data, sizeof(tBTA_DM_API_DISCOVER));
+    if (bta_dm_search_cb.p_search_queue != NULL)
+        memcpy(bta_dm_search_cb.p_search_queue, p_data, sizeof(tBTA_DM_API_DISCOVER));
 
 }
 

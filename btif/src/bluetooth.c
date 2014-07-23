@@ -511,6 +511,8 @@ static int open_bluetooth_stack (const struct hw_module_t* module, char const* n
 struct hw_device_t** abstraction)
 {
     bluetooth_device_t *stack = malloc(sizeof(bluetooth_device_t) );
+    if (stack == NULL)
+        return -1;
     memset(stack, 0, sizeof(bluetooth_device_t) );
     stack->common.tag = HARDWARE_DEVICE_TAG;
     stack->common.version = 0;

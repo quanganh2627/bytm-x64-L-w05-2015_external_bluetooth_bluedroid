@@ -499,6 +499,21 @@ static void *bt_hc_worker_thread(void *arg)
         {
         }
 
+        if (events & HC_EVENT_LPM_ALLOW_SLEEP)
+        {
+            lpm_allow_bt_device_sleep();
+        }
+
+        if (events & HC_EVENT_LPM_IDLE_TIMEOUT)
+        {
+            lpm_wake_deassert();
+        }
+
+        if (events & HC_EVENT_LPM_WAKE_DEVICE)
+        {
+            lpm_wake_assert();
+        }
+
         if (events & HC_EVENT_TX)
         {
             /*
@@ -552,21 +567,6 @@ static void *bt_hc_worker_thread(void *arg)
         if (events & HC_EVENT_LPM_DISABLE)
         {
             lpm_enable(FALSE);
-        }
-
-        if (events & HC_EVENT_LPM_IDLE_TIMEOUT)
-        {
-            lpm_wake_deassert();
-        }
-
-        if (events & HC_EVENT_LPM_ALLOW_SLEEP)
-        {
-            lpm_allow_bt_device_sleep();
-        }
-
-        if (events & HC_EVENT_LPM_WAKE_DEVICE)
-        {
-            lpm_wake_assert();
         }
 
         if (events & HC_EVENT_EPILOG)

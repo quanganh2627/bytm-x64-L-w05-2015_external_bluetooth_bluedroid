@@ -76,7 +76,7 @@
 
 /* Disable external parser for production */
 #ifndef BTSNOOP_EXT_PARSER_INCLUDED
-#define BTSNOOP_EXT_PARSER_INCLUDED TRUE
+#define BTSNOOP_EXT_PARSER_INCLUDED FALSE
 #endif
 
 /* Host/Controller lib internal event ID */

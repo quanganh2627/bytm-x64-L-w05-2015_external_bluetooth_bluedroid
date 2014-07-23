@@ -513,6 +513,9 @@ static int create_cmdjob(char *cmd)
     char *job_cmd;
 
     job_cmd = malloc(strlen(cmd)+1); /* freed in job handler */
+    if (job_cmd == NULL)
+        return -1;
+
     strcpy(job_cmd, cmd);
 
     if (pthread_create(&thread_id, NULL,
