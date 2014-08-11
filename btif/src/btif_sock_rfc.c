@@ -1013,4 +1013,14 @@ int bta_co_rfc_data_outgoing(void *user_data, UINT8* buf, UINT16 size)
     unlock_slot(&slot_lock);
     return ret;
 }
+int bta_co_rfc_lock_slot(void)
+{
+    lock_slot(&slot_lock);
+    return 0;
+}
+int bta_co_rfc_unlock_slot(void)
+{
+    unlock_slot(&slot_lock);
+    return 0;
+}
 

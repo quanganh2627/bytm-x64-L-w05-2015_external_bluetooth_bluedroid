@@ -1524,6 +1524,7 @@ int PORT_WriteDataCO (UINT16 handle, int* p_len)
 
     /* If there are buffers scheduled for transmission check if requested */
     /* data fits into the end of the queue */
+    p_port->p_data_co_callback(handle, NULL, 0, DATA_CO_CALLBACK_TYPE_LOCK_SLOT);
     PORT_SCHEDULE_LOCK;
 
     if (((p_buf = (BT_HDR *)p_port->tx.queue.p_last) != NULL)
@@ -1537,6 +1538,7 @@ int PORT_WriteDataCO (UINT16 handle, int* p_len)
         {
             error("p_data_co_callback DATA_CO_CALLBACK_TYPE_OUTGOING failed, available:%d", available);
             PORT_SCHEDULE_UNLOCK;
+            p_port->p_data_co_callback(handle, NULL, 0, DATA_CO_CALLBACK_TYPE_UNLOCK_SLOT);
             return (PORT_UNKNOWN_ERROR);
         }
         //memcpy ((UINT8 *)(p_buf + 1) + p_buf->offset + p_buf->len, p_data, max_len);
@@ -1546,11 +1548,13 @@ int PORT_WriteDataCO (UINT16 handle, int* p_len)
         p_buf->len += (UINT16)available;
 
         PORT_SCHEDULE_UNLOCK;
+        p_port->p_data_co_callback(handle, NULL, 0, DATA_CO_CALLBACK_TYPE_UNLOCK_SLOT);
 
         return (PORT_SUCCESS);
     }
 
     PORT_SCHEDULE_UNLOCK;
+    p_port->p_data_co_callback(handle, NULL, 0, DATA_CO_CALLBACK_TYPE_UNLOCK_SLOT);
 
     //int max_read = length < p_port->peer_mtu ? length : p_port->peer_mtu;
 
