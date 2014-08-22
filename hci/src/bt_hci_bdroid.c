@@ -42,7 +42,7 @@
 #include "vendor.h"
 
 #ifndef BTHC_DBG
-#define BTHC_DBG FALSE
+#define BTHC_DBG TRUE
 #endif
 
 #if (BTHC_DBG == TRUE)
@@ -103,7 +103,13 @@ static BUFFER_Q tx_q;
 ******************************************************************************/
 
 static void event_preload(UNUSED_ATTR void *context) {
-  userial_open(USERIAL_PORT_1);
+  BTHCDBG("event_preload");
+  if(userial_open(USERIAL_PORT_1) == FALSE)
+  {
+     BTHCDBG("event_preload:userial open fail");
+     return;
+  }
+  lpm_enable(true);
   vendor_send_command(BT_VND_OP_FW_CFG, NULL);
 }
 
@@ -348,10 +354,10 @@ static int init(const bt_hc_callbacks_t* p_cb, unsigned char *local_bdaddr)
     p_hci_if->init();
 
     userial_init();
+
     lpm_init();
 
     utils_queue_init(&tx_q);
-
     if (hc_cb.worker_thread)
     {
         ALOGW("init has been called repeatedly without calling cleanup ?");
@@ -429,6 +435,18 @@ static int transmit_buf(TRANSAC transac, UNUSED_ATTR char *p_buf, UNUSED_ATTR in
   return BT_HC_STATUS_SUCCESS;
 }
 
+
+/** Controls receive flow */
+static int set_rxflow(bt_rx_flow_state_t state)
+{
+    BTHCDBG("set_rxflow %d", state);
+
+    userial_ioctl(\
+     ((state == BT_RXFLOW_ON) ? USERIAL_OP_RXFLOW_ON : USERIAL_OP_RXFLOW_OFF), \
+     NULL);
+
+    return BT_HC_STATUS_SUCCESS;
+}
 /** Controls HCI logging on/off */
 static int logging(bt_hc_logging_state_t state, char *p_path, bool save_existing) {
   BTHCDBG("logging %d", state);
@@ -492,7 +510,7 @@ static void cleanup(void)
     p_hci_if->cleanup();
     utils_cleanup();
 
-    set_power(BT_VND_PWR_OFF);
+    //set_power(BT_VND_PWR_OFF);
     vendor_close();
 
     pthread_mutex_destroy(&hc_cb.worker_thread_lock);
@@ -510,6 +528,7 @@ static const bt_hc_interface_t bluetoothHCLibInterface = {
     preload,
     postload,
     transmit_buf,
+    set_rxflow,
     logging,
     cleanup,
     tx_hc_cmd,

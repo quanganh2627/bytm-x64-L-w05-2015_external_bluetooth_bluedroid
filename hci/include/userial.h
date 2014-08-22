@@ -44,7 +44,11 @@ typedef enum {
   USERIAL_PORT_17,
   USERIAL_PORT_18,
 } userial_port_t;
-
+typedef enum {
+    USERIAL_OP_INIT,
+    USERIAL_OP_RXFLOW_ON,
+    USERIAL_OP_RXFLOW_OFF,
+} userial_ioctl_op_t;
 // Initializes the userial module. This function should only ever be called once.
 // It returns true if the module could be initialized, false if there was an error.
 bool userial_init(void);
@@ -68,4 +72,14 @@ uint16_t userial_read(uint16_t msg_id, uint8_t *p_buffer, uint16_t len);
 // Writes a maximum of |len| bytes from |p_data| to the serial port.
 // This function returns the number of bytes actually written, which may be
 // less than |len|. This function may block.
+/*******************************************************************************
+**
+** Function        userial_ioctl
+**
+** Description     ioctl inteface
+**
+** Returns         None
+**
+*******************************************************************************/
+void userial_ioctl(userial_ioctl_op_t op, void *p_data);
 uint16_t userial_write(uint16_t msg_id, const uint8_t *p_data, uint16_t len);

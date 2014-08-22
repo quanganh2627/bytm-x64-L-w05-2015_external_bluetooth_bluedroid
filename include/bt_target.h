@@ -686,7 +686,7 @@ BT_API extern void bte_main_lpm_allow_bt_device_sleep(void);
 
 /* If nonzero, the upper-layer sends at most this number of HCI commands to the lower-layer. */
 #ifndef HCI_MAX_SIMUL_CMDS
-#define HCI_MAX_SIMUL_CMDS          0
+#define HCI_MAX_SIMUL_CMDS          1
 #endif
 
 /* Timeout for receiving response to HCI command */
@@ -1300,7 +1300,7 @@ and USER_HW_DISABLE_API macros */
 #endif
 
 #ifndef BLE_ANDROID_CONTROLLER_SCAN_FILTER
-#define BLE_ANDROID_CONTROLLER_SCAN_FILTER            TRUE
+#define BLE_ANDROID_CONTROLLER_SCAN_FILTER            FALSE
 #endif
 
 #ifndef LOCAL_BLE_CONTROLLER_ID
@@ -1308,20 +1308,29 @@ and USER_HW_DISABLE_API macros */
 #endif
 
 #ifndef BLE_PRIVACY_SPT
-#define BLE_PRIVACY_SPT         TRUE
+#define BLE_PRIVACY_SPT         FALSE
 #endif
 
+//<<<<<<< HEAD
 #ifndef BLE_VND_INCLUDED
 #define BLE_VND_INCLUDED        FALSE
 #endif
 
 #ifndef BTM_BLE_ADV_TX_POWER
 #define BTM_BLE_ADV_TX_POWER {-21, -15, -7, 1, 9}
+//=======
+#ifndef BLE_MULTI_ADV_INCLUDED
+#define BLE_MULTI_ADV_INCLUDED  FALSE
+#endif
+
+#ifndef BLE_VND_INCLUDED
+#define BLE_VND_INCLUDED        FALSE
+>>>>>>> [PATCH] Signed-off-by: Huan Zheng <huan.zheng@intel.com>
 #endif
 
 
 #ifndef BLE_BATCH_SCAN_INCLUDED
-#define BLE_BATCH_SCAN_INCLUDED  TRUE
+#define BLE_BATCH_SCAN_INCLUDED  FALSE
 #endif
 
 /******************************************************************************

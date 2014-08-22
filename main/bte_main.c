@@ -42,6 +42,10 @@
 **  Constants & Macros
 *******************************************************************************/
 
+#ifndef BT_CLEAN_TURN_ON_DISABLED
+#define BT_CLEAN_TURN_ON_DISABLED TRUE
+#endif
+
 /* Run-time configuration file */
 #ifndef BTE_STACK_CONF_FILE
 #define BTE_STACK_CONF_FILE "/etc/bluetooth/bt_stack.conf"
@@ -213,6 +217,7 @@ void bte_main_enable()
 
     lpm_enabled = FALSE;
 
+   // bte_hci_enable();
     GKI_create_task((TASKPTR)btu_task, BTU_TASK, BTE_BTU_TASK_STR,
                     (UINT16 *) ((UINT8 *)bte_btu_stack + BTE_BTU_STACK_SIZE),
                     sizeof(bte_btu_stack));
@@ -238,7 +243,9 @@ void bte_main_disable(void)
 
     preload_stop_wait_timer();
     bte_hci_disable();
+    APPL_TRACE_DEBUG("%s start destory task", __FUNCTION__);
     GKI_destroy_task(BTU_TASK);
+    APPL_TRACE_DEBUG("%s exit", __FUNCTION__);
 }
 
 /******************************************************************************
@@ -311,9 +318,9 @@ static void bte_hci_enable(void)
 #else
         /* toggle chip power to ensure we will reset chip in case
            a previous stack shutdown wasn't completed gracefully */
-        bt_hc_if->set_power(BT_HC_CHIP_PWR_OFF);
+        //bt_hc_if->set_power(BT_HC_CHIP_PWR_OFF);
 #endif
-        bt_hc_if->set_power(BT_HC_CHIP_PWR_ON);
+        //bt_hc_if->set_power(BT_HC_CHIP_PWR_ON);
 
         bt_hc_if->preload(NULL);
     }
@@ -332,6 +339,7 @@ static void bte_hci_disable(void)
 {
     APPL_TRACE_DEBUG("%s", __FUNCTION__);
 
+//<<<<<<< HEAD
     if (!bt_hc_if)
         return;
 
@@ -343,6 +351,20 @@ static void bte_hci_disable(void)
     bt_hc_if->cleanup();
 
     pthread_mutex_unlock(&cleanup_lock);
+/*
+=======
+    if (bt_hc_if)
+    {
+        //bt_hc_if->cleanup();
+//        bt_hc_if->set_power(BT_HC_CHIP_PWR_OFF);
+        bt_hc_if->cleanup();
+        if (hci_logging_enabled == TRUE ||  hci_logging_config == TRUE)
+            bt_hc_if->logging(BT_HC_LOGGING_OFF, hci_logfile);
+       // bt_hc_if->cleanup();
+    }
+    APPL_TRACE_DEBUG("%s exit", __FUNCTION__);
+>>>>>>> [PATCH] Signed-off-by: Huan Zheng <huan.zheng@intel.com>
+*/
 }
 
 /*******************************************************************************
