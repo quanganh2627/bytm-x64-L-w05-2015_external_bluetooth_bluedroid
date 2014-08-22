@@ -601,9 +601,12 @@ void btif_enable_bluetooth_evt(tBTA_STATUS status, BD_ADDR local_bd)
     }
 
     bte_main_postload_cfg();
-#if (defined(HCILP_INCLUDED) && HCILP_INCLUDED == TRUE)
+	/* Commenting it as lpm is enabled in prelod event
+	 * in bt_hci_bdroid.c
+	 */
+/*#if (defined(HCILP_INCLUDED) && HCILP_INCLUDED == TRUE)
     bte_main_enable_lpm(TRUE);
-#endif
+#endif*/
     /* add passing up bd address as well ? */
 
     /* callback to HAL */

@@ -53,8 +53,9 @@ typedef uint16_t (*tHCI_RCV)(void);
 typedef void (*tINT_CMD_CBACK)(void *p_mem);
 
 /* Handler for sending HCI command from the local module */
-typedef uint8_t (*tHCI_SEND_INT)(uint16_t opcode, HC_BT_HDR *p_buf, \
-                                  tINT_CMD_CBACK p_cback);
+typedef uint8_t (*tHCI_SEND_INT)(uint16_t opcode, uint8_t compl_evt_code, \
+                                  HC_BT_HDR *p_buf, \
+                                   tINT_CMD_CBACK p_cback);
 
 /* Handler for getting acl data length */
 typedef void (*tHCI_ACL_DATA_LEN_HDLR)(void);

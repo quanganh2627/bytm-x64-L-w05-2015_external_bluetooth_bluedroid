@@ -41,11 +41,11 @@
 ******************************************************************************/
 
 #ifndef HCI_DBG
-#define HCI_DBG FALSE
+#define HCI_DBG FLASE
 #endif
 
 #if (HCI_DBG == TRUE)
-#define HCIDBG(param, ...) {LOGD(param, ## __VA_ARGS__);}
+#define HCIDBG(param, ...) {ALOGD(param, ## __VA_ARGS__);}
 #else
 #define HCIDBG(param, ...) {}
 #endif
@@ -105,8 +105,22 @@ static const uint16_t msg_evt_table[] =
 
 #define HCI_COMMAND_COMPLETE_EVT    0x0E
 #define HCI_COMMAND_STATUS_EVT      0x0F
+#define HCI_INTEL_VSC_EVT           0xFF
+
+#define HCI_INTEL_STARTUP               0x00
+#define HCI_INTEL_WRITE_BD_DATA_CMPL    0x19
+#define HCI_INTEL_INF_MANUFACTURE       0xFC11
+#define HCI_INTEL_INF_BDDATA            0xFC2F
 #define HCI_READ_BUFFER_SIZE        0x1005
 #define HCI_LE_READ_BUFFER_SIZE     0x2002
+#define HCI_RESET                   0x0C03
+/* OPCODE Array reset for CMD complete */
+#define HCI_CMD_INVALID             0x1111
+
+#define HCI_CMD_DEFAULT             0xffff
+#define HCI_INTEL_EVENT_NONE        0x00
+
+#define IGNORE_EVENT                3
 
 /******************************************************************************
 **  Local type definitions
@@ -126,6 +140,7 @@ typedef void (*tINT_CMD_CBACK)(void *p_mem);
 typedef struct
 {
     uint16_t opcode;        /* OPCODE of outstanding internal commands */
+    uint8_t  compl_evt_code; /* completion event code for outstanding internal cmd */
     tINT_CMD_CBACK cback;   /* Callback function when return of internal
                              * command is received */
 } tINT_CMD_Q;
@@ -152,11 +167,19 @@ typedef struct
 **  Externs
 ******************************************************************************/
 
-uint8_t hci_h4_send_int_cmd(uint16_t opcode, HC_BT_HDR *p_buf, \
+extern BUFFER_Q tx_q;
+extern tINT_CMD_CBACK p_int_evt_cb;
+
+//void btsnoop_init(void);
+//void btsnoop_close(void);
+//void btsnoop_cleanup (void);
+void btsnoop_capture(const HC_BT_HDR *p_buf, bool is_rcvd);
+uint8_t hci_h4_send_int_cmd(uint16_t opcode, uint8_t compl_evt_code, \
+                                  HC_BT_HDR *p_buf, \
                                   tINT_CMD_CBACK p_cback);
 void lpm_wake_assert(void);
 void lpm_tx_done(uint8_t is_tx_done);
-
+void lpm_increase_pkt_count();
 /******************************************************************************
 **  Variables
 ******************************************************************************/
@@ -169,10 +192,27 @@ volatile int num_hci_cmd_pkts = 1;
 ******************************************************************************/
 
 static tHCI_H4_CB       h4_cb;
+static int hci_reset_ongoing = FALSE;
 
 /******************************************************************************
 **  Static functions
 ******************************************************************************/
+
+/*******************************************************************************
+**
+** Function         set_buffer_size
+**
+** Description      Save buffer size in local variable
+**
+** Returns          None
+**
+*******************************************************************************/
+void set_buffer_size(uint16_t acl_buffer_size, uint16_t le_buffer_size)
+{
+    h4_cb.hc_acl_data_size = acl_buffer_size;
+    /* If le_buffer_size is 0, use acl buffer for LE also */
+    h4_cb.hc_ble_acl_data_size = (le_buffer_size) ? le_buffer_size : h4_cb.hc_acl_data_size;
+}
 
 /*******************************************************************************
 **
@@ -212,7 +252,8 @@ void get_acl_data_length_cback(void *p_mem)
         UINT16_TO_STREAM(p, HCI_LE_READ_BUFFER_SIZE);
         *p = 0;
 
-        if ((status = hci_h4_send_int_cmd(HCI_LE_READ_BUFFER_SIZE, p_buf, \
+        if ((status = hci_h4_send_int_cmd(HCI_LE_READ_BUFFER_SIZE, \
+                                           HCI_COMMAND_COMPLETE_EVT, p_buf, \
                                            get_acl_data_length_cback)) == FALSE)
         {
             bt_hc_cbacks->dealloc(p_buf);
@@ -251,7 +292,8 @@ uint8_t internal_event_intercept(void)
 {
     uint8_t     *p;
     uint8_t     event_code;
-    uint16_t    opcode, len;
+    uint8_t     sub_event_code = HCI_INTEL_EVENT_NONE;
+    uint16_t    opcode = HCI_CMD_DEFAULT, len;
     tHCI_H4_CB  *p_cb = &h4_cb;
 
     p = (uint8_t *)(p_cb->p_rcv_msg + 1);
@@ -259,44 +301,110 @@ uint8_t internal_event_intercept(void)
     event_code = *p++;
     len = *p++;
 
-    if (event_code == HCI_COMMAND_COMPLETE_EVT)
+    HCIDBG("%s event_code:0x%02X", __func__, event_code);
+    if (p_int_evt_cb)
     {
-        num_hci_cmd_pkts = *p++;
-
-        if (p_cb->int_cmd_rsp_pending > 0)
+        /*
+         * Async event is expected by the client
+         * Send the event to the client.
+         * FIXME: This doesn't add up hci pkt credit.
+         * Need to recheck on hci flow control policy.
+         * For libbt-vendor this is fine. But need to check for PT.
+         */
+        HCIDBG("%s async event", __func__);
+        p_int_evt_cb(p_cb->p_rcv_msg);
+        return TRUE;
+    }
+    else
+    {
+        /*if (p_cb->int_cmd[p_cb->int_cmd_rd_idx].opcode == 0)
         {
-            STREAM_TO_UINT16(opcode, p)
-
-            if (opcode == p_cb->int_cmd[p_cb->int_cmd_rd_idx].opcode)
-            {
-                HCIDBG( \
-                "Intercept CommandCompleteEvent for internal command (0x%04X)",\
-                          opcode);
-                if (p_cb->int_cmd[p_cb->int_cmd_rd_idx].cback != NULL)
+            HCIDBG("%s STACK EVENT", __func__);
+            return FALSE;
+        }*/
+        /*
+         * Parse the pkt to figure out the opcode and
+         * number of hci pkts which are allowed to be
+         * sent to the controller.
+         */
+        switch(event_code)
+        {
+            case HCI_COMMAND_COMPLETE_EVT:
+                num_hci_cmd_pkts = *p++;
+                STREAM_TO_UINT16(opcode, p);
+                break;
+            case HCI_COMMAND_STATUS_EVT:
+                num_hci_cmd_pkts = *(++p);
+                p++;
+                STREAM_TO_UINT16(opcode, p);
+                break;
+            case HCI_INTEL_VSC_EVT:
+                sub_event_code = *p;
+                /* Debug events related to libbt-vendor */
+                switch (sub_event_code)
                 {
-                    p_cb->int_cmd[p_cb->int_cmd_rd_idx].cback(p_cb->p_rcv_msg);
+                    case HCI_INTEL_STARTUP:
+                        opcode = HCI_INTEL_INF_MANUFACTURE;
+                        break;
+                    case HCI_INTEL_WRITE_BD_DATA_CMPL:
+                        opcode = HCI_INTEL_INF_BDDATA;
+                        break;
                 }
-                else
-                {
-                    // Missing cback function!
-                    // Release the p_rcv_msg buffer.
-                    if (bt_hc_cbacks)
-                    {
-                        bt_hc_cbacks->dealloc(p_cb->p_rcv_msg);
-                    }
-                }
-                p_cb->int_cmd_rd_idx = ((p_cb->int_cmd_rd_idx+1) & \
-                                        INT_CMD_PKT_IDX_MASK);
-                p_cb->int_cmd_rsp_pending--;
-                return TRUE;
-            }
+                break;
+            default:
+                break;
         }
     }
-    else if (event_code == HCI_COMMAND_STATUS_EVT)
-    {
-        num_hci_cmd_pkts = *(++p);
-    }
 
+    if (p_cb->int_cmd_rsp_pending > 0)
+    {
+        /* Reset the flag as HCI Reset sent from vendor lib is completed */
+        if(opcode == HCI_RESET)
+            hci_reset_ongoing = FALSE;
+
+        HCIDBG("%s opcode:0x%02x", __func__, opcode);
+        /*
+         * Call the callback function (passed by xmit_cb) to pass the event.
+         */
+        if (opcode == p_cb->int_cmd[p_cb->int_cmd_rd_idx].opcode)
+        {
+            HCIDBG( \
+            "Intercept for internal command (0x%04X), cmpl_evt_code:0x%0X", opcode, \
+                                    p_cb->int_cmd[p_cb->int_cmd_rd_idx].compl_evt_code);
+            if (p_cb->int_cmd[p_cb->int_cmd_rd_idx].cback != NULL)
+            {
+                p_cb->int_cmd[p_cb->int_cmd_rd_idx].cback(p_cb->p_rcv_msg);
+            }
+            else
+            {
+                // Missing cback function!
+                // Release the p_rcv_msg buffer.
+                if (bt_hc_cbacks)
+                {
+                    bt_hc_cbacks->dealloc((TRANSAC) p_cb->p_rcv_msg);
+                }
+            }
+            /*
+             * If this is the last event of the event sequence
+             * for this command.
+             * For std events it checks for the event code. For
+             * VSC events it checks for the event id/sub event code
+             */
+            if (event_code == p_cb->int_cmd[p_cb->int_cmd_rd_idx].compl_evt_code \
+            || ((event_code == HCI_INTEL_VSC_EVT) && (sub_event_code == \
+            p_cb->int_cmd[p_cb->int_cmd_rd_idx].compl_evt_code)))
+            {
+                HCIDBG("%s COMPLETION EVENT RECV. DEQUEUE. opcode:0x%02X", __func__, opcode);
+                //p_cb->int_cmd[p_cb->int_cmd_rd_idx].opcode = 0;
+                p_cb->int_cmd[p_cb->int_cmd_rd_idx].opcode = HCI_CMD_INVALID;
+                p_cb->int_cmd_rd_idx = ((p_cb->int_cmd_rd_idx+1) & \
+                                                INT_CMD_PKT_IDX_MASK);
+                p_cb->int_cmd_rsp_pending--;
+            }
+            return TRUE;
+        }
+        HCIDBG("%s STACK EVENT", __func__);
+    }
     return FALSE;
 }
 
@@ -545,6 +653,7 @@ void hci_h4_init(void)
     memset(&h4_cb, 0, sizeof(tHCI_H4_CB));
     utils_queue_init(&(h4_cb.acl_rx_q));
 
+    hci_reset_ongoing = FALSE;
     /* Per HCI spec., always starts with 1 */
     num_hci_cmd_pkts = 1;
 
@@ -553,6 +662,8 @@ void hci_h4_init(void)
      */
     h4_cb.hc_acl_data_size = 1021;
     h4_cb.hc_ble_acl_data_size = 27;
+
+    //btsnoop_init();
 }
 
 /*******************************************************************************
@@ -567,6 +678,9 @@ void hci_h4_init(void)
 void hci_h4_cleanup(void)
 {
     HCIDBG("hci_h4_cleanup");
+
+    //btsnoop_close();
+    //btsnoop_cleanup();
 }
 
 /*******************************************************************************
@@ -630,6 +744,7 @@ void hci_h4_send_msg(HC_BT_HDR *p_msg)
             p = ((uint8_t *)(p_msg + 1)) + p_msg->offset - 1;
             *p = type;
             bytes_to_send = acl_pkt_size + 1; /* packet_size + message type */
+            HCIDBG("%s opcode:0x%02x%02x", __func__, p[2], p[1]);
 
             bytes_sent = userial_write(event,(uint8_t *) p,bytes_to_send);
 
@@ -949,12 +1064,36 @@ uint16_t hci_h4_receive_msg(void)
             if (p_cb->p_rcv_msg->event == MSG_HC_TO_STACK_HCI_EVT)
                 intercepted = internal_event_intercept();
 
-            if ((bt_hc_cbacks) && (intercepted == FALSE))
+            if(hci_reset_ongoing == TRUE)
+            {
+                uint8_t     *p;
+                uint8_t     event_code, num_packets, len;
+                uint16_t    opcode;
+
+                p = (uint8_t *)(p_cb->p_rcv_msg + 1);
+                event_code = *p++;
+                len = *p++;
+                num_packets = *p++;
+
+                STREAM_TO_UINT16(opcode, p);
+
+                ALOGE("Received while HCI Reset from BT vendor lib is ongoing, discarding, \
+                       Event: %02X, Len: %02X, Packet Count: %02X, Opcode: %04X", event_code, len, num_packets, opcode);
+
+                if (bt_hc_cbacks)
+                {
+                    bt_hc_cbacks->dealloc((TRANSAC) p_cb->p_rcv_msg);
+
+                }
+            }
+            else if ((bt_hc_cbacks) && (intercepted == FALSE))
             {
                 bt_hc_cbacks->data_ind((TRANSAC) p_cb->p_rcv_msg, \
                                        (char *) (p_cb->p_rcv_msg + 1), \
                                        p_cb->p_rcv_msg->len + BT_HC_HDR_SIZE);
             }
+            /* Let know LPM module that there is a RX pkt */
+            lpm_increase_pkt_count();
             p_cb->p_rcv_msg = NULL;
         }
     }
@@ -973,7 +1112,7 @@ uint16_t hci_h4_receive_msg(void)
 ** Returns         TRUE/FALSE
 **
 *******************************************************************************/
-uint8_t hci_h4_send_int_cmd(uint16_t opcode, HC_BT_HDR *p_buf, \
+uint8_t hci_h4_send_int_cmd(uint16_t opcode, uint8_t compl_evt_code, HC_BT_HDR *p_buf, \
                                   tINT_CMD_CBACK p_cback)
 {
     if (h4_cb.int_cmd_rsp_pending > INT_CMD_PKT_MAX_COUNT)
@@ -984,8 +1123,14 @@ uint8_t hci_h4_send_int_cmd(uint16_t opcode, HC_BT_HDR *p_buf, \
         return FALSE;
     }
 
+    if(opcode == HCI_RESET)
+        hci_reset_ongoing = TRUE;
+
     h4_cb.int_cmd_rsp_pending++;
     h4_cb.int_cmd[h4_cb.int_cmd_wrt_idx].opcode = opcode;
+    h4_cb.int_cmd[h4_cb.int_cmd_wrt_idx].compl_evt_code = compl_evt_code;
+    HCIDBG("%s opcode:0x%02X compl_evt_code:0x%X", __func__, opcode, \
+                            h4_cb.int_cmd[h4_cb.int_cmd_wrt_idx].compl_evt_code);
     h4_cb.int_cmd[h4_cb.int_cmd_wrt_idx].cback = p_cback;
     h4_cb.int_cmd_wrt_idx = ((h4_cb.int_cmd_wrt_idx+1) & INT_CMD_PKT_IDX_MASK);
 
@@ -993,6 +1138,8 @@ uint8_t hci_h4_send_int_cmd(uint16_t opcode, HC_BT_HDR *p_buf, \
     p_buf->layer_specific = opcode;
 
     bthc_tx(p_buf);
+
+
     return TRUE;
 }
 
@@ -1029,7 +1176,8 @@ void hci_h4_get_acl_data_length(void)
         UINT16_TO_STREAM(p, HCI_READ_BUFFER_SIZE);
         *p = 0;
 
-        if ((ret = hci_h4_send_int_cmd(HCI_READ_BUFFER_SIZE, p_buf, \
+        if ((ret = hci_h4_send_int_cmd(HCI_READ_BUFFER_SIZE, \
+                                        HCI_COMMAND_COMPLETE_EVT, p_buf, \
                                        get_acl_data_length_cback)) == FALSE)
         {
             bt_hc_cbacks->dealloc(p_buf);

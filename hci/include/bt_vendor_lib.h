@@ -142,6 +142,55 @@ typedef enum {
  */
     BT_VND_OP_LPM_WAKE_SET_STATE,
 
+/* INTEL speciic */
+
+/*  [operation]
+ *      sets device state (d0, d0i2, d0i3, d3)
+ *  [input param]
+ *      A pointer to uint8_t containing the state.
+ *      Typecasting conversion: (uint8_t *) param.
+ *  [return]
+ *      0 - default, don't care.
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_LPM_SET_DEVICE_STATE,
+
+/*  [operation]
+ *      sets BT WAKE signal to high/low
+ *  [input param]
+ *      A pointer to uint8_t containing the bt wake state.
+ *      Typecasting conversion: (uint8_t *) param.
+ *  [return]
+ *      0 - default, don't care.
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_LPM_SET_BT_WAKE_STATE,
+
+/*  [operation]
+ *      gets CTS state
+ *  [input param]
+ *      None
+ *  [return]
+ *      cts state
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_LPM_GET_CTS_STATE,
+
+/*  [operation]
+ *      sets RTS state
+ *  [input param]
+ *      A pointer to uint8_t containing the state.
+ *      Typecasting conversion: (uint8_t *) param.
+ *  [return]
+ *      0 - default, don't care.
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_LPM_SET_RTS_STATE,
+
 /*  [operation]
  *      Perform any vendor specific commands related to audio state changes.
  *  [input param]
@@ -285,7 +334,16 @@ typedef void (*tINT_CMD_CBACK)(void *p_mem);
  *  HCI Command packet. For example, opcode = 0x0c03 for the HCI_RESET command
  *  packet.
  */
-typedef uint8_t (*cmd_xmit_cb)(uint16_t opcode, void *p_buf, tINT_CMD_CBACK p_cback);
+typedef uint8_t (*cmd_xmit_cb)(uint16_t opcode, uint8_t compl_evt_code, void *p_buf, tINT_CMD_CBACK p_cback);
+
+/* Registers aync event callback function */
+typedef uint8_t (*cfg_int_async_evt_callback_reg_cb)(tINT_CMD_CBACK p_cb);
+
+/* De-registers aync event callback function */
+typedef uint8_t (*cfg_int_async_evt_callback_dereg_cb)();
+
+/* Passes Host Wake signal to the hci library for further handling */
+typedef void (*cmd_set_host_wake_state)(uint8_t state);
 
 typedef struct {
     /** set to sizeof(bt_vendor_callbacks_t) */
@@ -319,6 +377,17 @@ typedef struct {
 
     /* notifies caller completion of epilog process */
     cfg_result_cb epilog_cb;
+
+
+    /* Register event callback for async event */
+    cfg_int_async_evt_callback_reg_cb int_evt_callback_reg_cb;
+
+    /* De-register event callback for async event */
+    cfg_int_async_evt_callback_dereg_cb int_evt_callback_dereg_cb;
+
+    /* Sets host wake state in the hci library */
+    cmd_set_host_wake_state set_host_wake_state_cb;
+
 } bt_vendor_callbacks_t;
 
 /*
@@ -345,6 +414,33 @@ typedef struct {
     void  (*cleanup)(void);
 } bt_vendor_interface_t;
 
+/* Bluetooth LPM configuration value */
+typedef struct {
+    /*
+     * HCI inactivity time after which device would go to deep sleep (in ms)
+     */
+    uint32_t idle_timeout;
+
+    /*
+     * periodicity of packet rate monitoring period (in ms)
+     */
+    uint32_t pkt_rate_monitor_period;
+
+    /*
+     * Packet rate (HCI pkt / period) to go to D0I2
+     */
+    uint32_t pkt_rate_monitor_threshold;
+
+    /*
+     * Packet rate monitor correction factor to broaden the threshold boundery
+     */
+    uint8_t pkt_rate_monitor_correction_factor;
+
+    /*
+     * Wake up time from deep sleep
+     */
+     uint32_t wakeup_time;
+} bt_vendor_lpm_param_t;
 
 /*
  * External shared lib functions/data

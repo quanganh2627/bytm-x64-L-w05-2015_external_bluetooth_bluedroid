@@ -89,6 +89,7 @@ void bta_ag_co_audio_state(UINT16 handle, UINT8 app_id, UINT8 state)
 #endif
 {
     BTIF_TRACE_DEBUG("bta_ag_co_audio_state: handle %d, state %d", handle, state);
+	/*
     switch (state)
     {
     case BTA_AG_CO_AUD_STATE_OFF:
@@ -121,6 +122,7 @@ void bta_ag_co_audio_state(UINT16 handle, UINT8 app_id, UINT8 state)
     APPL_TRACE_DEBUG("bta_ag_co_audio_state(handle %d, app_id: %d, state %d)", \
     handle, app_id, state);
 #endif
+*/
 }
 
 

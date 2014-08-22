@@ -36,7 +36,7 @@ static const char *VENDOR_LIBRARY_NAME = "libbt-vendor.so";
 static const char *VENDOR_LIBRARY_SYMBOL_NAME = "BLUETOOTH_VENDOR_LIB_INTERFACE";
 
 static void *lib_handle;
-static bt_vendor_interface_t *vendor_interface;
+bt_vendor_interface_t *vendor_interface;
 
 static void firmware_config_cb(bt_vendor_op_result_t result);
 static void sco_config_cb(bt_vendor_op_result_t result);
@@ -44,8 +44,13 @@ static void low_power_mode_cb(bt_vendor_op_result_t result);
 static void sco_audiostate_cb(bt_vendor_op_result_t result);
 static void *buffer_alloc(int size);
 static void buffer_free(void *buffer);
-static uint8_t transmit_cb(uint16_t opcode, void *buffer, tINT_CMD_CBACK callback);
+static uint8_t transmit_cb(uint16_t opcode, uint8_t compl_evt_code, void *buffer, tINT_CMD_CBACK callback);
 static void epilog_cb(bt_vendor_op_result_t result);
+static uint8_t int_evt_callback_reg_cb(tINT_CMD_CBACK p_cb);
+static void int_evt_callback_dereg_cb();
+static void set_host_wake_state_cb(uint8_t state);
+
+tINT_CMD_CBACK p_int_evt_cb=NULL;
 
 static const bt_vendor_callbacks_t vendor_callbacks = {
   sizeof(vendor_callbacks),
@@ -56,7 +61,10 @@ static const bt_vendor_callbacks_t vendor_callbacks = {
   buffer_alloc,
   buffer_free,
   transmit_cb,
-  epilog_cb
+  epilog_cb,
+  int_evt_callback_reg_cb,
+  int_evt_callback_dereg_cb,
+  set_host_wake_state_cb
 };
 
 bool vendor_open(const uint8_t *local_bdaddr) {
@@ -102,6 +110,10 @@ void vendor_close(void) {
 }
 
 int vendor_send_command(bt_vendor_opcode_t opcode, void *param) {
+  if(vendor_interface == NULL)
+  {
+    ALOGE("%s : vendor_interface is null", __func__);
+  }
   assert(vendor_interface != NULL);
 
   return vendor_interface->op(opcode, param);
@@ -111,12 +123,13 @@ int vendor_send_command(bt_vendor_opcode_t opcode, void *param) {
 // completes.
 static void firmware_config_cb(bt_vendor_op_result_t result) {
   assert(bt_hc_cbacks != NULL);
+    bt_hc_postload_result_t status = ((result == BT_VND_OP_RESULT_SUCCESS) ? \
+                                     BT_HC_POSTLOAD_SUCCESS : BT_HC_POSTLOAD_FAIL);
+    if (status == BT_HC_POSTLOAD_SUCCESS)
+        lpm_periodic_pkt_rate_init_timer();
 
   fwcfg_acked = true;
 
-  bt_hc_postload_result_t status = (result == BT_VND_OP_RESULT_SUCCESS)
-      ? BT_HC_PRELOAD_SUCCESS
-      : BT_HC_PRELOAD_FAIL;
   bt_hc_cbacks->preload_cb(NULL, status);
 }
 
@@ -168,13 +181,69 @@ static void buffer_free(void *buffer) {
 }
 
 // Called back from vendor library when it wants to send an HCI command.
-static uint8_t transmit_cb(uint16_t opcode, void *buffer, tINT_CMD_CBACK callback) {
+static uint8_t transmit_cb(uint16_t opcode, uint8_t compl_evt_code, void *buffer, tINT_CMD_CBACK callback) {
   assert(p_hci_if != NULL);
-  return p_hci_if->send_int_cmd(opcode, (HC_BT_HDR *)buffer, callback);
+  return p_hci_if->send_int_cmd(opcode, compl_evt_code, (HC_BT_HDR *)buffer, callback);
 }
 
 // Called back from vendor library when the epilog procedure has
 // completed. It is safe to call vendor_interface->cleanup() after
 // this callback has been received.
 static void epilog_cb(UNUSED_ATTR bt_vendor_op_result_t result) {
+    //bthc_signal_event(HC_EVENT_EXIT);
+}
+
+/******************************************************************************
+**
+** Function         int_evt_callback_reg_cb
+**
+** Description      HOST/CONTROLLER VEDNOR LIB CALLBACK API - This function is
+**                  called from the libbt-vendor to configure callback function
+**                  to send out anyc events. This is used by libbt to get first
+**                  default bd data event after turning on BT IP.
+**
+** Returns          TRUE/FALSE
+**
+******************************************************************************/
+static uint8_t int_evt_callback_reg_cb(tINT_CMD_CBACK p_cb)
+{
+       if (p_cb)
+       {
+           p_int_evt_cb = p_cb;
+           ALOGI("%s register DONE", __func__);
+               return BT_HC_STATUS_SUCCESS;
+       }
+       return BT_HC_STATUS_FAIL;
+}
+
+/******************************************************************************
+**
+** Function         int_evt_callback_dereg_cb
+**
+** Description      HOST/CONTROLLER VEDNOR LIB CALLBACK API - This function is
+**                  called from the libbt-vendor to de-register async event
+**                  callback.
+**
+** Returns          TRUE/FALSE
+**
+******************************************************************************/
+static void int_evt_callback_dereg_cb()
+{
+    p_int_evt_cb = NULL;
+}
+
+/******************************************************************************
+**
+** Function         set_host_wake_state
+**
+** Description      HOST/CONTROLLER VEDNOR LIB CALLBACK API - This function is
+**                  called from the libbt-vendor to notify the host wake state
+**                  to hci library. LPMM module will take necessary action.
+**
+** Returns          TRUE/FALSE
+**
+******************************************************************************/
+static void set_host_wake_state_cb(uint8_t state)
+{
+    lpm_host_wake_handler(state);
 }

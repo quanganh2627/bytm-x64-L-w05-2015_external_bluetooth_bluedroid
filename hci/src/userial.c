@@ -57,18 +57,26 @@
 #define USERIALDBG(param, ...) {}
 #endif
 
+#ifndef ENABLE_USERIAL_TIMING_LOGS
+#define ENABLE_USERIAL_TIMING_LOGS FALSE
+#endif
+
 #define MAX_SERIAL_PORT (USERIAL_PORT_3 + 1)
 
 // The set of events one can send to the userial read thread.
 // Note that the values must be >= 0x8000000000000000 to guarantee delivery
 // of the message (see eventfd(2) for details on blocking behaviour).
 enum {
-    USERIAL_RX_EXIT     = 0x8000000000000000ULL
+    USERIAL_RX_EXIT     = 0x8000000000000000ULL,
+    USERIAL_RX_FLOW_OFF,
+    USERIAL_RX_FLOW_ON
 };
 
 /******************************************************************************
 **  Externs
 ******************************************************************************/
+
+extern bt_vendor_interface_t *vendor_interface;
 
 /******************************************************************************
 **  Local type definitions
@@ -98,7 +106,7 @@ static volatile uint8_t userial_running = 0;
 **      - signal_fds[1]: trigger from userial_close
 *****************************************************************************/
 static int event_fd = -1;
-
+static uint8_t rx_flow_on = TRUE;
 static inline int add_event_fd(fd_set *set) {
     if (event_fd == -1) {
       event_fd = eventfd(0, 0);
@@ -146,12 +154,16 @@ static int select_read(int fd, uint8_t *pbuf, int len)
 {
     fd_set input;
     int n = 0, ret = -1;
+    char reason = 0;
 
     while (userial_running)
     {
         /* Initialize the input fd set */
         FD_ZERO(&input);
-        FD_SET(fd, &input);
+        if (rx_flow_on == TRUE)
+        {
+            FD_SET(fd, &input);
+        }
         int fd_max = add_event_fd(&input);
         fd_max = fd_max > fd ? fd_max : fd;
 
@@ -159,12 +171,20 @@ static int select_read(int fd, uint8_t *pbuf, int len)
         n = select(fd_max+1, &input, NULL, NULL, NULL);
         if(is_event_available(&input))
         {
-            uint64_t event = read_event();
-            switch (event) {
+            reason = read_event();
+            switch (reason) {
                 case USERIAL_RX_EXIT:
                     USERIALDBG("RX termination");
                     return -1;
-            }
+                case USERIAL_RX_FLOW_OFF:
+                USERIALDBG("RX flow OFF");
+                rx_flow_on = FALSE;
+                break;
+                case USERIAL_RX_FLOW_ON:
+                USERIALDBG("RX flow ON");
+                rx_flow_on = TRUE;
+                break;
+		    }
         }
 
         if (n > 0)
@@ -189,6 +209,15 @@ static int select_read(int fd, uint8_t *pbuf, int len)
     return ret;
 }
 
+/*******************************************************************************
+**
+** Function        userial_read_thread
+**
+** Description
+**
+** Returns         void *
+**
+*******************************************************************************/
 static void *userial_read_thread(void *arg)
 {
     int rx_length = 0;
@@ -199,6 +228,7 @@ static void *userial_read_thread(void *arg)
     USERIALDBG("Entering userial_read_thread()");
     prctl(PR_SET_NAME, (unsigned long)"userial_read", 0, 0, 0);
 
+    rx_flow_on = TRUE;
     userial_running = 1;
 
     raise_priority_a2dp(TASK_HIGH_USERIAL_READ);
@@ -396,7 +426,6 @@ void userial_close_reader(void) {
 
 void userial_close(void) {
     assert(bt_hc_cbacks != NULL);
-
     // Join the reader thread if it's still running.
     if (userial_running) {
         send_event(USERIAL_RX_EXIT);
@@ -407,7 +436,6 @@ void userial_close(void) {
 
     // Ask the vendor-specific library to close the serial port.
     vendor_send_command(BT_VND_OP_USERIAL_CLOSE, NULL);
-
     // Free all buffers still waiting in the RX queue.
     // TODO: use list data structure and clean this up.
     void *buf;
@@ -415,4 +443,32 @@ void userial_close(void) {
         bt_hc_cbacks->dealloc(buf);
 
     userial_cb.fd = -1;
+}
+/*******************************************************************************
+**
+** Function        userial_ioctl
+**
+** Description     ioctl inteface
+**
+** Returns         None
+**
+*******************************************************************************/
+void userial_ioctl(userial_ioctl_op_t op, void *p_data)
+{
+    switch(op)
+    {
+        case USERIAL_OP_RXFLOW_ON:
+            if (userial_running)
+                send_event(USERIAL_RX_FLOW_ON);
+            break;
+
+        case USERIAL_OP_RXFLOW_OFF:
+            if (userial_running)
+                send_event(USERIAL_RX_FLOW_OFF);
+            break;
+
+        case USERIAL_OP_INIT:
+        default:
+            break;
+    }
 }
