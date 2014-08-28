@@ -1,4 +1,5 @@
-/******************************************************************************
+/*****************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -627,6 +628,13 @@ void bte_main_hci_send (BT_HDR *p_msg, UINT16 event)
         APPL_TRACE_ERROR("Invalid Controller ID. Discarding message.");
         GKI_freebuf(p_msg);
     }
+}
+
+void bte_main_sco_trigger_send(int state, UINT16 sco_handle)
+{
+    APPL_TRACE_DEBUG("%s", __func__);
+    bt_hc_if->sco_trigger(state, sco_handle);
+
 }
 
 /******************************************************************************

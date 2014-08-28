@@ -1,5 +1,5 @@
 /******************************************************************************
- *
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *  Copyright (C) 2000-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -518,7 +518,7 @@ void btm_acl_device_down (void)
 void btm_acl_update_busy_level (tBTM_BLI_EVENT event)
 {
     tBTM_BL_UPDATE_DATA  evt;
-    UINT8 busy_level;
+    UINT8 busy_level = 0;
     BTM_TRACE_DEBUG ("btm_acl_update_busy_level");
     BOOLEAN old_inquiry_state = btm_cb.is_inquiry;
     switch (event)
@@ -1100,7 +1100,11 @@ tBTM_STATUS BTM_SetLinkPolicy (BD_ADDR remote_bda, UINT16 *settings)
     }
 
     if ((p = btm_bda_to_acl(remote_bda, BT_TRANSPORT_BR_EDR)) != NULL)
+    {
+        // Hack to not to allow role switch once connected
+        *settings &= (~HCI_ENABLE_MASTER_SLAVE_SWITCH);
         return(btsnd_hcic_write_policy_set (p->hci_handle, *settings) ? BTM_CMD_STARTED : BTM_NO_RESOURCES);
+    }
 
     /* If here, no BD Addr found */
     return(BTM_UNKNOWN_ADDR);
@@ -2451,7 +2455,7 @@ BOOLEAN BTM_TryAllocateSCN(UINT8 scn)
     /* Make sure we don't exceed max port range.
      * Stack reserves scn 1 for HFP, HSP we still do the correct way.
      */
-    if ( (scn>=BTM_MAX_SCN) || (scn == 1) )
+    if (scn > 0 && scn <= BTM_MAX_SCN)
         return FALSE;
 
     /* check if this port is available */

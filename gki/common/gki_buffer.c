@@ -1016,6 +1016,39 @@ BOOLEAN GKI_queue_is_empty(BUFFER_Q *p_q)
     return ((BOOLEAN) (p_q->count == 0));
 }
 
+
+/*******************************************************************************
+**
+** Function         GKI_set_pool_permission
+**
+** Description      This function is called to set or change the permissions for
+**                  the specified pool ID.
+**
+** Parameters       pool_id -       (input) pool ID to be set or changed
+**                  permission -    (input) GKI_PUBLIC_POOL or GKI_RESTRICTED_POOL
+**
+** Returns          GKI_SUCCESS if successful
+**                  GKI_INVALID_POOL if unsuccessful
+**
+*******************************************************************************/
+UINT8 GKI_set_pool_permission(UINT8 pool_id, UINT8 permission)
+{
+    tGKI_COM_CB *p_cb = &gki_cb.com;
+
+    if (pool_id < GKI_NUM_TOTAL_BUF_POOLS)
+    {
+        if (permission == GKI_RESTRICTED_POOL)
+            p_cb->pool_access_mask = (UINT16)(p_cb->pool_access_mask | (1 << pool_id));
+
+        else    /* mark the pool as public */
+            p_cb->pool_access_mask = (UINT16)(p_cb->pool_access_mask & ~(1 << pool_id));
+
+        return (GKI_SUCCESS);
+    }
+    else
+        return (GKI_INVALID_POOL);
+}
+
 /*******************************************************************************
 **
 ** Function         gki_add_to_pool_list
@@ -1168,6 +1201,117 @@ UINT16 GKI_poolfreecount (UINT8 pool_id)
 
     return ((UINT16)(Q->total - Q->cur_cnt));
 }
+
+/*******************************************************************************
+**
+** Function         GKI_create_pool
+**
+** Description      Called by applications to create a buffer pool.
+**
+** Parameters:      size        - (input) length (in bytes) of each buffer in the pool
+**                  count       - (input) number of buffers to allocate for the pool
+**                  permission  - (input) restricted or public access?
+**                                        (GKI_PUBLIC_POOL or GKI_RESTRICTED_POOL)
+**                  p_mem_pool  - (input) pointer to an OS memory pool, NULL if not provided
+**
+** Returns          the buffer pool ID, which should be used in calls to
+**                  GKI_getpoolbuf(). If a pool could not be created, this
+**                  function returns 0xff.
+**
+*******************************************************************************/
+UINT8 GKI_create_pool (UINT16 size, UINT16 count, UINT8 permission, void *p_mem_pool)
+{
+    UINT8        xx;
+    UINT32       mem_needed;
+    INT32        tempsize = size;
+    tGKI_COM_CB *p_cb = &gki_cb.com;
+
+    /* First make sure the size of each pool has a valid size with room for the header info */
+    if (size > MAX_USER_BUF_SIZE)
+        return (GKI_INVALID_POOL);
+
+    /* First, look for an unused pool */
+    for (xx = 0; xx < GKI_NUM_TOTAL_BUF_POOLS; xx++)
+    {
+        if (!p_cb->pool_start[xx])
+            break;
+    }
+
+    if (xx == GKI_NUM_TOTAL_BUF_POOLS)
+        return (GKI_INVALID_POOL);
+
+    /* Ensure an even number of longwords */
+    tempsize = (INT32)ALIGN_POOL(size);
+
+    mem_needed = (tempsize + BUFFER_PADDING_SIZE) * count;
+
+    if (!p_mem_pool)
+        p_mem_pool = GKI_os_malloc(mem_needed);
+
+    if (p_mem_pool)
+    {
+        /* Initialize the new pool */
+        gki_init_free_queue (xx, size, count, p_mem_pool);
+        gki_add_to_pool_list(xx);
+        (void) GKI_set_pool_permission (xx, permission);
+        p_cb->curr_total_no_of_pools++;
+
+        return (xx);
+    }
+    else
+        return (GKI_INVALID_POOL);
+}
+
+/*******************************************************************************
+**
+** Function         GKI_delete_pool
+**
+** Description      Called by applications to delete a buffer pool.  The function
+**                  calls the operating specific function to free the actual memory.
+**                  An exception is generated if an error is detected.
+**
+** Parameters:      pool_id - (input) Id of the poll being deleted.
+**
+** Returns          void
+**
+*******************************************************************************/
+void GKI_delete_pool (UINT8 pool_id)
+{
+    FREE_QUEUE_T    *Q;
+    tGKI_COM_CB     *p_cb = &gki_cb.com;
+
+    if ((pool_id >= GKI_NUM_TOTAL_BUF_POOLS) || (!p_cb->pool_start[pool_id]))
+        return;
+
+    GKI_disable();
+    Q  = &p_cb->freeq[pool_id];
+
+    if (!Q->cur_cnt)
+    {
+        Q->size      = 0;
+        Q->total     = 0;
+        Q->cur_cnt   = 0;
+        Q->max_cnt   = 0;
+        Q->p_first   = NULL;
+        Q->p_last    = NULL;
+
+        GKI_os_free (p_cb->pool_start[pool_id]);
+
+        p_cb->pool_start[pool_id] = NULL;
+        p_cb->pool_end[pool_id]   = NULL;
+        p_cb->pool_size[pool_id]  = 0;
+
+        gki_remove_from_pool_list(pool_id);
+        p_cb->curr_total_no_of_pools--;
+    }
+    else
+        GKI_exception(GKI_ERROR_DELETE_POOL_BAD_QID, "Deleting bad pool");
+
+    GKI_enable();
+
+    return;
+}
+
 
 /*******************************************************************************
 **

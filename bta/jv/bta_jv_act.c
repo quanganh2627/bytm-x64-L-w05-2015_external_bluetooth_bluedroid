@@ -1004,7 +1004,7 @@ static inline tBT_UUID shorten_sdp_uuid(const tBT_UUID* u)
     static uint8_t bt_base_uuid[] =
        {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB };
 
-    logu("in, uuid:", u->uu.uuid128);
+    logu("in, uuid:", (const uint8_t *) u);
     APPL_TRACE_DEBUG("uuid len:%d", u->len);
     if(u->len == 16)
     {

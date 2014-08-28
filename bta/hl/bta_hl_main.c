@@ -1810,7 +1810,7 @@ static void bta_hl_mca_delete_mdl_ind(tBTA_HL_CB *p_cb, tBTA_HL_DATA *p_data)
     tBTA_HL         evt_data;
     UINT8           app_idx, mcl_idx, mdl_idx;
     tMCA_EVT_HDR    *p_delete_ind = &p_data->mca_evt.mca_data.delete_ind;
-    tBTA_HL_MCL_CB  *p_mcb;
+    tBTA_HL_MCL_CB  *p_mcb = NULL;
     tBTA_HL_MDL_CB  *p_dcb;
     BOOLEAN         send_ind_evt = FALSE;
     tBTA_HL_APP_CB  *p_acb;

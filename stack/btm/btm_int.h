@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
@@ -28,6 +29,7 @@
 #include "bt_target.h"
 #include "gki.h"
 #include "hcidefs.h"
+#include "bta_fm.h"
 
 #if RFCOMM_INCLUDED == TRUE
 #include "rfcdefs.h"
@@ -215,7 +217,10 @@ UINT8                   le_supported_states[BTM_LE_SUPPORT_STATE_SIZE];
 #define BTM_DEV_STATE_WAIT_RESET_CMPLT  0
 #define BTM_DEV_STATE_WAIT_AFTER_RESET  1
 #define BTM_DEV_STATE_READY             2
-
+#define BTM_DEV_MAX_NUMBER_OF_CODEC		6
+	UINT8				enhanced_hci_cmds;	/* bitmap for enhanced sco hci commands */
+	BOOLEAN				enhanced_hci_sco;
+    UINT8				available_codecs[BTM_DEV_MAX_NUMBER_OF_CODEC];
     UINT8                state;
     tBTM_IO_CAP          loc_io_caps;       /* IO capability of the local device */
     tBTM_AUTH_REQ        loc_auth_req;      /* the auth_req flag  */
@@ -403,6 +408,7 @@ typedef struct
 {
     tBTM_ESCO_CBACK    *p_esco_cback;   /* Callback for eSCO events     */
     tBTM_ESCO_PARAMS    setup;
+    tBTM_ENHANCED_ESCO_PARAMS	enhanced_setup;
     tBTM_ESCO_DATA      data;           /* Connection complete information */
     UINT8               hci_status;
 } tBTM_ESCO_INFO;
@@ -434,6 +440,7 @@ typedef struct
 #endif
     tSCO_CONN            sco_db[BTM_MAX_SCO_LINKS];
     tBTM_ESCO_PARAMS     def_esco_parms;
+    tBTM_ENHANCED_ESCO_PARAMS	def_enhanced_esco_params;
     BD_ADDR              xfer_addr;
     UINT16               sco_disc_reason;
     BOOLEAN              esco_supported;    /* TRUE if 1.2 cntlr AND supports eSCO links */
@@ -443,6 +450,9 @@ typedef struct
     tBTM_SCO_CODEC_TYPE  codec_in_use;      /* None, CVSD, MSBC, etc. */
 #if BTM_SCO_HCI_INCLUDED == TRUE
 	tBTM_SCO_ROUTE_TYPE	 sco_path;
+#endif
+#if INTEL_IBT == TRUE
+	UINT16						acl_handle; /* needed to be accessed from different location*/
 #endif
 
 } tSCO_CB;
@@ -782,6 +792,7 @@ typedef BOOLEAN CONNECTION_TYPE;
 /* Define a structure to hold all the BTM data
 */
 
+#define BTM_ENHANCED_HCI_CMD_SUPPORT(x) ((x[28]>>2)&0x07)
 #define BTM_STATE_BUFFER_SIZE  5                  /* size of state buffer */
 
 #if (BTM_PCM2_INCLUDED == TRUE)
@@ -984,6 +995,9 @@ extern BOOLEAN      btm_inq_find_bdaddr (BD_ADDR p_bda);
 extern BOOLEAN btm_lookup_eir(BD_ADDR_PTR p_rem_addr);
 #endif
 
+extern void btm_process_cancel_complete(UINT8 status, UINT8 mode);
+
+
 /* Internal functions provided by btm_acl.c
 ********************************************
 */
@@ -1086,6 +1100,7 @@ extern void btm_read_local_addr_complete (UINT8 *p, UINT16 evt_len);
 extern  void btm_reset_ctrlr_complete (void);
 extern void btm_write_simple_paring_mode_complete (UINT8 *p);
 extern void btm_write_le_host_supported_complete (UINT8 *p);
+extern void btm_read_local_supported_codecs_complete (UINT8 *P, UINT16 evt_len);
 
 #if (BLE_INCLUDED == TRUE)
 extern void btm_read_ble_buf_size_complete (UINT8 *p, UINT16 evt_len);
@@ -1107,6 +1122,10 @@ extern void btm_write_stored_link_key_complete (UINT8 *p);
 extern void btm_delete_stored_link_key_complete (UINT8 *p);
 extern void btm_return_link_keys_evt (tBTM_RETURN_LINK_KEYS_EVT *result);
 extern void btm_report_device_status (tBTM_DEV_STATUS status);
+#ifdef BT_FM_MITIGATION
+extern void btm_btfm_set_afh_channels_complete(UINT8 *p);
+#endif
+
 
 
 /* Internal functions provided by btm_dev.c

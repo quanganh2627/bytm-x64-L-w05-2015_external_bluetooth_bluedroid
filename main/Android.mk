@@ -1,10 +1,30 @@
-LOCAL_PATH := $(call my-dir)
+ #######################################################################
+ #  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
+ #
+ #  Licensed under the Apache License, Version 2.0 (the "License");
+ #  you may not use this file except in compliance with the License.
+ #  You may obtain a copy of the License at:
+ #
+ #  http://www.apache.org/licenses/LICENSE-2.0
+ #
+ #  Unless required by applicable law or agreed to in writing, software
+ #  distributed under the License is distributed on an "AS IS" BASIS,
+ #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ #  See the License for the specific language governing permissions and
+ #  limitations under the License.
+ #######################################################################
+
+LOCAL_PATH:= $(call my-dir)
 
 #
 # Bluetooth HW module
 #
 
 include $(CLEAR_VARS)
+
+ifdef BDT_FM_TEST
+LOCAL_CFLAGS  += -DBDT_BTA_FM_DEBUG
+endif
 
 # HAL layer
 LOCAL_SRC_FILES:= \
@@ -32,6 +52,7 @@ LOCAL_SRC_FILES += \
 	../btif/src/btif_gatt_util.c \
 	../btif/src/btif_hf.c \
 	../btif/src/btif_hf_client.c \
+        ../btif/src/btif_hsp_task.c\
 	../btif/src/btif_hh.c \
 	../btif/src/btif_hl.c \
 	../btif/src/btif_mce.c \
@@ -48,6 +69,19 @@ LOCAL_SRC_FILES += \
 	../btif/src/btif_storage.c \
 	../btif/src/btif_util.c
 
+ifdef VERIFIER
+LOCAL_SRC_FILES += \
+    ../btif/src/btif_test_testcase.c \
+    ../btif/src/btif_test_bnep_verifier.c \
+    ../btif/src/btif_test_avdtp_verifier.c
+endif
+
+ifdef TESTER
+LOCAL_SRC_FILES += \
+    ../btif/src/btif_test_l2cap_tester.c \
+    ../btif/src/btif_test_bnep_tester.c \
+    ../btif/src/btif_test_avdtp_tester.c
+endif
 # callouts
 LOCAL_SRC_FILES += \
 	../btif/co/bta_ag_co.c \
@@ -100,6 +134,7 @@ LOCAL_C_INCLUDES += . \
 	$(LOCAL_PATH)/../embdrv/sbc/decoder/include \
 	$(LOCAL_PATH)/../audio_a2dp_hw \
 	$(LOCAL_PATH)/../utils/include \
+        $(LOCAL_PATH)/../audio_hsp_hw \
 	$(bdroid_C_INCLUDES) \
 	external/tinyxml2
 
@@ -115,6 +150,9 @@ endif
 ifeq ($(TARGET_PRODUCT), full_maguro)
 	LOCAL_CFLAGS += -DTARGET_MAGURO
 endif
+ifneq ($(BOARD_SUPPORTS_FREQUENCY_MANAGER), false)
+LOCAL_CFLAGS += -DBT_FM_MITIGATION
+endif
 
 LOCAL_SHARED_LIBRARIES := \
 	libcutils \
@@ -126,8 +164,8 @@ LOCAL_STATIC_LIBRARIES := \
 	libbt-brcm_bta \
 	libbt-brcm_gki \
 	libbt-brcm_stack \
-	libbt-hci \
 	libbt-utils \
+	libbt-hci \
 	libbt-qcom_sbc_decoder \
 	libosi \
 	libtinyxml2 \

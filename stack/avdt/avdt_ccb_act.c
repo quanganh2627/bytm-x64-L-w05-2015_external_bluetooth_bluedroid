@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2006-2012 Broadcom Corporation
  *
@@ -163,9 +164,25 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB *p_ccb, tAVDT_CCB_EVT *p_data)
     tAVDT_SEP_INFO      sep_info[AVDT_NUM_SEPS];
     tAVDT_SCB           *p_scb = &avdt_cb.scb[0];
     int                 i;
+    tAVDT_DISCOVER      discover_rsp;
 
-    p_data->msg.discover_rsp.p_sep_info = sep_info;
-    p_data->msg.discover_rsp.num_seps = 0;
+#if defined ( AVDTP_TESTER ) || defined ( AVDTP_VERIFIER )
+    if(AVDT_get_reject() == DISC_REJECT)
+    {
+        p_data->msg.hdr.err_code = AVDT_ERR_INVALID_FORMAT;
+
+        discover_rsp.num_seps = 0;
+        discover_rsp.hdr.err_code = AVDT_SUCCESS;
+
+        (*p_ccb->p_conn_cback)(0, p_ccb->peer_addr, AVDT_DISCOVER_IND_EVT,
+                           (tAVDT_CTRL *)(&discover_rsp));
+
+        avdt_msg_send_rej(p_ccb, AVDT_SIG_DISCOVER, &p_data->msg);
+        return;
+    }
+#endif //AVDTP_TESTER
+    p_data->msg.discover_rsp.p_sep_info = discover_rsp.p_sep_info = sep_info;
+    p_data->msg.discover_rsp.num_seps = discover_rsp.num_seps = 0;
 
     /* for all allocated scbs */
     for (i = 0; i < AVDT_NUM_SEPS; i++, p_scb++)
@@ -179,8 +196,16 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB *p_ccb, tAVDT_CCB_EVT *p_data)
             sep_info[p_data->msg.discover_rsp.num_seps].tsep = p_scb->cs.tsep;
 
             p_data->msg.discover_rsp.num_seps++;
+            discover_rsp.num_seps++;
         }
     }
+
+    discover_rsp.hdr.err_code = AVDT_SUCCESS;
+
+#ifdef AVDTP_VERIFIER
+    (*p_ccb->p_conn_cback)(0, p_ccb->peer_addr, AVDT_DISCOVER_IND_EVT,
+                         (tAVDT_CTRL *)(&discover_rsp));
+#endif //AVDTP_VERIFIER
 
     /* send response */
     avdt_ccb_event(p_ccb, AVDT_CCB_API_DISCOVER_RSP_EVT, p_data);
@@ -224,13 +249,34 @@ void avdt_ccb_hdl_discover_rsp(tAVDT_CCB *p_ccb, tAVDT_CCB_EVT *p_data)
 void avdt_ccb_hdl_getcap_cmd(tAVDT_CCB *p_ccb, tAVDT_CCB_EVT *p_data)
 {
     tAVDT_SCB       *p_scb;
+    tAVDT_CONFIG     svccap;
+
+
+#if defined ( AVDTP_TESTER ) || defined ( AVDTP_VERIFIER )
+    if(AVDT_get_reject() == GETCAP_REJECT)
+    {
+        p_data->msg.hdr.err_code = AVDT_ERR_INVALID_FORMAT;
+        (*p_ccb->p_conn_cback)(0, p_ccb->peer_addr, AVDT_GETCAP_IND_EVT,
+                             (tAVDT_CTRL *)(&svccap));
+
+        avdt_msg_send_rej(p_ccb, AVDT_SIG_GETCAP, &p_data->msg);
+        return;
+    }
+#endif //AVDTP_TESTER
 
     /* look up scb for seid sent to us */
     p_scb = avdt_scb_by_hdl(p_data->msg.single.seid);
 
-    p_data->msg.svccap.p_cfg = &p_scb->cs.cfg;
+    p_data->msg.svccap.p_cfg = svccap.p_cfg = &p_scb->cs.cfg;
+
+    svccap.hdr.err_code = AVDT_SUCCESS;
 
     avdt_ccb_event(p_ccb, AVDT_CCB_API_GETCAP_RSP_EVT, p_data);
+
+#ifdef AVDTP_VERIFIER
+    (*p_ccb->p_conn_cback)(0, p_ccb->peer_addr, AVDT_GETCAP_IND_EVT,
+                         (tAVDT_CTRL *)(&svccap));
+#endif
 }
 
 /*******************************************************************************

@@ -1,5 +1,5 @@
 /******************************************************************************
- *
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH*
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -192,6 +192,8 @@ typedef struct {
 
     /** Controls HCI logging on/off */
     int (*logging)(bt_hc_logging_state_t state, char *p_path, bool save_existing);
+
+    void (*sco_trigger)(int state, uint16_t sco_handle);
 
     /** Closes the interface */
     void  (*cleanup)( void );

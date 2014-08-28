@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
@@ -449,7 +450,7 @@ BOOLEAN SDP_FindServiceUUIDInRec_128bit(tSDP_DISC_REC *p_rec, tBT_UUID * p_uuid)
                     if (SDP_DISC_ATTR_LEN(p_sattr->attr_len_type) == 16)
                     {
                         p_uuid->len = 16;
-                        memcpy(p_uuid->uu.uuid128, p_sattr->attr_value.v.array, MAX_UUID_SIZE);
+                        memcpy(p_uuid->uu.uuid128, p_sattr->attr_value.v.array, sizeof(p_sattr->attr_value.v.array));
                     }
                     return(TRUE);
                 }
@@ -463,7 +464,7 @@ BOOLEAN SDP_FindServiceUUIDInRec_128bit(tSDP_DISC_REC *p_rec, tBT_UUID * p_uuid)
                 && (SDP_DISC_ATTR_LEN(p_attr->attr_len_type) == 16))
             {
                 p_uuid->len = 16;
-                memcpy(p_uuid->uu.uuid128, p_attr->attr_value.v.array, MAX_UUID_SIZE);
+                memcpy(p_uuid->uu.uuid128, p_attr->attr_value.v.array, sizeof(p_attr->attr_value.v.array));
                 return(TRUE);
             }
         }

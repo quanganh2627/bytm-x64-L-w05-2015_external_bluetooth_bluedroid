@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2003-2014 Broadcom Corporation
  *
@@ -40,7 +41,7 @@
 #include "utl.h"
 #include "gap_api.h"    /* For GAP_BleReadPeerPrefConnParams */
 #include <string.h>
-
+#include "bta_fm.h"
 #if (GAP_INCLUDED == TRUE)
 #include "gap_api.h"
 #endif
@@ -122,6 +123,11 @@ static void bta_dm_ctrl_features_rd_cmpl_cback(tBTM_STATUS result);
 static void bta_dm_remove_sec_dev_entry(BD_ADDR remote_bd_addr);
 
 extern void sdpu_uuid16_to_uuid128(UINT16 uuid16, UINT8* p_uuid128);
+
+#ifdef BT_FM_MITIGATION
+void bta_dm_btfm_set_afh_channels(UINT8 ch_mask[]);
+#endif
+
 
 const UINT16 bta_service_id_to_uuid_lkup_tbl [BTA_MAX_SERVICE_ID] =
 {
@@ -1325,6 +1331,7 @@ void bta_dm_discover (tBTA_DM_MSG *p_data)
     bta_dm_search_cb.uuid_to_search = bta_dm_search_cb.num_uuid;
 #endif
 
+    APPL_TRACE_DEBUG("bta_dm_discover");
     bta_dm_search_cb.p_search_cback = p_data->discover.p_cback;
     bta_dm_search_cb.sdp_search = p_data->discover.sdp_search;
     bta_dm_search_cb.services_to_search = bta_dm_search_cb.services;
@@ -2067,7 +2074,8 @@ void bta_dm_queue_search (tBTA_DM_MSG *p_data)
     }
 
     bta_dm_search_cb.p_search_queue = (tBTA_DM_MSG *)GKI_getbuf(sizeof(tBTA_DM_API_SEARCH));
-    memcpy(bta_dm_search_cb.p_search_queue, p_data, sizeof(tBTA_DM_API_SEARCH));
+    if (bta_dm_search_cb.p_search_queue != NULL)
+        memcpy(bta_dm_search_cb.p_search_queue, p_data, sizeof(tBTA_DM_API_SEARCH));
 
 }
 
@@ -2088,7 +2096,8 @@ void bta_dm_queue_disc (tBTA_DM_MSG *p_data)
     }
 
     bta_dm_search_cb.p_search_queue = (tBTA_DM_MSG *)GKI_getbuf(sizeof(tBTA_DM_API_DISCOVER));
-    memcpy(bta_dm_search_cb.p_search_queue, p_data, sizeof(tBTA_DM_API_DISCOVER));
+    if (bta_dm_search_cb.p_search_queue != NULL)
+        memcpy(bta_dm_search_cb.p_search_queue, p_data, sizeof(tBTA_DM_API_DISCOVER));
 
 }
 
@@ -2579,6 +2588,8 @@ static void bta_dm_inq_results_cb (tBTM_INQ_RESULTS *p_inq, UINT8 *p_eir)
 
     /* application will parse EIR to find out remote device name */
     result.inq_res.p_eir = p_eir;
+
+    APPL_TRACE_DEBUG("bta_dm_inq_results_cb");
 
     if((p_inq_info = BTM_InqDbRead(p_inq->remote_bd_addr)) != NULL)
     {
@@ -4706,7 +4717,20 @@ void bta_dm_set_encryption (tBTA_DM_MSG *p_data)
         APPL_TRACE_ERROR(" %s Device not found/not connected", __FUNCTION__);
     }
 }
-
+#ifdef BT_FM_MITIGATION
+/*******************************************************************************
+** Function         bta_dm_btfm_set_afh_channels
+**
+** Description      set afh channels for frequency Manager
+**
+** Returns          void
+********************************************************************************/
+void bta_dm_btfm_set_afh_channels( UINT8 ch_mask[])
+{
+    APPL_TRACE_DEBUG("%s : ", __FUNCTION__);
+    BTM_btfm_SetAfhChannels(ch_mask);
+}
+#endif
 /*******************************************************************************
 **
 ** Function         bta_dm_set_afh_channels

@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (c) 2014 The Android Open Source Project
  *  Copyright (C) 1999-2012 Broadcom Corporation
@@ -647,7 +648,9 @@ extern "C" {
 #endif
 
 BT_API extern void bte_main_hci_send (BT_HDR *p_msg, UINT16 event);
+BT_API extern void bte_main_sco_trigger_send(int state, UINT16 sco_handle);
 #if (HCISU_H4_INCLUDED == TRUE)
+BT_API extern void bte_main_hci_report_buffer_size (UINT16 acl_buffer_size, UINT16 le_buffer_size);
 BT_API extern void bte_main_lpm_allow_bt_device_sleep(void);
 #endif
 
@@ -669,6 +672,9 @@ BT_API extern void bte_main_lpm_allow_bt_device_sleep(void);
 #define HCI_SCO_DATA_TO_LOWER(p)    bte_main_hci_send((BT_HDR *)(p), BT_EVT_TO_LM_HCI_SCO);
 #endif
 
+#ifndef HCI_SCO_RX_TRIGGER
+#define HCI_SCO_RX_TRIGGER(p, m)      bte_main_sco_trigger_send(p, m)
+#endif
 /* Sends an HCI command received from the upper stack to the BD/EDR HCI transport. */
 #ifndef HCI_CMD_TO_LOWER
 #define HCI_CMD_TO_LOWER(p)         bte_main_hci_send((BT_HDR *)(p), BT_EVT_TO_LM_HCI_CMD);
@@ -755,12 +761,17 @@ and USER_HW_DISABLE_API macros */
 
 /* Includes SCO if TRUE */
 #ifndef BTM_SCO_HCI_INCLUDED
-#define BTM_SCO_HCI_INCLUDED            FALSE       /* TRUE includes SCO over HCI code */
+#define BTM_SCO_HCI_INCLUDED            TRUE       /* TRUE includes SCO over HCI code */
 #endif
 
 /* Includes WBS if TRUE */
 #ifndef BTM_WBS_INCLUDED
-#define BTM_WBS_INCLUDED            FALSE       /* TRUE includes WBS code */
+#define BTM_WBS_INCLUDED                TRUE       /* TRUE includes WBS code */
+#endif
+
+/* Includes WBS if TRUE */
+#ifndef INTEL_IBT
+#define INTEL_IBT                       FALSE       /* TRUE when using INTEL IBT external Uart solution */
 #endif
 
 /* Includes PCM2 support if TRUE */
@@ -845,7 +856,7 @@ and USER_HW_DISABLE_API macros */
 
 /* The default scan mode */
 #ifndef BTM_DEFAULT_SCAN_TYPE
-#define BTM_DEFAULT_SCAN_TYPE       BTM_SCAN_TYPE_INTERLACED
+#define BTM_DEFAULT_SCAN_TYPE       BTM_SCAN_TYPE_STANDARD
 #endif
 
 /* Should connections to unknown devices be allowed when not discoverable? */

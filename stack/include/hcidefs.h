@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 1999-2014 Broadcom Corporation
  *
@@ -85,6 +86,8 @@
 #define HCI_REM_OOB_DATA_REQ_REPLY      (0x0030 | HCI_GRP_LINK_CONTROL_CMDS)
 #define HCI_REM_OOB_DATA_REQ_NEG_REPLY  (0x0033 | HCI_GRP_LINK_CONTROL_CMDS)
 #define HCI_IO_CAP_REQ_NEG_REPLY        (0x0034 | HCI_GRP_LINK_CONTROL_CMDS)
+/* For WBS enabled sco connection */
+#define HCI_ENHANCED_SETUP_SCO_CONNECTION (0x003D | HCI_GRP_LINK_CONTROL_CMDS)
 
 /* AMP HCI */
 #define HCI_CREATE_PHYSICAL_LINK        (0x0035 | HCI_GRP_LINK_CONTROL_CMDS)
@@ -2713,6 +2716,14 @@ typedef struct
 #define HCI_SUPP_COMMANDS_RLE_RC_CONN_PARAM_UPD_NEG_RPY_MASK          0x20
 #define HCI_SUPP_COMMANDS_LE_RC_CONN_PARAM_UPD_NEG_RPY_OFF           33
 #define HCI_LE_RC_CONN_PARAM_UPD_NEG_RPY_SUPPORTED(x)      ((x)[HCI_SUPP_COMMANDS_LE_RC_CONN_PARAM_UPD_NEG_RPY_OFF] & HCI_SUPP_COMMANDS_RLE_RC_CONN_PARAM_UPD_NEG_RPY_MASK)
+/*
+Intel Vendor specific commands
+*/
+#if INTEL_IBT == TRUE
+#define HCI_INTEL_WRITE_PCM_MODE                (0x0004 | HCI_GRP_VENDOR_SPECIFIC)
+#define HCI_INTEL_SIGNAL_PROC_CONFIG            (0x002C | HCI_GRP_VENDOR_SPECIFIC)
+#define HCI_INTEL_CONFIG_SYNCHRONUS_INTERFACE   (0x0039 | HCI_GRP_VENDOR_SPECIFIC)
+#endif
 
 /*
 Commands of HCI_GRP_VENDOR_SPECIFIC group for WIDCOMM SW LM Simulator

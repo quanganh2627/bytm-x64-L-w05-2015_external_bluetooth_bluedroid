@@ -1,5 +1,6 @@
 /******************************************************************************
  *
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -98,8 +99,8 @@ BOOLEAN l2c_link_hci_conn_req (BD_ADDR bd_addr)
         {
             if (!btm_dev_support_switch (bd_addr))
                 p_lcb->link_role = HCI_ROLE_SLAVE;
-            else
-                p_lcb->link_role = l2cu_get_conn_role(p_lcb);
+            else /* Force to be master */
+                p_lcb->link_role = HCI_ROLE_MASTER;
         }
 
         /* Tell the other side we accept the connection */
@@ -119,8 +120,8 @@ BOOLEAN l2c_link_hci_conn_req (BD_ADDR bd_addr)
 
         if (!btm_dev_support_switch (bd_addr))
             p_lcb->link_role = HCI_ROLE_SLAVE;
-        else
-            p_lcb->link_role = l2cu_get_conn_role(p_lcb);
+        else /* Force to be master */
+            p_lcb->link_role = HCI_ROLE_MASTER;
 
         btsnd_hcic_accept_conn (bd_addr, p_lcb->link_role);
 

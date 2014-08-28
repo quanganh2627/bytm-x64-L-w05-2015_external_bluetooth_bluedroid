@@ -1,14 +1,23 @@
 LOCAL_PATH:= $(call my-dir)
 
+INC_PATH := $(LOCAL_PATH)/../../../../hardware/imc/rpc
+
 include $(CLEAR_VARS)
 
 ifeq ($(BOARD_HAVE_BLUETOOTH_BCM),true)
 LOCAL_CFLAGS += \
 	-DBOARD_HAVE_BLUETOOTH_BCM
 endif
+ifneq ($(BOARD_SUPPORTS_FREQUENCY_MANAGER), false)
+LOCAL_CFLAGS += -DBT_FM_MITIGATION
+endif
 LOCAL_CFLAGS += -DBUILDCFG $(bdroid_CFLAGS) -std=c99
 
-LOCAL_PRELINK_MODULE:=false
+ifdef BDT_FM_TEST
+LOCAL_CFLAGS  += -DBDT_BTA_FM_DEBUG
+endif
+
+LOCAL_PRELINK_MODULE:=true
 LOCAL_SRC_FILES:= \
     ./dm/bta_dm_ci.c \
     ./dm/bta_dm_act.c \
@@ -89,11 +98,9 @@ LOCAL_SRC_FILES:= \
     ./jv/bta_jv_main.c \
     ./jv/bta_jv_api.c \
 
-LOCAL_MODULE := libbt-brcm_bta
-LOCAL_MODULE_CLASS := STATIC_LIBRARIES
-LOCAL_MODULE_TAGS := optional
-LOCAL_SHARED_LIBRARIES := libcutils libc
-LOCAL_MULTILIB := 32
+ifneq ($(BOARD_SUPPORTS_FREQUENCY_MANAGER), false)
+LOCAL_SRC_FILES+= ./fm/bta_fm.c
+endif
 
 LOCAL_C_INCLUDES+= . \
                    $(LOCAL_PATH)/include \
@@ -112,5 +119,50 @@ LOCAL_C_INCLUDES+= . \
                    $(LOCAL_PATH)/../utils/include \
                    $(bdroid_C_INCLUDES) \
 
+# uta module includes for RPC
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/core
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/cps
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/audio_ctrl
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/audio_mm
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/battery
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/gps
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/i2c
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/inet
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/lcs
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/make
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/power
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/rtc
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/sock
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/usb
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/cls/lp
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/cls/cts
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/cls
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/em
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/sys
+LOCAL_C_INCLUDES += $(INC_PATH)/uta_inc/flash_plugin
 
+# rpc module includes
+LOCAL_C_INCLUDES += $(INC_PATH)/multi-client/utils/osa/android
+LOCAL_C_INCLUDES += $(INC_PATH)/multi-client/utils/osa
+LOCAL_C_INCLUDES += $(INC_PATH)/multi-client/utils/
+LOCAL_C_INCLUDES += $(INC_PATH)/multi-client/rpc-stubs/fm/uta_rpc/uta_2_0
+LOCAL_C_INCLUDES += $(INC_PATH)/multi-client/rpc-stubs/fm/uta_rpc/uta_2_0/host
+LOCAL_C_INCLUDES += $(INC_PATH)/multi-client/rpc-stubs/fm/inc
+
+LOCAL_LDLIBS := -ldl
+
+LOCAL_WHOLE_STATIC_LIBRARIES :=
+ifneq ($(BOARD_SUPPORTS_FREQUENCY_MANAGER), false)
+LOCAL_WHOLE_STATIC_LIBRARIES += librpc_fmstub
+endif
+
+LOCAL_SHARED_LIBRARIES := libcutils libc libutils libdl
+
+LOCAL_MODULE := libbt-brcm_bta
+LOCAL_MODULE_CLASS := STATIC_LIBRARIES
+LOCAL_MODULE_TAGS := optional
 include $(BUILD_STATIC_LIBRARY)
+# below include is commented, because rpc-fm.mk
+#is getting called by hardware/imc/fm/fmd
+# build the other libraries that RPC calls depend on
+#include $(INC_PATH)/multi-client/rpc-stubs/fm/rpc-fm.mk

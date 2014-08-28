@@ -158,6 +158,8 @@ GKI_API extern UINT8   GKI_send_event (UINT8, UINT16);
 
 /* To get and release buffers, change owner and get size
 */
+GKI_API extern UINT8   GKI_create_pool (UINT16, UINT16, UINT8, void *);
+GKI_API extern void    GKI_delete_pool (UINT8);
 GKI_API extern void    GKI_freebuf (void *);
 GKI_API extern void   *GKI_getbuf (UINT16);
 GKI_API extern UINT16  GKI_get_buf_size (void *);

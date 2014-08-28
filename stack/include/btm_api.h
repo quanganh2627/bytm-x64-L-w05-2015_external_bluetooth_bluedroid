@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
@@ -28,6 +29,7 @@
 #include "bt_target.h"
 #include "sdp_api.h"
 #include "hcidefs.h"
+#include "bta_fm.h"
 
 #if BLE_INCLUDED == TRUE && SMP_INCLUDED == TRUE
 #include "smp_api.h"
@@ -40,7 +42,8 @@
 ******************************/
 /* Maximum number of bytes allowed for vendor specific command parameters */
 #define BTM_MAX_VENDOR_SPECIFIC_LEN  HCI_COMMAND_SIZE
-
+#define SCO_ON 1
+#define SCO_OFF 0
 /* BTM application return status codes */
 enum
 {
@@ -968,6 +971,9 @@ typedef UINT8 tBTM_SCO_TYPE;
 /*******************
 ** SCO Routing Path
 ********************/
+
+#define HCI_BRCM_SCO_ROUTE_PCM 0
+#define HCI_BRCM_SCO_ROUTE_HCI 1
 #define BTM_SCO_ROUTE_PCM           HCI_BRCM_SCO_ROUTE_PCM
 #define BTM_SCO_ROUTE_HCI           HCI_BRCM_SCO_ROUTE_HCI
 typedef UINT8 tBTM_SCO_ROUTE_TYPE;
@@ -1023,10 +1029,28 @@ typedef UINT8 tBTM_SCO_DATA_FLAG;
 typedef void (tBTM_SCO_CB) (UINT16 sco_inx);
 typedef void (tBTM_SCO_DATA_CB) (UINT16 sco_inx, BT_HDR *p_data, tBTM_SCO_DATA_FLAG status);
 
-/******************
-**  eSCO Constants
-*******************/
-#define BTM_64KBITS_RATE            0x00001f40  /* 64 kbits/sec data rate */
+/******************************
+**  Enhanced eSCO Constants: T2
+******************************/
+#define BTM_64KBITS_RATE            0x00001f40
+#define BTM_T2_64KBITS_RATE         0x00001f40                  /* 64 kbits/sec data rate */
+#define BTM_T2_CODING_FMT_MSBC      {0x00,0x00,0x00,0x02,0x05}  /* msbc */
+#define BTM_T2_CODEC_FRM_SIZE       0x003C                      /* 60 bytes */
+#define BTM_T2_IO_BW                0x00007D00                    /* 32000 Bytes/Sec */
+#define BTM_T2_CODING_FMT           {0X00,0X00,0X00,0x02,0x04}  /* Linear PCM */
+#define BTM_T2_CODED_DATA_SIZE      0x0010                        /* (16 bits) */
+#define BTM_T2_PCM_DATA_FMT         0x02                        /* 2's complement */
+#define BTM_T2_PCM_SAMPLE_PAYLOAD_MSB_POS 0X00
+#define BTM_T2_DATA_PATH            0X01                        /* Logical channel No */
+#define BTM_T2_UNIT_SIZE            0X10                        /* 16 bits */
+#define BTM_T2_MAX_LATENCY          0x000D                        /* 13 ms */
+
+/******************************
+**  Enhanced eSCO Constants: S3
+******************************/
+#define BTM_S3_CODING_FMT_CVSD      {0x00,0x00,0x00,0x02,0x02}  /* cvsd */
+#define BTM_S3_IO_BW                0x00003E80                    /* 16000 Bytes/sec */
+#define BTM_S3_MAX_LATENCY          0x000A                        /* 10 ms */
 
 /* Retransmission effort */
 #define BTM_ESCO_RETRANS_OFF        0
@@ -1062,6 +1086,34 @@ typedef struct
     UINT16 packet_types;
     UINT8  retrans_effort;
 } tBTM_CHG_ESCO_PARAMS;
+
+/* EnhancedSetupSyncConnection parameters */
+typedef struct
+{
+    UINT32     tx_bw;
+    UINT32     rx_bw;
+    UINT8     tx_coding_fmt[5];
+    UINT8     rx_coding_fmt[5];
+    UINT16     tx_codec_frm_size;
+    UINT16     rx_codec_frm_size;
+    UINT32     input_bw;
+    UINT32     output_bw;
+    UINT8      input_coding_fmt[5];
+    UINT8      output_coding_fmt[5];
+    UINT16     input_codec_data_size;
+    UINT16     output_codec_data_size;
+    UINT8      input_pcm_data_fmt;
+    UINT8      output_pcm_data_fmt;
+    UINT8      input_pcm_sample_msbc_pos;
+    UINT8      output_pcm_sample_msbc_pos;
+    UINT8      input_data_path;
+    UINT8      output_data_path;
+    UINT8      input_transport_unit_size;
+    UINT8      output_tansport_unit_size;
+    UINT16     max_latency;
+    UINT16     packet_types;
+    UINT8      retrans_effort;
+} tBTM_ENHANCED_ESCO_PARAMS;
 
 /* Returned by BTM_ReadEScoLinkParms() */
 typedef struct
@@ -1884,6 +1936,13 @@ typedef struct
 
 } tBTM_DELETE_STORED_LINK_KEY_COMPLETE;
 
+#ifdef BT_FM_MITIGATION
+/* This structure element store controler event for btfm set afh*/
+typedef struct
+{
+    UINT8  status;
+} tBTM_BTFM_SET_AFH_CHANELLS_COMPLETE;
+#endif
 
 /* These macros are defined to check the Broadcom features supported in controller
  * (the return value for BTM_ReadBrcmFeatures() */
@@ -1992,6 +2051,19 @@ extern "C" {
 /*****************************************************************************
 **  DEVICE CONTROL and COMMON FUNCTIONS
 *****************************************************************************/
+
+#ifdef BT_FM_MITIGATION
+/*******************************************************************************
+**
+** Function         tBTM_STATUS BTM_btfm_SetAfhChannels
+**
+** Description      This function is called to disable channels
+**
+** Returns          status
+**
+*******************************************************************************/
+    BTM_API extern tBTM_STATUS BTM_btfm_SetAfhChannels (UINT8  bt_arr[]);
+#endif
 
 /*******************************************************************************
 **
@@ -3462,7 +3534,7 @@ BTM_API extern BOOLEAN BTM_TryAllocateSCN(UINT8 scn);
 *******************************************************************************/
     BTM_API extern tBTM_STATUS BTM_SetEScoMode (tBTM_SCO_TYPE sco_mode,
                                                 tBTM_ESCO_PARAMS *p_parms);
-
+#if (BTM_WBS_INCLUDED == TRUE)
 /*******************************************************************************
 **
 ** Function         BTM_SetWBSCodec
@@ -3474,7 +3546,20 @@ BTM_API extern BOOLEAN BTM_TryAllocateSCN(UINT8 scn);
 **
 **
 *******************************************************************************/
-BTM_API extern tBTM_STATUS BTM_SetWBSCodec (tBTM_SCO_CODEC_TYPE codec_type);
+    BTM_API extern tBTM_STATUS BTM_SetWBSCodec (tBTM_SCO_CODEC_TYPE codec_type);
+
+/*******************************************************************************
+**
+** Function         BTM_GetCodecConnected()
+**
+** Description        Returns codec id for the codec being used for the current
+**                    SCO connection
+**
+** Returns          0: CVSD, 1: MSBC
+**
+*******************************************************************************/
+    BTM_API extern UINT8 BTM_GetCodecConnected();
+#endif
 
 /*******************************************************************************
 **
@@ -4479,6 +4564,9 @@ BTM_API extern tBTM_STATUS BTM_SetWBSCodec (tBTM_SCO_CODEC_TYPE codec_type);
 *******************************************************************************/
     BTM_API extern tBTM_STATUS BTM_WriteScoData (UINT16 sco_inx, BT_HDR *p_buf);
 
+
+BTM_API extern void BTM_sco_trigger(int state, int index);
+
 /*******************************************************************************
 **
 ** Function         BTM_SetARCMode
@@ -4502,6 +4590,51 @@ BTM_API extern void BTM_SetARCMode (UINT8 iface, UINT8 arc_mode, tBTM_VSC_CMPL_C
 *******************************************************************************/
 BTM_API extern void BTM_PCM2Setup_Write (BOOLEAN clk_master, tBTM_VSC_CMPL_CB *p_arc_cb);
 
+#if (BTM_WBS_INCLUDED == TRUE )
+#define BTM_HCI_U_LAW_CODEC                    0X00
+#define BTM_HCI_A_LAW_CODEC                    0X01
+#define BTM_HCI_CVSD_CODEC                    0X02
+#define BTM_HCI_TRANSPARENT_CODEC            0X03
+#define BTM_HCI_LINEAR_PCM                    0X04
+#define BTM_HCI_MSBC_CODEC                    0X05
+
+#define BTM_ENHANCED_SETUP_SYNC_CON_MASK    0x01
+#define BTM_ENHANCED_ACCEPT_SYNC_CON_MASK    0x02
+#define BTM_READ_LOCAL_SUPPORTED_CODEC_MASK    0x04
+/*******************************************************************************
+**
+** Function         BTM_SetCodecInUse
+**
+** Description      Sets codec type in btm_cb.sco_cb.codec_in_use global variable
+**
+** Returns          void
+**
+*******************************************************************************/
+extern void BTM_SetCodecInUse(UINT16 codec);
+
+/*******************************************************************************
+**
+** Function         BTM_IsMsbcCodecLocalSupport
+**
+** Description        Determines if the local controller supports msbc
+**
+** Returns          TRUE: Local controller supports msbc
+**
+*******************************************************************************/
+extern BOOLEAN BTM_IsMsbcCodecLocalSupport();
+
+/*******************************************************************************
+**
+** Function         BTM_IsEnhancedSCOSupported
+**
+** Description        Determines if the local controller supports enhanced sco setup
+**                    command
+**
+** Returns          TRUE: Local controller supports enhanced sco setup cmd
+**
+*******************************************************************************/
+extern BOOLEAN BTM_IsEnhancedSCOSupported();
+#endif
 
 /*******************************************************************************
 **

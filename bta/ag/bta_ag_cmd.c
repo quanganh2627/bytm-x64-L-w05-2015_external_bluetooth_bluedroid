@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2004-2012 Broadcom Corporation
  *
@@ -590,7 +591,10 @@ static BOOLEAN bta_ag_parse_cmer(char *p_s, BOOLEAN *p_enabled)
     INT16   n[4] = {-1, -1, -1, -1};
     int     i;
     char    *p;
-
+    if (p_s == 0)
+    {
+        return FALSE;
+    }
     for (i = 0; i < 4; i++)
     {
         /* skip to comma delimiter */
@@ -600,10 +604,6 @@ static BOOLEAN bta_ag_parse_cmer(char *p_s, BOOLEAN *p_enabled)
         *p = 0;
         n[i] = utl_str2int(p_s);
         p_s = p + 1;
-        if (p_s == 0)
-        {
-            break;
-        }
     }
 
     /* process values */
@@ -1193,7 +1193,8 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB *p_scb, UINT16 cmd, UINT8 arg_type,
                 p_scb->peer_codecs = bta_ag_parse_bac(p_scb, p_arg);
                 p_scb->codec_updated = TRUE;
 
-                if (p_scb->peer_codecs & BTA_AG_CODEC_MSBC)
+                /* peer device supports MSBC and Local device supports MSBC then use MSBC */
+                if ((p_scb->peer_codecs & BTA_AG_CODEC_MSBC) && BTM_IsMsbcCodecLocalSupport())
                 {
                     p_scb->sco_codec = UUID_CODEC_MSBC;
                     APPL_TRACE_DEBUG("Received AT+BAC, updating sco codec to MSBC");
@@ -1458,7 +1459,7 @@ void bta_ag_hfp_result(tBTA_AG_SCB *p_scb, tBTA_AG_API_RESULT *p_result)
             APPL_TRACE_DEBUG("CLIP type :%d", p_result->data.num);
             p_scb->clip[0] = 0;
             if (p_result->data.str[0] != 0)
-                sprintf(p_scb->clip,"%s,%d", p_result->data.str, p_result->data.num);
+                snprintf(p_scb->clip, sizeof(p_scb->clip), "%s,%d", p_result->data.str, p_result->data.num);
 
             /* send callsetup indicator */
             if (p_scb->post_sco == BTA_AG_POST_SCO_CALL_END)

@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2000-2012 Broadcom Corporation
  *
@@ -69,6 +70,159 @@ static const tBTM_ESCO_PARAMS btm_esco_defaults =
      BTM_ESCO_RETRANS_POWER        /* Retransmission Effort (Power)   */
 };
 
+static const tBTM_ENHANCED_ESCO_PARAMS btm_enhanced_esco_defaults_s3 =
+{
+    BTM_T2_64KBITS_RATE,
+    BTM_T2_64KBITS_RATE,
+    BTM_S3_CODING_FMT_CVSD,
+    BTM_S3_CODING_FMT_CVSD,
+    BTM_T2_CODEC_FRM_SIZE,
+    BTM_T2_CODEC_FRM_SIZE,
+    BTM_S3_IO_BW,
+    BTM_S3_IO_BW,
+    BTM_T2_CODING_FMT,
+    BTM_T2_CODING_FMT,
+    BTM_T2_CODED_DATA_SIZE,
+    BTM_T2_CODED_DATA_SIZE,
+    BTM_T2_PCM_DATA_FMT,
+    BTM_T2_PCM_DATA_FMT,
+    BTM_T2_PCM_SAMPLE_PAYLOAD_MSB_POS,
+    BTM_T2_PCM_SAMPLE_PAYLOAD_MSB_POS,
+    BTM_T2_DATA_PATH,
+    BTM_T2_DATA_PATH,
+    BTM_T2_UNIT_SIZE,
+    BTM_T2_UNIT_SIZE,
+    BTM_S3_MAX_LATENCY,
+    (BTM_SCO_PKT_TYPES_MASK_HV1 +   /* Packet Types                             */
+     BTM_SCO_PKT_TYPES_MASK_HV2 +
+     BTM_SCO_PKT_TYPES_MASK_HV3 +
+     BTM_SCO_PKT_TYPES_MASK_EV3 +
+     BTM_SCO_PKT_TYPES_MASK_EV4 +
+     BTM_SCO_PKT_TYPES_MASK_EV5 +
+     BTM_SCO_PKT_TYPES_MASK_NO_2_EV3 +
+     BTM_SCO_PKT_TYPES_MASK_NO_3_EV3 +
+     BTM_SCO_PKT_TYPES_MASK_NO_2_EV5 +
+     BTM_SCO_PKT_TYPES_MASK_NO_3_EV5),
+    BTM_ESCO_RETRANS_POWER
+};
+
+#if (BTM_WBS_INCLUDED == TRUE )
+
+static const tBTM_ENHANCED_ESCO_PARAMS btm_enhanced_esco_defaults_t2 =
+{
+    BTM_T2_64KBITS_RATE,
+    BTM_T2_64KBITS_RATE,
+    BTM_T2_CODING_FMT_MSBC,
+    BTM_T2_CODING_FMT_MSBC,
+    BTM_T2_CODEC_FRM_SIZE,
+    BTM_T2_CODEC_FRM_SIZE,
+    BTM_T2_IO_BW,
+    BTM_T2_IO_BW,
+    BTM_T2_CODING_FMT,
+    BTM_T2_CODING_FMT,
+    BTM_T2_CODED_DATA_SIZE,
+    BTM_T2_CODED_DATA_SIZE,
+    BTM_T2_PCM_DATA_FMT,
+    BTM_T2_PCM_DATA_FMT,
+    BTM_T2_PCM_SAMPLE_PAYLOAD_MSB_POS,
+    BTM_T2_PCM_SAMPLE_PAYLOAD_MSB_POS,
+    BTM_T2_DATA_PATH,
+    BTM_T2_DATA_PATH,
+    BTM_T2_UNIT_SIZE,
+    BTM_T2_UNIT_SIZE,
+    BTM_T2_MAX_LATENCY,
+    (
+     BTM_SCO_PKT_TYPES_MASK_EV3 +    /* Packet types */
+     BTM_SCO_PKT_TYPES_MASK_EV4 +
+     BTM_SCO_PKT_TYPES_MASK_EV5 +
+     BTM_SCO_PKT_TYPES_MASK_NO_2_EV3 +
+     BTM_SCO_PKT_TYPES_MASK_NO_3_EV3 +
+     BTM_SCO_PKT_TYPES_MASK_NO_2_EV5 +
+     BTM_SCO_PKT_TYPES_MASK_NO_3_EV5),
+    BTM_ESCO_RETRANS_QUALITY
+};
+
+/*******************************************************************************
+**
+** Function         BTM_SetCodecInUse
+**
+** Description      Sets codec type in btm_cb.sco_cb.codec_in_use global variable
+**
+** Returns          void
+**
+*******************************************************************************/
+void BTM_SetCodecInUse(UINT16 codec)
+{
+    BTM_TRACE_DEBUG("%s codec:%d", __func__, codec);
+    switch(codec)
+    {
+        case BTM_SCO_CODEC_CVSD:
+        case BTM_SCO_CODEC_MSBC:
+            btm_cb.sco_cb.codec_in_use = codec;
+            break;
+        default:
+            btm_cb.sco_cb.codec_in_use = BTM_SCO_CODEC_NONE;
+    }
+}
+
+/*******************************************************************************
+**
+** Function         BTM_IsMsbcCodecLocalSupport
+**
+** Description        Determines if the local controller supports msbc
+**
+** Returns          TRUE: Local controller supports msbc
+**
+*******************************************************************************/
+BOOLEAN BTM_IsMsbcCodecLocalSupport()
+{
+    return (btm_cb.devcb.available_codecs[5] & BTM_HCI_MSBC_CODEC);
+}
+
+#endif
+
+/*******************************************************************************
+**
+** Function         BTM_IsEnhancedSCOSupported()
+**
+** Description        Determines if the local controller supports msbc
+**
+** Returns          TRUE: Local controller supports msbc
+**
+*******************************************************************************/
+BOOLEAN BTM_IsEnhancedSCOSupported()
+{
+    return btm_cb.devcb.enhanced_hci_sco;
+}
+
+#if (BTM_WBS_INCLUDED == TRUE)
+/*******************************************************************************
+**
+** Function         BTM_GetCodecConnected()
+**
+** Description        Returns codec id for the codec being used for the current
+**                    SCO connection
+**
+** Returns          0: CVSD, 1: MSBC
+**
+*******************************************************************************/
+UINT8 BTM_GetCodecConnected()
+{
+    if (btm_cb.sco_cb.sco_db[0].esco.data.air_mode)
+    {
+        switch (btm_cb.sco_cb.sco_db[0].esco.data.air_mode)
+        {
+            case BTM_HCI_CVSD_CODEC:
+                return 0;
+            case BTM_HCI_MSBC_CODEC:
+                return 1;
+        }
+    }
+    return -1;
+}
+#endif
+
+static UINT16 sco_handle_db[BTM_MAX_SCO_LINKS];
 /*******************************************************************************
 **
 ** Function         btm_sco_flush_sco_data
@@ -119,7 +273,12 @@ void btm_sco_init (void)
     btm_cb.sco_cb.sco_disc_reason  = BTM_INVALID_SCO_DISC_REASON;
 
     btm_cb.sco_cb.def_esco_parms = btm_esco_defaults; /* Initialize with defaults */
+#if (BTM_WBS_INCLUDED == TRUE)
+    btm_cb.sco_cb.def_enhanced_esco_params = btm_enhanced_esco_defaults_t2; /* Initialize to default T2 settings */
+#else
+    btm_cb.sco_cb.def_enhanced_esco_params = btm_enhanced_esco_defaults_s3;
     btm_cb.sco_cb.desired_sco_mode = BTM_DEFAULT_SCO_MODE;
+#endif
 }
 
 /*******************************************************************************
@@ -393,6 +552,22 @@ tBTM_STATUS BTM_WriteScoData (UINT16 sco_inx, BT_HDR *p_buf)
 #endif
 }
 
+void BTM_sco_trigger(int state, int index)
+{
+    BTM_TRACE_DEBUG("%s",__func__);
+    UINT16 sco_handle = 0;
+    tSCO_CONN   *p_ccb = &btm_cb.sco_cb.sco_db[index - 1];
+    if (state == 1)
+    {
+        sco_handle_db[index - 1] = p_ccb->hci_handle;
+        sco_handle = p_ccb->hci_handle;
+    }
+    else
+    {
+        sco_handle = sco_handle_db[index - 1];
+    }
+    HCI_SCO_RX_TRIGGER(state , sco_handle);
+}
 #if (BTM_MAX_SCO_LINKS>0)
 /*******************************************************************************
 **
@@ -404,27 +579,46 @@ tBTM_STATUS BTM_WriteScoData (UINT16 sco_inx, BT_HDR *p_buf)
 **
 *******************************************************************************/
 static tBTM_STATUS btm_send_connect_request(UINT16 acl_handle,
-                                            tBTM_ESCO_PARAMS *p_setup)
+                                            void* p_common_setup)
 {
-    UINT16 temp_pkt_types;
+    UINT16 temp_pkt_types, temp_pkt_types1;
     UINT8 xx;
     tACL_CONN *p_acl;
+    tBTM_ESCO_PARAMS *p_setup = NULL;
+    tBTM_ENHANCED_ESCO_PARAMS *p_enhanced_setup = NULL;
 
-    /* Send connect request depending on version of spec */
-    if (!btm_cb.sco_cb.esco_supported)
+    if (btm_cb.devcb.enhanced_hci_sco)
     {
-        if (!btsnd_hcic_add_SCO_conn (acl_handle, BTM_ESCO_2_SCO(p_setup->packet_types)))
+        p_enhanced_setup = (tBTM_ENHANCED_ESCO_PARAMS *) p_common_setup;
+        if (p_enhanced_setup == NULL)
+            return (BTM_NO_RESOURCES);
+        temp_pkt_types1 = p_enhanced_setup->packet_types;
+    }
+    else
+    {
+        p_setup = (tBTM_ESCO_PARAMS *) p_common_setup;
+        if (p_setup == NULL)
+            return (BTM_NO_RESOURCES);
+        temp_pkt_types1 = p_setup->packet_types;
+    }
+    /* Send connect request depending on version of spec */
+    if (!btm_cb.sco_cb.esco_supported && !btm_cb.devcb.enhanced_hci_sco)
+    {
+        /* if controller version is 1.2 and it supports eSCO AND it doesn't support
+            enhanced SCO commands.
+        */
+        if (!btsnd_hcic_add_SCO_conn (acl_handle, BTM_ESCO_2_SCO(temp_pkt_types1)))
             return (BTM_NO_RESOURCES);
     }
     else
     {
-        temp_pkt_types = (p_setup->packet_types & BTM_SCO_SUPPORTED_PKTS_MASK &
+        temp_pkt_types = (temp_pkt_types1 & BTM_SCO_SUPPORTED_PKTS_MASK &
                              btm_cb.btm_sco_pkt_types_supported);
 
         /* OR in any exception packet types if at least 2.0 version of spec */
         if (btm_cb.devcb.local_version.hci_version >= HCI_PROTO_VERSION_2_0)
         {
-            temp_pkt_types |= ((p_setup->packet_types & BTM_SCO_EXCEPTION_PKTS_MASK) |
+            temp_pkt_types |= ((temp_pkt_types1 & BTM_SCO_EXCEPTION_PKTS_MASK) |
                 (btm_cb.btm_sco_pkt_types_supported & BTM_SCO_EXCEPTION_PKTS_MASK));
         }
 
@@ -449,8 +643,59 @@ static tBTM_STATUS btm_send_connect_request(UINT16 acl_handle,
                                    HCI_ESCO_PKT_TYPES_MASK_NO_3_EV5);
             }
         }
-
-
+#if (BTM_WBS_INCLUDED == TRUE)
+        APPL_TRACE_DEBUG("%s WBS_INCLUDED. esco_codec:%d",__func__, btm_cb.sco_cb.codec_in_use);
+        if (btm_cb.devcb.enhanced_hci_sco == TRUE)//&& btm_cb.sco_cb.codec_in_use == 2/*BTA_AG_CODEC_MSBC*/)
+        {
+#if (INTEL_IBT == TRUE)
+            if (btsnd_hcic_config_sync_iface(acl_handle, 0x01) == FALSE)
+            {
+                APPL_TRACE_ERROR("%s CANNOT SEND btsnd_hcic_config_sync_iface", __func__);
+                return BTM_BUSY;
+            }
+            btm_cb.sco_cb.acl_handle = acl_handle;
+#else
+            APPL_TRACE_DEBUG("%s Sending btsnd_hcic_enhanced_setup_sco_conn", __func__);
+            if (btsnd_hcic_enhanced_setup_sco_conn (acl_handle, p_enhanced_setup->tx_bw,
+                                            p_enhanced_setup->rx_bw,
+                                            p_enhanced_setup->tx_coding_fmt,
+                                            p_enhanced_setup->rx_coding_fmt,
+                                            p_enhanced_setup->tx_codec_frm_size,
+                                            p_enhanced_setup->rx_codec_frm_size,
+                                            p_enhanced_setup->input_bw,
+                                            p_enhanced_setup->output_bw,
+                                            p_enhanced_setup->input_coding_fmt,
+                                            p_enhanced_setup->output_coding_fmt,
+                                            p_enhanced_setup->input_codec_data_size,
+                                            p_enhanced_setup->output_codec_data_size,
+                                            p_enhanced_setup->input_pcm_data_fmt,
+                                            p_enhanced_setup->output_pcm_data_fmt,
+                                            p_enhanced_setup->input_pcm_sample_msbc_pos,
+                                            p_enhanced_setup->output_pcm_sample_msbc_pos,
+                                            p_enhanced_setup->input_data_path,
+                                            p_enhanced_setup->output_data_path,
+                                            p_enhanced_setup->input_transport_unit_size,
+                                            p_enhanced_setup->output_tansport_unit_size,
+                                            p_enhanced_setup->max_latency,
+                                            temp_pkt_types,
+                                            p_enhanced_setup->retrans_effort) == FALSE)
+            {
+                APPL_TRACE_ERROR("%s CANNOT SEND btm_send_enhanced_setup_sco", __func__);
+                return BTM_BUSY;
+            }
+            else
+                p_enhanced_setup->packet_types = temp_pkt_types;
+#endif
+        }
+        else
+        {
+#endif
+            /*
+                If enhanced sco setup command is not supported then fw configuration has been done
+                already. Now send leagacy setup esco conn command.
+            */
+            if (NULL == p_setup)   /* To make KW happy */
+                return (BTM_NO_RESOURCES);
         BTM_TRACE_API("      txbw 0x%x, rxbw 0x%x, lat 0x%x, voice 0x%x, retrans 0x%02x, pkt 0x%04x",
             p_setup->tx_bw, p_setup->rx_bw,
             p_setup->max_latency, p_setup->voice_contfmt,
@@ -466,6 +711,9 @@ static tBTM_STATUS btm_send_connect_request(UINT16 acl_handle,
             return (BTM_NO_RESOURCES);
         else
             p_setup->packet_types = temp_pkt_types;
+#if (BTM_WBS_INCLUDED == TRUE)
+        }
+#endif
     }
 
     return (BTM_CMD_STARTED);
@@ -563,12 +811,14 @@ tBTM_STATUS BTM_CreateSco (BD_ADDR remote_bda, BOOLEAN is_orig, UINT16 pkt_types
                            tBTM_SCO_CB *p_disc_cb)
 {
 #if (BTM_MAX_SCO_LINKS > 0)
-    tBTM_ESCO_PARAMS *p_setup;
-    tSCO_CONN        *p = &btm_cb.sco_cb.sco_db[0];
-    UINT16            xx;
-    UINT16            acl_handle = 0;
-    UINT16            temp_pkt_types;
-    tACL_CONN        *p_acl;
+    tBTM_ESCO_PARAMS             *p_setup = NULL;
+    tBTM_ENHANCED_ESCO_PARAMS    *p_enhanced_setup = NULL;
+    void*                        *p_common_setup = NULL;
+    tSCO_CONN                    *p = &btm_cb.sco_cb.sco_db[0];
+    UINT16                        xx;
+    UINT16                        acl_handle = 0;
+    UINT16                        temp_pkt_types, temp_pkt_types1;
+    tACL_CONN                    *p_acl;
 
 #if (BTM_PWR_MGR_INCLUDED == TRUE) && (BTM_SCO_WAKE_PARKED_LINK == TRUE)
     tBTM_PM_MODE      md;
@@ -648,12 +898,29 @@ tBTM_STATUS BTM_CreateSco (BD_ADDR remote_bda, BOOLEAN is_orig, UINT16 pkt_types
             if (pkt_types == BTM_IGNORE_SCO_PKT_TYPE)
                 pkt_types = btm_cb.sco_cb.def_esco_parms.packet_types;
 
+
+            if (btm_cb.devcb.enhanced_hci_sco) /* enhanced setup sco supported */
+            {
+                p_enhanced_setup = &p->esco.enhanced_setup;
+#if (BTM_WBS_INCLUDED == TRUE)
+                if (btm_cb.sco_cb.codec_in_use == BTM_SCO_CODEC_MSBC) /* Use MSBC */
+                    *p_enhanced_setup = btm_cb.sco_cb.def_enhanced_esco_params;
+                else         /* Use CVSD */
+#endif
+                    *p_enhanced_setup = btm_enhanced_esco_defaults_s3; /* Fallback to CVSD with S3 */
+                temp_pkt_types1 = p_enhanced_setup->packet_types;
+            }
+            else
+            {
             p_setup = &p->esco.setup;
             *p_setup = btm_cb.sco_cb.def_esco_parms;
-            p_setup->packet_types = (btm_cb.sco_cb.desired_sco_mode == BTM_LINK_TYPE_SCO)
+                temp_pkt_types1 = p_setup->packet_types;
+            }
+
+            temp_pkt_types1 = (btm_cb.sco_cb.desired_sco_mode == BTM_LINK_TYPE_SCO)
                 ? (pkt_types & BTM_SCO_LINK_ONLY_MASK) : pkt_types;
 
-            temp_pkt_types = (p_setup->packet_types & BTM_SCO_SUPPORTED_PKTS_MASK &
+            temp_pkt_types = (temp_pkt_types1 & BTM_SCO_SUPPORTED_PKTS_MASK &
                              btm_cb.btm_sco_pkt_types_supported);
 
             /* OR in any exception packet types if at least 2.0 version of spec */
@@ -661,7 +928,7 @@ tBTM_STATUS BTM_CreateSco (BD_ADDR remote_bda, BOOLEAN is_orig, UINT16 pkt_types
             {
                 if (btm_cb.sco_cb.desired_sco_mode == HCI_LINK_TYPE_ESCO)
                 {
-                    temp_pkt_types |= ((p_setup->packet_types & BTM_SCO_EXCEPTION_PKTS_MASK) |
+                    temp_pkt_types |= ((temp_pkt_types1 & BTM_SCO_EXCEPTION_PKTS_MASK) |
                         (btm_cb.btm_sco_pkt_types_supported & BTM_SCO_EXCEPTION_PKTS_MASK));
                 }
                 else    /* Only using SCO packet types; turn off EDR also */
@@ -670,7 +937,11 @@ tBTM_STATUS BTM_CreateSco (BD_ADDR remote_bda, BOOLEAN is_orig, UINT16 pkt_types
                 }
             }
 
-            p_setup->packet_types = temp_pkt_types;
+            temp_pkt_types1 = temp_pkt_types;
+            if (btm_cb.devcb.enhanced_hci_sco) /* enhanced setup sco supported */
+                p_enhanced_setup->packet_types = temp_pkt_types1;
+            else
+                p_setup->packet_types = temp_pkt_types1;
             p->p_conn_cb  = p_conn_cb;
             p->p_disc_cb  = p_disc_cb;
             p->hci_handle = BTM_INVALID_HCI_HANDLE;
@@ -698,9 +969,12 @@ tBTM_STATUS BTM_CreateSco (BD_ADDR remote_bda, BOOLEAN is_orig, UINT16 pkt_types
                 {
                     BTM_TRACE_API("BTM_CreateSco -> (e)SCO Link for ACL handle 0x%04x, Desired Type %d",
                                     acl_handle, btm_cb.sco_cb.desired_sco_mode);
-
-                    if ((btm_send_connect_request(acl_handle, p_setup)) != BTM_CMD_STARTED)
-                        return (BTM_NO_RESOURCES);
+                    if (btm_cb.devcb.enhanced_hci_sco)
+                        p_common_setup = (void*) p_enhanced_setup;
+                    else
+                        p_common_setup = (void*) p_setup;
+                    if ((btm_send_connect_request(acl_handle, p_common_setup)) != BTM_CMD_STARTED)
+                    return (BTM_NO_RESOURCES);
 
                     p->state = SCO_ST_CONNECTING;
                 }
@@ -736,6 +1010,7 @@ void btm_sco_chk_pend_unpark (UINT8 hci_status, UINT16 hci_handle)
     UINT16      xx;
     UINT16      acl_handle;
     tSCO_CONN   *p = &btm_cb.sco_cb.sco_db[0];
+    void        *p_common_setup = NULL;
 
     for (xx = 0; xx < BTM_MAX_SCO_LINKS; xx++, p++)
     {
@@ -745,8 +1020,11 @@ void btm_sco_chk_pend_unpark (UINT8 hci_status, UINT16 hci_handle)
         {
             BTM_TRACE_API("btm_sco_chk_pend_unpark -> (e)SCO Link for ACL handle 0x%04x, Desired Type %d, hci_status 0x%02x",
                                     acl_handle, btm_cb.sco_cb.desired_sco_mode, hci_status);
-
-            if ((btm_send_connect_request(acl_handle, &p->esco.setup)) == BTM_CMD_STARTED)
+            if (btm_cb.devcb.enhanced_hci_sco)
+                p_common_setup = (void*) (&p->esco.enhanced_setup);
+            else
+                p_common_setup = (void*) (&p->esco.setup);
+            if ((btm_send_connect_request(acl_handle, p_common_setup)) == BTM_CMD_STARTED)
                 p->state = SCO_ST_CONNECTING;
         }
     }
@@ -770,6 +1048,7 @@ void btm_sco_chk_pend_rolechange (UINT16 hci_handle)
     UINT16      xx;
     UINT16      acl_handle;
     tSCO_CONN   *p = &btm_cb.sco_cb.sco_db[0];
+    void        *p_common_setup = NULL;
 
     for (xx = 0; xx < BTM_MAX_SCO_LINKS; xx++, p++)
     {
@@ -778,8 +1057,11 @@ void btm_sco_chk_pend_rolechange (UINT16 hci_handle)
 
         {
             BTM_TRACE_API("btm_sco_chk_pend_rolechange -> (e)SCO Link for ACL handle 0x%04x", acl_handle);
-
-            if ((btm_send_connect_request(acl_handle, &p->esco.setup)) == BTM_CMD_STARTED)
+            if (btm_cb.devcb.enhanced_hci_sco)
+                p_common_setup = (void*) (&p->esco.enhanced_setup);
+            else
+                p_common_setup = (void*) (&p->esco.setup);
+            if ((btm_send_connect_request(acl_handle, p_common_setup)) == BTM_CMD_STARTED)
                 p->state = SCO_ST_CONNECTING;
         }
     }
@@ -1745,6 +2027,17 @@ BOOLEAN btm_is_sco_active_by_bdaddr (BD_ADDR remote_bda)
     }
 #endif
     return (FALSE);
+}
+
+BTM_API  tBTM_STATUS BTM_ConfigScoPath (tBTM_SCO_ROUTE_TYPE path,
+                                                  tBTM_SCO_DATA_CB *p_sco_data_cb,
+                                                  tBTM_SCO_PCM_PARAM *p_pcm_param,
+                                                  BOOLEAN err_data_rpt)
+{
+    BTM_TRACE_DEBUG("%s", __func__);
+    btm_cb.sco_cb.p_data_cb = p_sco_data_cb;
+
+    return 0;
 }
 #else   /* SCO_EXCLUDED == TRUE (Link in stubs) */
 

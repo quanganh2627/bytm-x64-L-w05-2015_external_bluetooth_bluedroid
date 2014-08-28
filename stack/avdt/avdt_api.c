@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2002-2012 Broadcom Corporation
  *
@@ -42,6 +43,14 @@
 #if AVDT_DYNAMIC_MEMORY == FALSE
 tAVDT_CB avdt_cb;
 #endif
+
+#if defined ( AVDTP_TESTER ) || defined ( AVDTP_VERIFIER )
+UINT8 avdt_reject = 0;
+#endif //AVDTP_TESTER
+
+#ifdef AVDTP_VERIFIER
+UINT8 avdt_invalid = 0;
+#endif //AVDTP_VERIFIER
 
 
 /*******************************************************************************
@@ -387,13 +396,19 @@ static UINT16 avdt_get_cap_req(BD_ADDR bd_addr, tAVDT_CCB_API_GETCAP *p_evt)
 {
     tAVDT_CCB       *p_ccb = NULL;
     UINT16          result = AVDT_SUCCESS;
-
+#ifdef AVDTP_VERIFIER
+    if(AVDT_get_invalid() == GETCAP_INVALID)
+    {
+#endif //AVDTP_VERIFIER
     /* verify SEID */
     if ((p_evt->single.seid < AVDT_SEID_MIN) || (p_evt->single.seid > AVDT_SEID_MAX))
     {
         AVDT_TRACE_ERROR("seid: %d", p_evt->single.seid);
         result = AVDT_BAD_PARAMS;
+        }
+#ifdef AVDTP_VERIFIER
     }
+#endif //AVDTP_VERIFIER
     /* find channel control block for this bd addr; if none, allocate one */
     else if ((p_ccb = avdt_ccb_by_bd(bd_addr)) == NULL)
     {
@@ -1145,6 +1160,7 @@ UINT16 AVDT_GetL2CapChannel(UINT8 handle)
     tAVDT_SCB       *p_scb;
     tAVDT_CCB       *p_ccb;
     UINT8           tcid;
+    UINT8           ccb_idx;
     UINT16          lcid = 0;
 
     /* map handle to scb */
@@ -1153,8 +1169,10 @@ UINT16 AVDT_GetL2CapChannel(UINT8 handle)
     {
         /* get tcid from type, scb */
         tcid = avdt_ad_type_to_tcid(AVDT_CHAN_MEDIA, p_scb);
+        ccb_idx = avdt_ccb_to_idx(p_ccb);
 
-        lcid = avdt_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][tcid].lcid;
+        if (tcid < AVDT_NUM_RT_TBL && ccb_idx < AVDT_NUM_LINKS)
+            lcid = avdt_cb.ad.rt_tbl[ccb_idx][tcid].lcid;
     }
 
     BTTRC_AVDT_API1(AVDT_TRACE_API_GET_L2CAP_CHAN, BTTRC_PARAM_UINT16, lcid);
@@ -1193,6 +1211,115 @@ UINT16 AVDT_GetSignalChannel(UINT8 handle, BD_ADDR bd_addr)
 
     return (lcid);
 }
+
+#if defined(AVDTP_TESTER) || defined(AVDTP_VERIFIER)
+/*******************************************************************************
+**
+** Function         AVDT_AbortReq
+**
+** Description
+**
+** Returns
+**
+*******************************************************************************/
+UINT16 AVDT_AbortReq(UINT8 handle)
+{
+    tAVDT_SCB       *p_scb = NULL;
+    UINT16          result = AVDT_SUCCESS;
+
+    BTTRC_AVDT_API0(AVDT_TRACE_API_ABORT_REQ);
+
+    if ((p_scb = avdt_scb_by_hdl(handle)) == NULL)
+    {
+        result = AVDT_BAD_HANDLE;
+    }
+
+    /* send event to scb */
+    if (result == AVDT_SUCCESS)
+    {
+        avdt_scb_event(p_scb, AVDT_SCB_API_ABORT_REQ_EVT, NULL);
+    }
+    return result;
+
+}
+
+/*******************************************************************************
+**
+** Function         AVDT_GetConfigReq
+**
+** Description
+**
+** Returns
+**
+*******************************************************************************/
+UINT16 AVDT_GetConfigReq(UINT8 handle)
+{
+    tAVDT_SCB       *p_scb = NULL;
+    UINT16          result = AVDT_SUCCESS;
+
+    BTTRC_AVDT_API0(AVDT_TRACE_API_GETCONFIG_REQ);
+
+    if ((p_scb = avdt_scb_by_hdl(handle)) == NULL)
+    {
+        result = AVDT_BAD_HANDLE;
+    }
+
+    /* send event to scb */
+    if (result == AVDT_SUCCESS)
+    {
+        avdt_scb_event(p_scb, AVDT_SCB_API_GETCONFIG_REQ_EVT, NULL);
+    }
+    return result;
+
+}
+
+UINT8 AVDT_get_reject(void)
+{
+    return avdt_reject;
+}
+
+void AVDT_set_reject(int val)
+{
+   avdt_reject = val;
+}
+#endif//AVDTP_TESTER
+
+#ifdef AVDTP_VERIFIER
+
+UINT16 AVDT_config_scb(UINT8 handle, UINT8 set, UINT8 seid)
+{
+    tAVDT_SCB       *p_scb = NULL;
+    UINT16          result = AVDT_SUCCESS;
+    static UINT8    actual_seid = 0;
+    if ((p_scb = avdt_scb_by_hdl(handle)) == NULL)
+    {
+        return AVDT_BAD_HANDLE;
+    }
+
+    if(set)
+    {
+        actual_seid = p_scb->peer_seid;
+        p_scb->peer_seid = seid;
+    }
+    else
+    {
+        p_scb->peer_seid = actual_seid;
+    }
+
+    return AVDT_SUCCESS;
+}
+
+UINT8 AVDT_get_invalid(void)
+{
+    return avdt_invalid;
+}
+
+void AVDT_set_invalid(int val)
+{
+   avdt_invalid = val;
+}
+#endif //AVDTP_VERIFIER
+
 
 #if AVDT_MULTIPLEXING == TRUE
 /*******************************************************************************

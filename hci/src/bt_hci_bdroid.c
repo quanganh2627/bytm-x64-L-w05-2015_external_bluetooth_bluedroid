@@ -1,4 +1,5 @@
-/******************************************************************************
+/*****************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -74,9 +75,14 @@ void init_vnd_if(unsigned char *local_bdaddr);
 bt_hc_callbacks_t *bt_hc_cbacks = NULL;
 tHCI_IF *p_hci_if;
 volatile bool fwcfg_acked;
+//<<<<<<< HEAD
 // Cleanup state indication.
 volatile bool has_cleaned_up = false;
 
+//=======
+static int sco_state = 0;
+static uint16_t hc_sco_handle = 0;
+//>>>>>>> [PATCH 1/2] merge audio/fm patch from Kitkat
 /******************************************************************************
 **  Local type definitions
 ******************************************************************************/
@@ -123,6 +129,10 @@ static void event_postload(UNUSED_ATTR void *context) {
     p_hci_if->get_acl_max_len();
 }
 
+static void event_sco_trigger(UNUSED_ATTR void *context) {
+    BTHCDBG("SCO triger event in the bt hc worker thread");
+    p_hci_if->sco_trigger(sco_state, hc_sco_handle);
+}
 static void event_tx(UNUSED_ATTR void *context) {
   /*
    *  We will go through every packets in the tx queue.
@@ -520,6 +530,14 @@ static void cleanup(void)
     has_cleaned_up = true;
 }
 
+static void sco_rx_trigger(int state, uint16_t sco_handle)
+{
+    BTHCDBG("sco_rx_trigger");
+    sco_state = state;
+    hc_sco_handle = sco_handle;
+
+    thread_post(hc_cb.worker_thread, event_sco_trigger, NULL);
+}
 static const bt_hc_interface_t bluetoothHCLibInterface = {
     sizeof(bt_hc_interface_t),
     init,
@@ -530,6 +548,7 @@ static const bt_hc_interface_t bluetoothHCLibInterface = {
     transmit_buf,
     set_rxflow,
     logging,
+    sco_rx_trigger,
     cleanup,
     tx_hc_cmd,
 };

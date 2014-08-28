@@ -1,4 +1,5 @@
-/******************************************************************************
+/*****************************************************************************
+ * Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -59,6 +60,7 @@ typedef uint8_t (*tHCI_SEND_INT)(uint16_t opcode, uint8_t compl_evt_code, \
 
 /* Handler for getting acl data length */
 typedef void (*tHCI_ACL_DATA_LEN_HDLR)(void);
+typedef void (*tSCO_TRIGGER)(int state, uint16_t sco_handle);
 
 /******************************************************************************
 **  Extern variables and functions
@@ -75,6 +77,7 @@ typedef struct {
     tHCI_RCV acl_rcv;
 #else
     tHCI_RCV rcv;
+    tSCO_TRIGGER sco_trigger;
 #endif
 } tHCI_IF;
 

@@ -1,4 +1,4 @@
-#
+#  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
 #  Copyright (C) 2009-2012 Broadcom Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,8 +18,29 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
+LOCAL_CFLAGS:= -DDYNAMIC_HCI_LOGGING
+
+LOCAL_CFLAGS += -DBDT_LOG_ENABLE
+ifdef VERIFIER
+LOCAL_CFLAGS  += -DVERIFIER
+LOCAL_CFLAGS  += -DBNEP_VERIFIER
+LOCAL_CFLAGS  += -DAVDTP_VERIFIER
+endif
+
+ifdef TESTER
+LOCAL_CFLAGS  += -DTESTER
+LOCAL_CFLAGS  += -DBNEP_TESTER
+LOCAL_CFLAGS  += -DAVDTP_TESTER
+LOCAL_CFLAGS  += -DL2CAP_TESTER
+endif
+
+ifdef BDT_FM_TEST
+LOCAL_CFLAGS  += -DBDT_BTA_FM_DEBUG
+endif
+
 LOCAL_SRC_FILES:=     \
-    bluedroidtest.c
+    bluedroidtest.c \
+    tcp_client.c
 
 LOCAL_C_INCLUDES :=
 LOCAL_CFLAGS := -Wno-unused-parameter
