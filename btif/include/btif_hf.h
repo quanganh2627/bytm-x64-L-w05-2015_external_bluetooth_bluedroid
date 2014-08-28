@@ -27,6 +27,8 @@
 
 #ifndef BTIF_HF_H
 #define BTIF_HF_H
+/* Number of BTIF-HF control blocks */
+#define BTIF_HF_NUM_CB       2
 
 /* BTIF-HF control block to map bdaddr to BTA handle */
 /* This structure contents was originally defined in bluedroid code, which is taken here */
@@ -40,9 +42,10 @@ typedef struct _btif_hf_cb
     int                     num_active;
     int                     num_held;
     struct timespec         call_end_timestamp;
+    struct timespec         connected_timestamp;
     bthf_call_state_t       call_setup_state;
 } btif_hf_cb_t;
 
-btif_hf_cb_t btif_hf_cb;
+btif_hf_cb_t btif_hf_cb[BTIF_HF_NUM_CB];
 
 #endif

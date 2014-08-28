@@ -1419,7 +1419,7 @@ int btif_media_task(void *p)
             media_task_running = MEDIA_TASK_STATE_SHUTTING_DOWN;
 
             /* this calls blocks until uipc is fully closed */
-            UIPC_Close(UIPC_CH_ID_ALL);
+            UIPC_Close(UIPC_CH_ID_AV_ALL);
             break;
         }
     }

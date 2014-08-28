@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -484,7 +485,13 @@ static void bond_state_changed(bt_status_t status, bt_bdaddr_t *bd_addr, bt_bond
     }
     else
     {
-        memset(&pairing_cb, 0, sizeof(pairing_cb));
+        /* Reset the Data structure only if the BD address matches,
+           else we shall notice issues while unparing a paired device and pairing a new device simultaneously
+           SMS: SMS04616754 */
+        if (memcmp(pairing_cb.bd_addr, bd_addr->address, sizeof(pairing_cb.bd_addr)) == 0)
+            {
+             memset(&pairing_cb, 0, sizeof(pairing_cb));
+            }
     }
 
 }
@@ -621,7 +628,9 @@ static void btif_dm_cb_hid_remote_name(tBTM_REMOTE_DEV_NAME *p_remote_name)
 *******************************************************************************/
 static void btif_dm_cb_create_bond(bt_bdaddr_t *bd_addr, tBTA_TRANSPORT transport)
 {
-    BOOLEAN is_hid = check_cod(bd_addr, COD_HID_POINTING);
+    BOOLEAN is_hid = check_cod(bd_addr, COD_HID_KEYBOARD) ||
+                        check_cod(bd_addr, COD_HID_COMBO) ||
+                        check_cod(bd_addr, COD_HID_POINTING);
     bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDING);
 
 #if BLE_INCLUDED == TRUE
@@ -1378,6 +1387,21 @@ static void btif_dm_search_services_evt(UINT16 event, char *p_param)
                                    __FUNCTION__);
                  pairing_cb.sdp_attempts  = 0;
                  bond_state_changed(BT_STATUS_SUCCESS, &bd_addr, BT_BOND_STATE_BONDED);
+                 if (!pairing_cb.is_local_initiated)
+                 {
+                     BTIF_TRACE_DEBUG("%s lets try to connect",__FUNCTION__);
+                     if(check_cod(&bd_addr, COD_HID_KEYBOARD) ||
+                     check_cod(&bd_addr, COD_HID_COMBO) ||
+                     check_cod(&bd_addr, COD_HID_POINTING))
+                     {
+                        BTIF_TRACE_DEBUG("%s connect from DUT",__FUNCTION__);
+                        btif_hh_connect(&bd_addr);
+                     }
+                 }
+                 else
+                 {
+                    BTIF_TRACE_DEBUG("%s It is initiated by local so ignore",__FUNCTION__);
+                 }
             }
 
             if(p_data->disc_res.num_uuids != 0)
@@ -2006,14 +2030,14 @@ static void bte_search_devices_evt(tBTA_DM_SEARCH_EVT event, tBTA_DM_SEARCH *p_d
     {
         case BTA_DM_INQ_RES_EVT:
         {
-            if (p_data->inq_res.p_eir)
+             if (p_data && p_data->inq_res.p_eir)
                 param_len += HCI_EXT_INQ_RESPONSE_LEN;
         }
         break;
 
         case BTA_DM_DISC_RES_EVT:
         {
-            if (p_data->disc_res.raw_data_size && p_data->disc_res.p_raw_data)
+            if (p_data && p_data->disc_res.raw_data_size && p_data->disc_res.p_raw_data)
                 param_len += p_data->disc_res.raw_data_size;
         }
         break;
@@ -2021,7 +2045,7 @@ static void bte_search_devices_evt(tBTA_DM_SEARCH_EVT event, tBTA_DM_SEARCH *p_d
     BTIF_TRACE_DEBUG("%s event=%s param_len=%d", __FUNCTION__, dump_dm_search_event(event), param_len);
 
     /* if remote name is available in EIR, set teh flag so that stack doesnt trigger RNR */
-    if (event == BTA_DM_INQ_RES_EVT)
+    if (p_data && event == BTA_DM_INQ_RES_EVT)
         p_data->inq_res.remt_name_not_required = check_eir_remote_name(p_data, NULL, NULL);
 
     btif_transfer_context (btif_dm_search_devices_evt , (UINT16) event, (void *)p_data, param_len,
@@ -2047,7 +2071,7 @@ static void bte_dm_search_services_evt(tBTA_DM_SEARCH_EVT event, tBTA_DM_SEARCH 
    {
          case BTA_DM_DISC_RES_EVT:
          {
-             if ((p_data->disc_res.result == BTA_SUCCESS) && (p_data->disc_res.num_uuids > 0)) {
+             if (p_data && (p_data->disc_res.result == BTA_SUCCESS) && (p_data->disc_res.num_uuids > 0)) {
                   param_len += (p_data->disc_res.num_uuids * MAX_UUID_SIZE);
              }
          } break;

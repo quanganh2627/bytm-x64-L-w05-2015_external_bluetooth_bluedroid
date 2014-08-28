@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2004-2012 Broadcom Corporation
  *
@@ -255,6 +256,7 @@ static void bta_ag_sco_disc_cback(UINT16 sco_idx)
         }
 
         bta_ag_cb.sco.p_curr_scb->inuse_codec = BTA_AG_CODEC_NONE;
+        BTM_SetCodecInUse(BTA_AG_CODEC_NONE);
 #endif
 
         if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
@@ -422,12 +424,27 @@ static void bta_ag_esco_connreq_cback(tBTM_ESCO_EVT event, tBTM_ESCO_EVT_DATA *p
 static void bta_ag_cback_sco(tBTA_AG_SCB *p_scb, UINT8 event)
 {
     tBTA_AG_HDR    sco;
+    tBTA_AG         bta_ag_data;
 
-    sco.handle = bta_ag_scb_to_idx(p_scb);
-    sco.app_id = p_scb->app_id;
+    if (event == BTA_AG_AUDIO_OPEN_EVT)
+    {
+        bta_ag_data.audio_open.handle = bta_ag_scb_to_idx(p_scb);
+        bta_ag_data.audio_open.app_id = p_scb->app_id;
+#if (BTM_WBS_INCLUDED == TRUE)
+        bta_ag_data.audio_open.codec  = BTM_GetCodecConnected();
+#else
+        bta_ag_data.audio_open.codec  = -1;
+#endif
+        (*bta_ag_cb.p_cback)(event, &bta_ag_data);
+    }
+    else
+    {
+        sco.handle = bta_ag_scb_to_idx(p_scb);
+        sco.app_id = p_scb->app_id;
 
-    /* call close cback */
-    (*bta_ag_cb.p_cback)(event, (tBTA_AG *) &sco);
+        /* call close cback */
+        (*bta_ag_cb.p_cback)(event, (tBTA_AG *) &sco);
+    }
 }
 
 /*******************************************************************************
@@ -445,6 +462,7 @@ static void bta_ag_create_sco(tBTA_AG_SCB *p_scb, BOOLEAN is_orig)
     tBTM_STATUS       status;
     UINT8            *p_bd_addr = NULL;
     tBTM_ESCO_PARAMS params;
+    BOOLEAN           fallback = FALSE;
 #if (BTM_WBS_INCLUDED == TRUE )
     tBTA_AG_PEER_CODEC  esco_codec = BTM_SCO_CODEC_CVSD;
     int codec_index = 0;
@@ -468,9 +486,11 @@ static void bta_ag_create_sco(tBTA_AG_SCB *p_scb, BOOLEAN is_orig)
         !p_scb->codec_fallback &&
         !p_scb->retry_with_sco_only)
         esco_codec = BTM_SCO_CODEC_MSBC;
+    BTM_SetCodecInUse(esco_codec);
 
     if (p_scb->codec_fallback)
     {
+        fallback = TRUE;
         p_scb->codec_fallback = FALSE;
 
         /* Force AG to send +BCS for the next audio connection. */
@@ -586,6 +606,36 @@ static void bta_ag_create_sco(tBTA_AG_SCB *p_scb, BOOLEAN is_orig)
         sco_route = bta_dm_sco_co_init(pcm_sample_rate, pcm_sample_rate, &codec_info, p_scb->app_id);
 #endif
 
+#if (BTM_WBS_INCLUDED == TRUE )
+        /*
+            Intel IBT supports enhanced sco connection setup command. No need to do any vendor
+            specific command.
+            Commented the code which sends BCOM Vendor specific HCI commands for WBS
+        */
+        if (BTM_IsEnhancedSCOSupported() == FALSE)
+        {
+            if (esco_codec == BTA_AG_CODEC_MSBC)
+            {
+                /* Enable mSBC codec in fw */
+                //BTM_SetWBSCodec (esco_codec);
+            }
+
+            /* Specify PCM input for SBC codec in fw */
+            //BTM_ConfigI2SPCM (esco_codec, (UINT8)HCI_BRCM_I2SPCM_IS_DEFAULT_ROLE,
+            //            (UINT8)HCI_BRCM_I2SPCM_SAMPLE_DEFAULT, (UINT8)HCI_BRCM_I2SPCM_CLOCK_DEFAULT);
+        }
+
+        /* This setting may not be necessary */
+        /* To be verified with stable 2049 boards */
+        //FIXME: these looks like not needed for Intel also. Need to check.
+        if (esco_codec == BTA_AG_CODEC_MSBC)
+            BTM_WriteVoiceSettings (BTM_VOICE_SETTING_TRANS);
+        else
+            BTM_WriteVoiceSettings (BTM_VOICE_SETTING_CVSD);
+
+        /* save the current codec because sco_codec can be updated while SCO is open. */
+        p_scb->inuse_codec = esco_codec;
+#endif
 
 #if (BTM_SCO_HCI_INCLUDED == TRUE )
         /* initialize SCO setup, no voice setting for AG, data rate <==> sample rate */
@@ -662,6 +712,7 @@ static void bta_ag_cn_timer_cback (TIMER_LIST_ENT *p_tle)
 
             /* call app callback */
             bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+            BTM_sco_trigger(SCO_OFF, bta_ag_scb_to_idx(p_scb));
         }
     }
 }
@@ -1469,6 +1520,7 @@ void bta_ag_sco_conn_open(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
 
     /* call app callback */
     bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_OPEN_EVT);
+    BTM_sco_trigger(SCO_ON, bta_ag_scb_to_idx(p_scb));
 
     p_scb->retry_with_sco_only = FALSE;
 #if (BTM_WBS_INCLUDED == TRUE)
@@ -1542,6 +1594,9 @@ void bta_ag_sco_conn_close(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
 
         /* call app callback */
         bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+        APPL_TRACE_DEBUG("%s Audio close", __func__);
+        BTM_sco_trigger(SCO_OFF, bta_ag_scb_to_idx(p_scb));
+
 #if (BTM_WBS_INCLUDED == TRUE)
         p_scb->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;
 #endif
@@ -1610,8 +1665,8 @@ void bta_ag_sco_conn_rsp(tBTA_AG_SCB *p_scb, tBTM_ESCO_CONN_REQ_EVT_DATA *p_data
 #else
         /* When HS initiated SCO, it cannot be WBS. */
         /* Allow any platform specific pre-SCO set up to take place */
-        bta_ag_co_audio_state(bta_ag_scb_to_idx(p_scb), p_scb->app_id, BTA_AG_CO_AUD_STATE_SETUP,
-                              BTA_AG_CODEC_CVSD);
+        /*bta_ag_co_audio_state(bta_ag_scb_to_idx(p_scb), p_scb->app_id, BTA_AG_CO_AUD_STATE_SETUP,
+                              BTA_AG_CODEC_CVSD);*/
 #endif
 
 #if (BTM_SCO_HCI_INCLUDED == TRUE )

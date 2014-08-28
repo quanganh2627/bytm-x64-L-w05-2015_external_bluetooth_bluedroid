@@ -1,4 +1,5 @@
-/******************************************************************************
+/*****************************************************************************
+ * Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -59,6 +60,10 @@
 #define HCI_ACL_MAX_SIZE 1024
 #define HCI_MAX_FRAME_SIZE (HCI_ACL_MAX_SIZE + 4)
 
+/* Disable external parser for production */
+#ifndef BTSNOOP_EXT_PARSER_INCLUDED
+#define BTSNOOP_EXT_PARSER_INCLUDED FALSE
+#endif
 /* Host/Controller lib internal event ID */
 typedef enum {
   HC_EVENT_LPM_IDLE_TIMEOUT,

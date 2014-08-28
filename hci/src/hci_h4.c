@@ -1193,6 +1193,11 @@ void hci_h4_get_acl_data_length(void)
     }
 }
 
+void send_sco_trigger(int state, uint16_t sco_handle)
+{
+    ALOGD("%s", __func__);
+    userial_sco_trigger(state, sco_handle);
+}
 
 /******************************************************************************
 **  HCI H4 Services interface table
@@ -1205,6 +1210,7 @@ const tHCI_IF hci_h4_func_table =
     hci_h4_send_msg,
     hci_h4_send_int_cmd,
     hci_h4_get_acl_data_length,
-    hci_h4_receive_msg
+    hci_h4_receive_msg,
+    send_sco_trigger
 };
 

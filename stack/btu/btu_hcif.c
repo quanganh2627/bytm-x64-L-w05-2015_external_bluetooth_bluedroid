@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
@@ -36,7 +37,7 @@
 #include "l2c_int.h"
 #include "btm_api.h"
 #include "btm_int.h"
-
+#include "bta_fm.h"
 extern void btm_process_cancel_complete(UINT8 status, UINT8 mode);
 extern void btm_ble_test_command_complete(UINT8 *p);
 
@@ -1069,6 +1070,9 @@ static void btu_hcif_hdl_command_complete (UINT16 opcode, UINT8 *p, UINT16 evt_l
         case HCI_READ_BD_ADDR:
             btm_read_local_addr_complete (p, evt_len);
             break;
+        case HCI_READ_LOCAL_SUPPORTED_CODECS:
+            btm_read_local_supported_codecs_complete (p, evt_len);
+            break;
 
         case HCI_GET_LINK_QUALITY:
             btm_read_link_quality_complete (p);
@@ -1085,7 +1089,11 @@ static void btu_hcif_hdl_command_complete (UINT16 opcode, UINT8 *p, UINT16 evt_l
         case HCI_CREATE_CONNECTION_CANCEL:
             btm_create_conn_cancel_complete(p);
             break;
-
+#ifdef BT_FM_MITIGATION
+        case HCI_SET_AFH_CHANNELS:
+            btm_btfm_set_afh_channels_complete(p);
+        break;
+#endif
         case HCI_READ_LOCAL_OOB_DATA:
 #if BTM_OOB_INCLUDED == TRUE
             btm_read_local_oob_complete(p);
@@ -1216,8 +1224,13 @@ static void btu_hcif_command_complete_evt (UINT8 controller_id, UINT8 *p, UINT16
             {
                 /* opcode does not match, check next command in the queue */
                 p_cmd = (BT_HDR *) GKI_getnext(p_cmd);
+                BT_TRACE(TRACE_LAYER_HCI, TRACE_TYPE_WARNING,\
+                        "event mismatch. opcode_dequeued:0x%02x cc_opcode:0x%02x",
+                        opcode_dequeued, cc_opcode);
                 continue;
             }
+            BT_TRACE (TRACE_LAYER_HCI, TRACE_TYPE_WARNING,\
+                        "event match. opcode_dequeued:0x%02x", cc_opcode);
             GKI_remove_from_queue(&p_hci_cmd_cb->cmd_cmpl_q, p_cmd);
 
             /* If command was a VSC, then extract command_complete callback */

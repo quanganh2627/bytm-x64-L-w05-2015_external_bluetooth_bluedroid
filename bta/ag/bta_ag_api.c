@@ -71,7 +71,9 @@ tBTA_STATUS BTA_AgEnable(tBTA_AG_PARSE_MODE parse_mode, tBTA_AG_CBACK *p_cback)
     }
 
     /* register with BTA system manager */
+    //GKI_sched_lock();
     bta_sys_register(BTA_ID_AG, &bta_ag_reg);
+    //GKI_sched_unlock();
 
     if ((p_buf = (tBTA_AG_API_ENABLE *) GKI_getbuf(sizeof(tBTA_AG_API_ENABLE))) != NULL)
     {
@@ -319,3 +321,20 @@ void BTA_AgSetCodec(UINT16 handle, tBTA_AG_PEER_CODEC codec)
     }
 }
 
+void BTA_AgSendScoData(UINT16 handle)
+{
+    BT_HDR  *p_buf;
+    APPL_TRACE_DEBUG("%s",__func__);
+    if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
+    {
+        p_buf->event = BTA_AG_CI_SCO_DATA_EVT;
+        p_buf->layer_specific = handle;
+        bta_sys_sendmsg(p_buf);
+        APPL_TRACE_DEBUG("Sco data trigger sent");
+    }
+    else
+    {
+        APPL_TRACE_DEBUG("p_buf allocate failed");
+
+    }
+}

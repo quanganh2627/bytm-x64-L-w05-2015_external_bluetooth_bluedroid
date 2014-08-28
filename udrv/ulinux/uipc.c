@@ -51,6 +51,7 @@
 #include <cutils/sockets.h>
 #include "audio_a2dp_hw.h"
 #include "bt_utils.h"
+#include "audio_hsp_hw.h"
 
 /*****************************************************************************
 **  Constants & Macros
@@ -91,6 +92,8 @@ typedef struct {
 typedef struct {
     pthread_t tid; /* main thread id */
     int running;
+    int av_running;
+    int voice_running;
     pthread_mutex_t mutex;
 
     fd_set active_set;
@@ -570,14 +573,20 @@ void uipc_stop_main_server_thread(void)
 UDRV_API void UIPC_Init(void *p_data)
 {
     UNUSED(p_data);
+    if(uipc_main.running != 1)
+    {
+        BTIF_TRACE_DEBUG("UIPC_Init");
 
-    BTIF_TRACE_DEBUG("UIPC_Init");
+        memset(&uipc_main, 0, sizeof(tUIPC_MAIN));
 
-    memset(&uipc_main, 0, sizeof(tUIPC_MAIN));
+        uipc_main_init();
 
-    uipc_main_init();
-
-    uipc_start_main_server_thread();
+        uipc_start_main_server_thread();
+    }
+    else
+    {
+        BTIF_TRACE_WARNING("UIPC is already initialized");
+    }
 }
 
 /*******************************************************************************
@@ -611,11 +620,36 @@ UDRV_API BOOLEAN UIPC_Open(tUIPC_CH_ID ch_id, tUIPC_RCV_CBACK *p_cback)
     switch(ch_id)
     {
         case UIPC_CH_ID_AV_CTRL:
+            UIPC_LOCK();
+            uipc_main.av_running = 1;
+            UIPC_UNLOCK();
             uipc_setup_server_locked(ch_id, A2DP_CTRL_PATH, p_cback);
             break;
 
         case UIPC_CH_ID_AV_AUDIO:
             uipc_setup_server_locked(ch_id, A2DP_DATA_PATH, p_cback);
+            break;
+
+        case UIPC_CH_ID_VOICE_IN_CTRL:
+            UIPC_LOCK();
+            uipc_main.voice_running = 1;
+            UIPC_UNLOCK();
+            uipc_setup_server_locked(ch_id, HSP_IN_CTRL_PATH, p_cback);
+            break;
+
+        case UIPC_CH_ID_VOICE_IN_DATA:
+            uipc_setup_server_locked(ch_id, HSP_IN_DATA_PATH, p_cback);
+            break;
+
+        case UIPC_CH_ID_VOICE_OUT_CTRL:
+            UIPC_LOCK();
+            uipc_main.voice_running = 1;
+            UIPC_UNLOCK();
+            uipc_setup_server_locked(ch_id, HSP_OUT_CTRL_PATH, p_cback);
+            break;
+
+        case UIPC_CH_ID_VOICE_OUT_DATA:
+            uipc_setup_server_locked(ch_id, HSP_OUT_DATA_PATH, p_cback);
             break;
     }
 
@@ -639,13 +673,33 @@ UDRV_API void UIPC_Close(tUIPC_CH_ID ch_id)
     BTIF_TRACE_DEBUG("UIPC_Close : ch_id %d", ch_id);
 
     /* special case handling uipc shutdown */
-    if (ch_id != UIPC_CH_ID_ALL)
+    if (ch_id == UIPC_CH_ID_AV_ALL)
+    {
+       UIPC_LOCK();
+       uipc_close_locked(UIPC_CH_ID_AV_CTRL);
+       uipc_close_locked(UIPC_CH_ID_AV_AUDIO);
+       uipc_main.av_running = 0;
+       UIPC_UNLOCK();
+    }
+    else if (ch_id == UIPC_CH_ID_VOICE_ALL)
+    {
+       UIPC_LOCK();
+       uipc_close_locked(UIPC_CH_ID_VOICE_OUT_DATA);
+       uipc_close_locked(UIPC_CH_ID_VOICE_OUT_CTRL);
+       uipc_close_locked(UIPC_CH_ID_VOICE_IN_DATA);
+       uipc_close_locked(UIPC_CH_ID_VOICE_IN_CTRL);
+       uipc_main.voice_running = 0;
+       UIPC_UNLOCK();
+    }
+    else
     {
         UIPC_LOCK();
         uipc_close_locked(ch_id);
         UIPC_UNLOCK();
     }
-    else
+
+    /*stop the uipc main server thread when all the AV and VOICE channels are closed*/
+    if(!(uipc_main.voice_running || uipc_main.av_running))
     {
         BTIF_TRACE_DEBUG("UIPC_Close : waiting for shutdown to complete");
         uipc_stop_main_server_thread();

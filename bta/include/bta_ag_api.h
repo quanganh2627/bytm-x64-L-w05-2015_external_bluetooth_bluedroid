@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 2003-2012 Broadcom Corporation
  *
@@ -304,6 +305,22 @@ typedef struct
     UINT8               idx;    /* call number used by CLCC and CHLD */
 } tBTA_AG_VAL;
 
+/* enum of codec used for audio open */
+typedef enum
+{
+    BTA_CODEC_INVALID = -1,
+    BTA_CODEC_CVSD,
+    BTA_CODEC_MSBC
+} tBTA_AG_CODEC;
+
+/* data associated AUDIO_OPEN callback */
+typedef struct
+{
+    tBTA_AG_CODEC  codec;
+    UINT16              handle;
+    UINT8               app_id;
+} tBTA_AG_AUDIO_OPEN;
+
 /* union of data associated with AG callback */
 typedef union
 {
@@ -313,6 +330,7 @@ typedef union
     tBTA_AG_CLOSE       close;
     tBTA_AG_CONN        conn;
     tBTA_AG_VAL         val;
+    tBTA_AG_AUDIO_OPEN  audio_open;
 } tBTA_AG;
 
 /* AG callback */
@@ -517,6 +535,8 @@ BTA_API void BTA_AgResult(UINT16 handle, tBTA_AG_RES result, tBTA_AG_RES_DATA *p
 **
 *******************************************************************************/
 BTA_API void BTA_AgSetCodec(UINT16 handle, tBTA_AG_PEER_CODEC codec);
+
+BTA_API void BTA_AgSendScoData(UINT16 handle);
 
 #ifdef __cplusplus
 }

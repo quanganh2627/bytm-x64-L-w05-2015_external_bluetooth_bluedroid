@@ -1,6 +1,6 @@
 /******************************************************************************
- *
- *  Copyright (C) 1999-2014 Broadcom Corporation
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH*
+ *  Copyright (C) 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -2106,7 +2106,14 @@ void btm_process_inq_results (UINT8 *p, UINT8 inq_res_mode)
         return;
 
     STREAM_TO_UINT8 (num_resp, p);
-
+    BTM_TRACE_ERROR("num_resp:%d", num_resp);
+#if (BTM_EIR_CLIENT_INCLUDED == TRUE)
+	if (inq_res_mode == BTM_INQ_RESULT_EXTENDED && num_resp != 1)
+	{
+		BTM_TRACE_ERROR("num_resp:%d wrong value", num_resp);
+		return;
+	}
+#endif
     for (xx = 0; xx < num_resp; xx++)
     {
         update = FALSE;
@@ -2401,7 +2408,7 @@ void btm_process_inq_complete (UINT8 status, UINT8 mode)
     tBTM_INQUIRY_VAR_ST *p_inq = &btm_cb.btm_inq_vars;
 
 #if (BTM_INQ_GET_REMOTE_NAME==TRUE)
-    tBTM_INQ_INFO  *p_cur;
+    tBTM_INQ_INFO  *p_cur=NULL;
     UINT8           tempstate;
 #endif
 #if (defined(BTA_HOST_INTERLEAVE_SEARCH) && BTA_HOST_INTERLEAVE_SEARCH == TRUE)
@@ -2668,7 +2675,7 @@ tBTM_STATUS  btm_initiate_rem_name (BD_ADDR remote_bda, tBTM_INQ_INFO *p_cur,
 *******************************************************************************/
 void btm_process_remote_name (BD_ADDR bda, BD_NAME bdn, UINT16 evt_len, UINT8 hci_status)
 {
-    tBTM_REMOTE_DEV_NAME    rem_name;
+    tBTM_REMOTE_DEV_NAME    rem_name = {0,{0},0,{0}};
     tBTM_INQUIRY_VAR_ST    *p_inq = &btm_cb.btm_inq_vars;
     tBTM_CMPL_CB           *p_cb = p_inq->p_remname_cmpl_cb;
     UINT8                  *p_n1;
@@ -2679,8 +2686,8 @@ void btm_process_remote_name (BD_ADDR bda, BD_NAME bdn, UINT16 evt_len, UINT8 hc
     /*** These are only used if part of the Inquiry Process ***/
     tBTM_CMPL_CB           *p_inq_cb;
     tINQ_DB_ENT            *p_i = NULL;
-    UINT8                  *p_n;
-    tBTM_INQ_INFO          *p_cur;
+    UINT8                  *p_n = NULL;
+    tBTM_INQ_INFO          *p_cur=NULL;
 #endif
 
     if (bda != NULL)

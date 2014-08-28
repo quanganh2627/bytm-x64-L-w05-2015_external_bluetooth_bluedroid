@@ -44,6 +44,16 @@ typedef struct
     tBTA_SCO_CODEC_TYPE   codec_type;
 }tBTA_CODEC_INFO;
 
+typedef void(tBTM_SCO_CFG_CB)(UINT16 event, UINT16 sco_handle);
+typedef struct
+{
+    UINT16 sco_handle;
+    UINT8 pkt_size;
+    UINT16 event;
+    tBTM_SCO_CFG_CB *p_cback;
+    UINT8 sco_pool_id;
+
+}tBTM_SCO_CFG;
 #define BTA_DM_SCO_ROUTE_PCM	BTM_SCO_ROUTE_PCM
 #define BTA_DM_SCO_ROUTE_HCI	BTM_SCO_ROUTE_HCI
 

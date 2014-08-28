@@ -198,12 +198,12 @@ static void hsp_out_cmd_acknowledge(UINT8 status)
 {
     UINT8 ack = status;
 
-    APPL_TRACE_EVENT2("## hsp out ack : %s, status %d ##", dump_hsp_ctrl_event(btif_hsp_cb.hsp_out_cmd_pending), status);
+    APPL_TRACE_EVENT("## hsp out ack : %s, status %d ##", dump_hsp_ctrl_event(btif_hsp_cb.hsp_out_cmd_pending), status);
 
     /* sanity check */
     if (btif_hsp_cb.hsp_out_cmd_pending == HSP_CTRL_CMD_NONE)
     {
-        APPL_TRACE_ERROR0("warning : no command pending, ignore ack");
+        APPL_TRACE_ERROR("warning : no command pending, ignore ack");
         return;
     }
 
@@ -218,12 +218,12 @@ static void hsp_in_cmd_acknowledge(UINT8 status)
 {
     UINT8 ack = status;
 
-    APPL_TRACE_EVENT2("## hsp in ack : %s, status %d ##", dump_hsp_ctrl_event(btif_hsp_cb.hsp_in_cmd_pending), status);
+    APPL_TRACE_EVENT("## hsp in ack : %s, status %d ##", dump_hsp_ctrl_event(btif_hsp_cb.hsp_in_cmd_pending), status);
 
     /* sanity check */
     if (btif_hsp_cb.hsp_in_cmd_pending == HSP_CTRL_CMD_NONE)
     {
-        APPL_TRACE_ERROR0("warning : no command pending, ignore ack");
+        APPL_TRACE_ERROR("warning : no command pending, ignore ack");
         return;
     }
 
@@ -245,13 +245,13 @@ static void btif_recv_data_out_data(void)
 
         if (n == 0)
         {
-            APPL_TRACE_ERROR0("Read to fail the data from HSP OUT DATA CH");
-            APPL_TRACE_EVENT0("DATA CH DETACHED");
+            APPL_TRACE_ERROR("Read to fail the data from HSP OUT DATA CH");
+            APPL_TRACE_EVENT("DATA CH DETACHED");
             UIPC_Close(UIPC_CH_ID_VOICE_OUT_DATA);
             return;
         }
 
-        APPL_TRACE_DEBUG2("%s : Writing to buffer %d bytes",__func__,n);
+        APPL_TRACE_DEBUG("%s : Writing to buffer %d bytes",__func__,n);
         BTA_dm_hsp_write_tx_data_buf(read_buffer,n);
     }
     return;
@@ -276,13 +276,13 @@ static void btif_recv_ctrl_out_data(void)
     /* detach on ctrl channel means audioflinger process was terminated */
     if (n == 0)
     {
-        APPL_TRACE_ERROR0("Read to fail the data from HSP OUT CTRL CH");
-        APPL_TRACE_EVENT0("CTRL OUT CH DETACHED");
+        APPL_TRACE_ERROR("Read to fail the data from HSP OUT CTRL CH");
+        APPL_TRACE_EVENT("CTRL OUT CH DETACHED");
         UIPC_Close(UIPC_CH_ID_VOICE_OUT_CTRL);
         return;
     }
 
-    APPL_TRACE_DEBUG1("hsp-ctrl-out-cmd : %s", dump_hsp_ctrl_event(cmd));
+    APPL_TRACE_DEBUG("hsp-ctrl-out-cmd : %s", dump_hsp_ctrl_event(cmd));
 
     btif_hsp_cb.hsp_out_cmd_pending = cmd;
 
@@ -310,7 +310,7 @@ static void btif_recv_ctrl_out_data(void)
                 /* setup hsp data channel listener */
             if(!UIPC_Open(UIPC_CH_ID_VOICE_OUT_DATA, btif_hsp_data_out_cb))
             {
-                APPL_TRACE_ERROR0("Unable to open HSP Voice out data channel");
+                APPL_TRACE_ERROR("Unable to open HSP Voice out data channel");
                 hsp_out_cmd_acknowledge(HSP_CTRL_ACK_FAILURE);
             }
             else
@@ -320,7 +320,7 @@ static void btif_recv_ctrl_out_data(void)
                     btif_hsp_cb.is_tx_started = TRUE;
 					if(!send_timer_event(HSP_TX_START_TIMER))
                     {
-                        APPL_TRACE_ERROR0("Error in sending the start tx timer event");
+                        APPL_TRACE_ERROR("Error in sending the start tx timer event");
                         hsp_out_cmd_acknowledge(HSP_CTRL_ACK_FAILURE);
                         break;
                     }
@@ -335,7 +335,7 @@ static void btif_recv_ctrl_out_data(void)
             {
 				if(!send_timer_event(HSP_TX_STOP_TIMER))
 				{
-					APPL_TRACE_ERROR0("Error in sending the stop tx timer event");
+					APPL_TRACE_ERROR("Error in sending the stop tx timer event");
 					hsp_out_cmd_acknowledge(HSP_CTRL_ACK_FAILURE);
 					break;
 				}
@@ -347,11 +347,11 @@ static void btif_recv_ctrl_out_data(void)
             break;
 
         default:
-            APPL_TRACE_ERROR1("UNSUPPORTED CMD (%d)", cmd);
+            APPL_TRACE_ERROR("UNSUPPORTED CMD (%d)", cmd);
             hsp_out_cmd_acknowledge(HSP_CTRL_ACK_FAILURE);
             break;
     }
-    APPL_TRACE_DEBUG1("hsp-ctrl-out-cmd : %s DONE", dump_hsp_ctrl_event(cmd));
+    APPL_TRACE_DEBUG("hsp-ctrl-out-cmd : %s DONE", dump_hsp_ctrl_event(cmd));
 }
 
 static void btif_recv_ctrl_in_data(void)
@@ -364,12 +364,12 @@ static void btif_recv_ctrl_in_data(void)
     /* detach on ctrl channel means audioflinger process was terminated */
     if (n == 0)
     {
-        APPL_TRACE_EVENT0("CTRL IN CH DETACHED");
+        APPL_TRACE_EVENT("CTRL IN CH DETACHED");
         UIPC_Close(UIPC_CH_ID_VOICE_IN_CTRL);
         return;
     }
 
-    APPL_TRACE_DEBUG1("hsp-ctrl-in-cmd : %s", dump_hsp_ctrl_event(cmd));
+    APPL_TRACE_DEBUG("hsp-ctrl-in-cmd : %s", dump_hsp_ctrl_event(cmd));
 
     btif_hsp_cb.hsp_in_cmd_pending = cmd;
 
@@ -397,7 +397,7 @@ static void btif_recv_ctrl_in_data(void)
                 /* setup hsp data channel listener */
             if(!UIPC_Open(UIPC_CH_ID_VOICE_IN_DATA, btif_hsp_data_in_cb))
             {
-                APPL_TRACE_ERROR0("Unable to open HSP Voice in data channel");
+                APPL_TRACE_ERROR("Unable to open HSP Voice in data channel");
                 hsp_in_cmd_acknowledge(HSP_CTRL_ACK_FAILURE);
             }
             else
@@ -407,7 +407,7 @@ static void btif_recv_ctrl_in_data(void)
                     btif_hsp_cb.is_rx_started = TRUE;
 					if(!send_timer_event(HSP_RX_START_TIMER))
                     {
-                        APPL_TRACE_ERROR0("Error in sending the start rx timer event");
+                        APPL_TRACE_ERROR("Error in sending the start rx timer event");
                         hsp_in_cmd_acknowledge(HSP_CTRL_ACK_FAILURE);
                         break;
                     }
@@ -422,7 +422,7 @@ static void btif_recv_ctrl_in_data(void)
             {
 				if(!send_timer_event(HSP_RX_STOP_TIMER))
 				{
-					APPL_TRACE_ERROR0("Error in sending the stop rx timer event");
+					APPL_TRACE_ERROR("Error in sending the stop rx timer event");
 					hsp_in_cmd_acknowledge(HSP_CTRL_ACK_FAILURE);
 					break;
 				}
@@ -434,16 +434,16 @@ static void btif_recv_ctrl_in_data(void)
             break;
 
         default:
-            APPL_TRACE_ERROR1("UNSUPPORTED CMD (%d)", cmd);
+            APPL_TRACE_ERROR("UNSUPPORTED CMD (%d)", cmd);
             hsp_in_cmd_acknowledge(HSP_CTRL_ACK_FAILURE);
             break;
     }
-    APPL_TRACE_DEBUG1("hsp-ctrl-in-cmd : %s DONE", dump_hsp_ctrl_event(cmd));
+    APPL_TRACE_DEBUG("hsp-ctrl-in-cmd : %s DONE", dump_hsp_ctrl_event(cmd));
 }
 
 static void btif_hsp_ctrl_out_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event)
 {
-    APPL_TRACE_DEBUG1("HSP-CTRL-OUT-CHANNEL EVENT %s", dump_uipc_event(event));
+    APPL_TRACE_DEBUG("HSP-CTRL-OUT-CHANNEL EVENT %s", dump_uipc_event(event));
 
     switch(event)
     {
@@ -454,7 +454,7 @@ static void btif_hsp_ctrl_out_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event)
             /* restart ctrl server unless we are shutting down */
             if (hsp_task_running == HSP_TASK_STATE_ON)
                 if(!UIPC_Open(UIPC_CH_ID_VOICE_OUT_CTRL , btif_hsp_ctrl_out_cb))
-                    APPL_TRACE_ERROR0("Unable to open HSP Voice out ctrl channel");
+                    APPL_TRACE_ERROR("Unable to open HSP Voice out ctrl channel");
             break;
 
         case UIPC_RX_DATA_READY_EVT:
@@ -462,14 +462,14 @@ static void btif_hsp_ctrl_out_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event)
             break;
 
         default :
-            APPL_TRACE_ERROR1("### HSP-CTRL-OUT-CHANNEL EVENT %d NOT HANDLED ###", event);
+            APPL_TRACE_ERROR("### HSP-CTRL-OUT-CHANNEL EVENT %d NOT HANDLED ###", event);
             break;
     }
 }
 
 static void btif_hsp_ctrl_in_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event)
 {
-    APPL_TRACE_DEBUG1("HSP-CTRL-IN-CHANNEL EVENT %s", dump_uipc_event(event));
+    APPL_TRACE_DEBUG("HSP-CTRL-IN-CHANNEL EVENT %s", dump_uipc_event(event));
 
     switch(event)
     {
@@ -480,7 +480,7 @@ static void btif_hsp_ctrl_in_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event)
             /* restart ctrl server unless we are shutting down */
             if (hsp_task_running == HSP_TASK_STATE_ON)
                 if(!UIPC_Open(UIPC_CH_ID_VOICE_IN_CTRL , btif_hsp_ctrl_in_cb))
-                    APPL_TRACE_ERROR0("Unable to open HSP Voice in ctrl channel");
+                    APPL_TRACE_ERROR("Unable to open HSP Voice in ctrl channel");
             break;
 
         case UIPC_RX_DATA_READY_EVT:
@@ -488,14 +488,14 @@ static void btif_hsp_ctrl_in_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event)
             break;
 
         default :
-            APPL_TRACE_ERROR1("### HSP-CTRL-IN-CHANNEL EVENT %d NOT HANDLED ###", event);
+            APPL_TRACE_ERROR("### HSP-CTRL-IN-CHANNEL EVENT %d NOT HANDLED ###", event);
             break;
     }
 }
 
 static void btif_hsp_data_out_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event)
 {
-    //APPL_TRACE_DEBUG1("BTIF HSP OUT EVENT %s", dump_uipc_event(event));
+    APPL_TRACE_DEBUG("BTIF HSP OUT EVENT %s", dump_uipc_event(event));
 
     switch(event)
     {
@@ -510,14 +510,14 @@ static void btif_hsp_data_out_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event)
             break;
 
         default :
-            APPL_TRACE_ERROR1("### HSP-DATA EVENT %d NOT HANDLED ###", event);
+            APPL_TRACE_ERROR("### HSP-DATA EVENT %d NOT HANDLED ###", event);
             break;
     }
 }
 
 static void btif_hsp_data_in_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event)
 {
-    APPL_TRACE_DEBUG1("BTIF HSP IN EVENT %s", dump_uipc_event(event));
+    APPL_TRACE_DEBUG("BTIF HSP IN EVENT %s", dump_uipc_event(event));
 
     switch(event)
     {
@@ -532,7 +532,7 @@ static void btif_hsp_data_in_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event)
             break;
 
         default :
-            APPL_TRACE_ERROR1("### HSP-DATA EVENT %d NOT HANDLED ###", event);
+            APPL_TRACE_ERROR("### HSP-DATA EVENT %d NOT HANDLED ###", event);
             break;
     }
 }
@@ -549,15 +549,15 @@ static void btif_hsp_data_in_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event)
 UINT8 btif_start_hsp_task(void)
 {
     UINT8 retval;
-    APPL_TRACE_DEBUG1("%s",__func__);
+    APPL_TRACE_DEBUG("%s",__func__);
 
     if (hsp_task_running != HSP_TASK_STATE_OFF)
     {
-        APPL_TRACE_ERROR0("warning : hsp task already running");
+        APPL_TRACE_ERROR("warning : hsp task already running");
         return GKI_FAILURE;
     }
 
-    APPL_TRACE_EVENT0("## START HSP TASK ##");
+    APPL_TRACE_EVENT("## START HSP TASK ##");
 
     /* start hsp task */
     retval = GKI_create_task((TASKPTR)btif_hsp_task, HSP_TASK,
@@ -572,7 +572,7 @@ UINT8 btif_start_hsp_task(void)
     while (hsp_task_running == HSP_TASK_STATE_OFF)
         usleep(10);
 
-    APPL_TRACE_EVENT0("## HSP TASK STARTED ##");
+    APPL_TRACE_EVENT("## HSP TASK STARTED ##");
 
     return retval;
 }
@@ -588,7 +588,7 @@ UINT8 btif_start_hsp_task(void)
 *******************************************************************************/
 void btif_stop_hsp_task(void)
 {
-    APPL_TRACE_EVENT0("## STOP HSP TASK ##");
+    APPL_TRACE_EVENT("## STOP HSP TASK ##");
     GKI_destroy_task(HSP_TASK);
 }
 
@@ -609,9 +609,9 @@ void btif_hsp_task_init(void)
 
 #if (BTM_SCO_HCI_INCLUDED == TRUE)
     if(!UIPC_Open(UIPC_CH_ID_VOICE_OUT_CTRL , btif_hsp_ctrl_out_cb))
-        APPL_TRACE_ERROR0("Unable to open HSP Voice out ctrl channel");
+        APPL_TRACE_ERROR("Unable to open HSP Voice out ctrl channel");
     if(!UIPC_Open(UIPC_CH_ID_VOICE_IN_CTRL , btif_hsp_ctrl_in_cb))
-        APPL_TRACE_ERROR0("Unable to open HSP Voice in ctrl channel");
+        APPL_TRACE_ERROR("Unable to open HSP Voice in ctrl channel");
 #endif
 }
 
@@ -681,7 +681,7 @@ void btif_hsp_task(void *p)
     /* Clear hsp task flag */
     hsp_task_running = HSP_TASK_STATE_OFF;
 
-    APPL_TRACE_DEBUG0("HSP TASK EXITING");
+    APPL_TRACE_DEBUG("HSP TASK EXITING");
 
     return;
 }
@@ -715,7 +715,7 @@ static void btif_hsp_task_handle_cmd(BT_HDR *p_msg)
 		stop_rx_timer();
 		break;
     default:
-        APPL_TRACE_ERROR1("ERROR in btif_hsp_task_handle_cmd unknown event %d", p_msg->event);
+        APPL_TRACE_ERROR("ERROR in btif_hsp_task_handle_cmd unknown event %d", p_msg->event);
     }
     GKI_freebuf(p_msg);
     VERBOSE("btif_hsp_task_handle_cmd : %s DONE", dump_hsp_event(p_msg->event));
@@ -732,8 +732,12 @@ static void btif_hsp_task_handle_cmd(BT_HDR *p_msg)
  *******************************************************************************/
 static void btif_hsp_task_out_handle_timer(void)
 {
-    APPL_TRACE_DEBUG0("Timer timed out : Sending sco data trigger");
-    BTA_AgSendScoData(btif_hf_cb.handle);
+    int i;
+    APPL_TRACE_DEBUG("Timer timed out : Sending sco data trigger");
+    for(i = 0; i < BTIF_HF_NUM_CB; i++)
+    {
+        BTA_AgSendScoData(btif_hf_cb[i].handle);
+    }
 }
 
 static void btif_hsp_task_in_handle_timer(void)
@@ -741,37 +745,37 @@ static void btif_hsp_task_in_handle_timer(void)
     UINT8 buffer[VOICE_MAX_RX_DATA_BTYES];
     UINT16 length_read = 0;
 
-    APPL_TRACE_DEBUG0("Timer timed out : Sending sco data audio flinger");
+    APPL_TRACE_DEBUG("Timer timed out : Sending sco data audio flinger");
 
     if((length_read = BTA_dm_hsp_read_rx_data_buf(buffer,VOICE_MAX_RX_DATA_BTYES))>0)
     {
         UIPC_Send(UIPC_CH_ID_VOICE_IN_DATA, 0, buffer, length_read);
     }
     else
-        APPL_TRACE_WARNING0("Error in reading the data from HSP Rx buffer");
+        APPL_TRACE_WARNING("Error in reading the data from HSP Rx buffer");
 }
 
 static void start_tx_timer()
 {
-    APPL_TRACE_EVENT2("starting tx timer %d ticks (%d)", GKI_MS_TO_TICKS(BTIF_HSP_OUT_TIME_TICK), TICKS_PER_SEC);
+    APPL_TRACE_EVENT("starting tx timer %d ticks (%d)", GKI_MS_TO_TICKS(BTIF_HSP_OUT_TIME_TICK), TICKS_PER_SEC);
     GKI_start_timer(BTIF_HSP_OUT_TASK_TIMER_ID, GKI_MS_TO_TICKS(BTIF_HSP_OUT_TIME_TICK), TRUE);
 }
 
 static void start_rx_timer()
 {
-    APPL_TRACE_EVENT2("starting rx timer %d ticks (%d)", GKI_MS_TO_TICKS(BTIF_HSP_IN_TIME_TICK), TICKS_PER_SEC);
+    APPL_TRACE_EVENT("starting rx timer %d ticks (%d)", GKI_MS_TO_TICKS(BTIF_HSP_IN_TIME_TICK), TICKS_PER_SEC);
     GKI_start_timer(BTIF_HSP_IN_TASK_TIMER_ID, GKI_MS_TO_TICKS(BTIF_HSP_IN_TIME_TICK), TRUE);
 }
 
 static void stop_tx_timer()
 {
-	APPL_TRACE_EVENT0("stopping hsp tx timer");
+	APPL_TRACE_EVENT("stopping hsp tx timer");
 	GKI_stop_timer(BTIF_HSP_OUT_TASK_TIMER_ID);
 }
 
 static void stop_rx_timer()
 {
-	APPL_TRACE_EVENT0("stopping hsp rx timer");
+	APPL_TRACE_EVENT("stopping hsp rx timer");
 	GKI_stop_timer(BTIF_HSP_IN_TASK_TIMER_ID);
 }
 
@@ -780,7 +784,7 @@ static BOOLEAN send_timer_event(UINT16 event)
     BT_HDR *p_buf;
     if (NULL == (p_buf = GKI_getbuf(sizeof(BT_HDR))))
     {
-        APPL_TRACE_EVENT0("GKI failed");
+        APPL_TRACE_EVENT("GKI failed");
         return FALSE;
     }
 

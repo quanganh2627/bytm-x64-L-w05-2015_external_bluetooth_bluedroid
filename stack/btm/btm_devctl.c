@@ -1,4 +1,5 @@
 /******************************************************************************
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
@@ -34,6 +35,9 @@
 #include "btu.h"
 #include "btm_int.h"
 #include "l2c_int.h"
+#include "bta_fm.h"
+
+
 
 #if BLE_INCLUDED == TRUE
 #include "gatt_int.h"
@@ -308,6 +312,35 @@ BOOLEAN BTM_IsDeviceUp (void)
     return ((BOOLEAN) (btm_cb.devcb.state == BTM_DEV_STATE_READY));
 }
 
+#ifdef BT_FM_MITIGATION
+/*******************************************************************************
+**
+** Function         BTM_btfm_SetAfhChannels
+**
+** Description      This function is called to pass channel mask to HCI.
+**
+** Returns          tBTM_STATUS
+**
+*******************************************************************************/
+
+tBTM_STATUS BTM_btfm_SetAfhChannels ( UINT8 ch_mask[])
+{
+    BTM_TRACE_DEBUG("%s : ", __FUNCTION__);
+
+    if (!BTM_IsDeviceUp())
+    return (BTM_WRONG_MODE);
+
+    if ( btsnd_hcic_set_afh_btfm_channels(ch_mask))
+    {
+        return (BTM_SUCCESS);
+    }
+    else{
+    return (BTM_NO_RESOURCES);
+    }
+}
+
+#endif
+
 /*******************************************************************************
 **
 ** Function         BTM_SetAfhChannels
@@ -547,6 +580,22 @@ static void btm_read_local_supported_cmds (UINT8 local_controller_id)
 
 /*******************************************************************************
 **
+** Function         btm_read_local_supported_commands
+**
+** Description      Local function called to send a read local supported HCI commandss
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_read_local_supported_commands (void)
+{
+    btu_start_timer (&btm_cb.devcb.reset_timer, BTU_TTYPE_BTM_DEV_CTL, BTM_DEV_REPLY_TIMEOUT);
+
+    btsnd_hcic_read_local_supported_cmds (LOCAL_BR_EDR_CONTROLLER_ID);
+}
+
+/*******************************************************************************
+**
 ** Function         btm_get_local_features
 **
 ** Description      Local function called to send a read local features
@@ -769,7 +818,7 @@ void btm_read_hci_buf_size_complete (UINT8 *p, UINT16 evt_len)
         acl_buf_size = L2CAP_MTU_SIZE;
 #endif
         /* Tell the controller what our buffer sizes are. ?? Need SCO info */
-        btsnd_hcic_set_host_buf_size (acl_buf_size, BTM_SCO_HOST_BUF_SIZE, L2CAP_HOST_FC_ACL_BUFS, 10);
+         btsnd_hcic_set_host_buf_size (acl_buf_size, 0xc8, L2CAP_HOST_FC_ACL_BUFS, 100);
 
 #if L2CAP_HOST_FLOW_CTRL == TRUE
         btsnd_hcic_set_host_flow_ctrl (HCI_HOST_FLOW_CTRL_ACL_ON);
@@ -934,6 +983,55 @@ void btm_read_white_list_size_complete(UINT8 *p, UINT16 evt_len)
 #endif
 /*******************************************************************************
 **
+** Function         btm_read_local_supported_codecs_complete
+**
+** Description      This function is called when local available codecs are read
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_read_local_supported_codecs_complete (UINT8 *p, UINT16 evt_len)
+{
+    tBTM_DEVCB     *p_devcb = &btm_cb.devcb;
+    UINT8           status;
+    UINT8           number_of_supported_codecs;
+    UINT8           number_of_vendor_specific_codecs;
+    UINT8           i;
+
+    BTM_TRACE_DEBUG("%s",__func__);
+    STREAM_TO_UINT8 (status, p);
+    if (status == HCI_SUCCESS)
+    {
+        STREAM_TO_UINT8    (number_of_supported_codecs, p);
+        BTM_TRACE_DEBUG("%s number_of_supported_codecs:%d",__func__, number_of_supported_codecs);
+        for (i=0; i<number_of_supported_codecs; i++)
+        {
+            STREAM_TO_UINT8(btm_cb.devcb.available_codecs[i], p);
+        }
+        for (i=0; i<number_of_supported_codecs; i++)
+        {
+            BTM_TRACE_DEBUG("%s available_codecs[%d]:0x%x", __func__, i, btm_cb.devcb.available_codecs[i]);
+        }
+
+        /* Skipping vendor specific codecs. */
+    }
+#if BLE_INCLUDED == TRUE
+    {
+        btm_read_ble_wl_size();
+    }
+#elif BTM_INTERNAL_BB == TRUE
+    {
+        UINT8 buf[9] = BTM_INTERNAL_LOCAL_FEA;
+        btm_read_local_features_complete( buf, 9 );
+    }
+#else
+    /* get local feature if BRCM specific feature is not included  */
+    btm_get_local_features ();
+#endif
+}
+
+/*******************************************************************************
+**
 ** Function         btm_read_local_version_complete
 **
 ** Description      This function is called when local BD Addr read complete
@@ -963,15 +1061,9 @@ void btm_read_local_version_complete (UINT8 *p, UINT16 evt_len)
         STREAM_TO_UINT16 (p_vi->manufacturer, p);
         STREAM_TO_UINT16 (p_vi->lmp_subversion, p);
     }
-
-    if (p_vi->hci_version >= HCI_PROTO_VERSION_1_2)
-    {
-        btm_read_local_supported_cmds(LOCAL_BR_EDR_CONTROLLER_ID);
-    }
-    else
-    {
-        btm_get_local_features ();
-    }
+    //Send read local available supported command
+    BTM_TRACE_DEBUG("%s send out btm_read_local_supported_commands", __func__);
+    btm_read_local_supported_commands ();
 }
 
 /*******************************************************************************
@@ -1971,8 +2063,15 @@ void btm_vsc_complete (UINT8 *p, UINT16 opcode, UINT16 evt_len,
                        tBTM_CMPL_CB *p_vsc_cplt_cback)
 {
     tBTM_VSC_CMPL   vcs_cplt_params;
+#if (INTEL_IBT == TRUE)
+    UINT8 channel_pos[3] = {0x00, 0x10, 0x00};
+    BTM_TRACE_DEBUG("%s opcode:0x%02x", __func__, opcode);
+    UINT8 status = 0;
+#endif
 
+//FIXME: This is to make things work temporarily. Find why this is NOT NULL.
     /* If there was a callback address for vcs complete, call it */
+#if 0
     if (p_vsc_cplt_cback)
     {
         /* Pass paramters to the callback function */
@@ -1981,6 +2080,60 @@ void btm_vsc_complete (UINT8 *p, UINT16 opcode, UINT16 evt_len,
         vcs_cplt_params.p_param_buf = p;
         (*p_vsc_cplt_cback)(&vcs_cplt_params);  /* Call the VSC complete callback function */
     }
+#endif
+#if (INTEL_IBT == TRUE)
+
+    //FIXME: make these in macro
+    BTM_TRACE_DEBUG("0x%02x 0x%02x 0x%02x 0x%02x", p[0], p[1], p[2], p[3]);
+    if (*p == 0x0E) //COMMAND COMPLETE EVT
+        status = *(p + 4);
+    else if (*p == 0x0F) //COMMAND STATUS EVT
+        status = *(p + 2);
+    switch (opcode)
+    {
+        case HCI_INTEL_CONFIG_SYNCHRONUS_INTERFACE:
+            BTM_TRACE_ERROR("%s HCI_INTEL_CONFIG_SYNCHRONUS_INTERFACE", __func__);
+            //FIXME: MAKE IT DIFFERENT HANDLE FUNCTION.
+            if (status == 0x00) //PREV COMMAND SUCCESS
+            {
+                if (btsnd_hcic_signal_proc_config(btm_cb.sco_cb.acl_handle, 0x1400, 0x1000) == FALSE)
+                {
+                    BTM_TRACE_ERROR("%s error sending btsnd_hcic_signal_proc_config", __func__);
+                }
+            }
+            else
+                BTM_TRACE_DEBUG("%s ERROR STATUS:0x%02x", __func__, status);
+            break;
+        case HCI_INTEL_SIGNAL_PROC_CONFIG:
+            BTM_TRACE_ERROR("%s HCI_INTEL_SIGNAL_PROC_CONFIG", __func__);
+            if (status == 0x00) //PREV COMMAND SUCCESS
+            {
+                if (btsnd_hcic_write_pcm_mode(0x1413, 0x20, 0x10, channel_pos, 0x0000))
+                {
+                    BTM_TRACE_ERROR("%s error sending btsnd_hcic_write_pcm_mode", __func__);
+                }
+            }
+            else
+                BTM_TRACE_DEBUG("%s ERROR STATUS:0x%02x", __func__, status);
+            break;
+        case HCI_INTEL_WRITE_PCM_MODE:
+            BTM_TRACE_ERROR("%s HCI_INTEL_WRITE_PCM_MODE", __func__);
+            if (status == 0x00) //PREV COMMAND SUCCESS
+            {
+                //FIXME: assign default params and send the command.
+                /*if (btm_send_enhanced_setup_sco(btm_cb.sco_cb.acl_handle) == FALSE)
+                {
+                    BTM_TRACE_ERROR1("%s error sending btm_send_enhanced_setup_sco", __func__);
+                }*/
+            }
+            else
+                BTM_TRACE_DEBUG("%s ERROR STATUS:0x%02x", __func__, status);
+        default:
+            BTM_TRACE_ERROR("%s Unknown vsc event opcode", __func__);
+            break;
+    }
+#endif
+
 }
 
 /*******************************************************************************
@@ -2490,4 +2643,23 @@ void btm_report_device_status (tBTM_DEV_STATUS status)
         (*p_cb)(status);
 }
 
+#ifdef BT_FM_MITIGATION
+/*******************************************************************************
+**
+** Function         btm_btfm_set_afh_channels_complete
+**
+** Description      This function is called when the command complete message
+**                  is received from the HCI for btfm set afh channels complete.
+**
+** Returns          void
+**
+*******************************************************************************/
 
+void btm_btfm_set_afh_channels_complete (UINT8 *p)
+{
+    BTM_TRACE_DEBUG("%s : ", __FUNCTION__);
+
+    UINT8  afh_status=(UINT8)(*(p));
+    (*bta_btfm_set_afh_channels_evt_cb)(afh_status);
+}
+#endif

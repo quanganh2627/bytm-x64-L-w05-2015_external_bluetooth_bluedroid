@@ -83,3 +83,13 @@ uint16_t userial_read(uint16_t msg_id, uint8_t *p_buffer, uint16_t len);
 *******************************************************************************/
 void userial_ioctl(userial_ioctl_op_t op, void *p_data);
 uint16_t userial_write(uint16_t msg_id, const uint8_t *p_data, uint16_t len);
+/*******************************************************************************
+**
+** Function        userial_sco_trigger
+**
+** Description     Trigger SCO Connection
+**
+** Returns         None
+**
+*******************************************************************************/
+void userial_sco_trigger(int state, uint16_t sco_handle);

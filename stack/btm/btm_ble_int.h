@@ -1,5 +1,5 @@
 /******************************************************************************
- *
+ *  Copyright (C) 2012-2013 Intel Mobile Communications GmbH
  *  Copyright (C) 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -327,6 +327,8 @@ extern void btm_ble_read_remote_features_complete(UINT8 *p);
 extern void btm_ble_write_adv_enable_complete(UINT8 * p);
 extern void btm_ble_conn_complete(UINT8 *p, UINT16 evt_len);
 extern void btm_read_ble_local_supported_states_complete(UINT8 *p, UINT16 evt_len);
+extern void btm_ble_test_command_complete(UINT8 *p);
+
 extern tBTM_BLE_CONN_ST btm_ble_get_conn_st(void);
 extern void btm_ble_set_conn_st(tBTM_BLE_CONN_ST new_st);
 extern UINT8 *btm_ble_build_adv_data(tBTM_BLE_AD_MASK *p_data_mask, UINT8 **p_dst,

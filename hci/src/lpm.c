@@ -348,6 +348,7 @@ static void lpm_idle_timeout(union sigval arg)
 
     if (bt_lpm_cb.state == LPM_ENABLED)
     {
+	    bt_lpm_cb.timer_started = FALSE;
         bthc_idle_timeout();
     }
 }
