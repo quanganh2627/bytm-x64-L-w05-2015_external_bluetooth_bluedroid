@@ -1329,6 +1329,7 @@ and USER_HW_DISABLE_API macros */
 
 #ifndef BTM_BLE_ADV_TX_POWER
 #define BTM_BLE_ADV_TX_POWER {-21, -15, -7, 1, 9}
+#endif
 //=======
 #ifndef BLE_MULTI_ADV_INCLUDED
 #define BLE_MULTI_ADV_INCLUDED  FALSE
