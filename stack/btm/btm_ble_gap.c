@@ -36,7 +36,7 @@
 #endif
 
 #if BLE_INCLUDED == TRUE
-
+#include "l2c_int.h"
 #include "vendor_ble.h"
 
 #include "gattdefs.h"
@@ -582,7 +582,7 @@ void BTM_BleConfigPrivacy(BOOLEAN enable)
         if (p_cb->privacy)
         {
             /* generate resolvable private address */
-            btm_gen_resolvable_private_addr(NULL);
+            btm_gen_resolvable_private_addr((void*)btm_gen_resolve_paddr_low);
         }
         else /* if privacy disabled, always use public address */
         {
@@ -2992,21 +2992,28 @@ void btm_ble_read_remote_features_complete(UINT8 *p)
 {
     tACL_CONN        *p_acl_cb = &btm_cb.acl_db[0];
     UINT16            handle;
+    UINT8             status;
     int               xx;
 
     BTM_TRACE_EVENT ("btm_ble_read_remote_features_complete ");
 
-    /* Skip status */
-    p++;
-    STREAM_TO_UINT16 (handle, p);
-
-    /* Look up the connection by handle and copy features */
-    for (xx = 0; xx < MAX_L2CAP_LINKS; xx++, p_acl_cb++)
+    STREAM_TO_UINT8(status, p);
+    /* if LE read remote feature failed, expect disconnect complete to be received */
+    if (status == HCI_SUCCESS)
     {
-        if ((p_acl_cb->in_use) && (p_acl_cb->hci_handle == handle))
+        STREAM_TO_UINT16 (handle, p);
+
+        /* Look up the connection by handle and copy features */
+        for (xx = 0; xx < MAX_L2CAP_LINKS; xx++, p_acl_cb++)
         {
-            STREAM_TO_ARRAY(p_acl_cb->peer_le_features, p, BD_FEATURES_LEN);
-            break;
+            if ((p_acl_cb->in_use) && (p_acl_cb->hci_handle == handle))
+            {
+                STREAM_TO_ARRAY(p_acl_cb->peer_le_features, p, BD_FEATURES_LEN);
+                /* notify link up here */
+                btm_establish_continue(p_acl_cb);
+                l2cble_notify_le_connection (p_acl_cb->remote_addr);
+                break;
+            }
         }
     }
 

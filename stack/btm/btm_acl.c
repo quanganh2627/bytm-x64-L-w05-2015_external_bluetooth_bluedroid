@@ -40,7 +40,6 @@
 #include "bd.h"
 #include "bt_utils.h"
 
-static void btm_establish_continue (tACL_CONN *p_acl_cb);
 static void btm_read_remote_features (UINT16 handle);
 static void btm_read_remote_ext_features (UINT16 handle, UINT8 page_number);
 static void btm_process_remote_ext_features_page (tACL_CONN *p_acl_cb, tBTM_SEC_DEV_REC *p_dev_rec,
@@ -374,14 +373,16 @@ void btm_acl_created (BD_ADDR bda, DEV_CLASS dc, BD_NAME bdn,
                 btm_ble_get_acl_remote_addr (p_dev_rec, p->active_remote_addr,
                     &p->active_remote_addr_type);
 #endif
-                btm_establish_continue(p);
 
 #if (!defined(BTA_SKIP_BLE_READ_REMOTE_FEAT) || BTA_SKIP_BLE_READ_REMOTE_FEAT == FALSE)
-                if (link_role == HCI_ROLE_MASTER)
+                if (HCI_LE_SLAVE_INIT_FEAT_EXC_SUPPORTED(btm_cb.devcb.local_le_features)
+                    || link_role == HCI_ROLE_MASTER)
                 {
                     btsnd_hcic_ble_read_remote_feat(p->hci_handle);
                 }
+                else
 #endif
+                btm_establish_continue(p);
             }
             else
 #endif
@@ -1657,7 +1658,7 @@ void btm_read_remote_ext_features_failed (UINT8 status, UINT16 handle)
 ** Returns          void
 **
 *******************************************************************************/
-static void btm_establish_continue (tACL_CONN *p_acl_cb)
+void btm_establish_continue (tACL_CONN *p_acl_cb)
 {
 #if (defined(BTM_BUSY_LEVEL_CHANGE_INCLUDED) && BTM_BUSY_LEVEL_CHANGE_INCLUDED == TRUE)
         tBTM_BL_EVENT_DATA  evt_data;
@@ -2938,7 +2939,11 @@ void btm_qos_setup_complete (UINT8 status, UINT16 handle, FLOW_SPEC *p_flow)
 tBTM_STATUS BTM_ReadRSSI (BD_ADDR remote_bda, tBTM_CMPL_CB *p_cb)
 {
     tACL_CONN   *p;
-
+    tBT_TRANSPORT transport = BT_TRANSPORT_BR_EDR;
+#if BLE_INCLUDED == TRUE
+    tBT_DEVICE_TYPE dev_type;
+    tBLE_ADDR_TYPE  addr_type;
+#endif
     BTM_TRACE_API ("BTM_ReadRSSI: RemBdAddr: %02x%02x%02x%02x%02x%02x",
                     remote_bda[0], remote_bda[1], remote_bda[2],
                     remote_bda[3], remote_bda[4], remote_bda[5]);
@@ -2947,7 +2952,13 @@ tBTM_STATUS BTM_ReadRSSI (BD_ADDR remote_bda, tBTM_CMPL_CB *p_cb)
     if (btm_cb.devcb.p_rssi_cmpl_cb)
         return(BTM_BUSY);
 
-    p = btm_bda_to_acl(remote_bda, BT_TRANSPORT_BR_EDR);
+#if BLE_INCLUDED == TRUE
+    BTM_ReadDevInfo(remote_bda, &dev_type, &addr_type);
+    if (dev_type == BT_DEVICE_TYPE_BLE)
+        transport = BT_TRANSPORT_LE;
+#endif
+
+    p = btm_bda_to_acl(remote_bda, transport);
     if (p != (tACL_CONN *)NULL)
     {
         btu_start_timer (&btm_cb.devcb.rssi_timer, BTU_TTYPE_BTM_ACL,
