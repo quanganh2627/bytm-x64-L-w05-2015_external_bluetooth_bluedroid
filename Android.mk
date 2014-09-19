@@ -1,6 +1,6 @@
 ifneq ($(BOARD_HAVE_BLUETOOTH),false)
 
-ifneq ($(CONFIG_USE_INTEL_CERT_CORE_STACK),true)
+ifneq ($(CONFIG_USE_INTEL_CERT_BINARIES),true)
 
 ifneq ($(BOARD_USES_WCS),true)
 
@@ -23,6 +23,6 @@ bdroid_CFLAGS :=
 
 endif # BOARD_USES_WCS != true
 
-endif
+endif # CONFIG_USE_INTEL_CERT_BINARIES
 
 endif
