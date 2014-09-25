@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
+#include "bdroid_buildcfg.h"
 
 /** Struct types */
 
@@ -287,6 +288,11 @@ typedef void (*tINT_CMD_CBACK)(void *p_mem);
  */
 typedef uint8_t (*cmd_xmit_cb)(uint16_t opcode, void *p_buf, tINT_CMD_CBACK p_cback);
 
+#if (INTEL_CONTROLLER == TRUE)
+/* Registers aync event callback function */
+typedef uint8_t (*cfg_int_async_evt_callback_reg_cb)(tINT_CMD_CBACK p_cb);
+#endif
+
 typedef struct {
     /** set to sizeof(bt_vendor_callbacks_t) */
     size_t         size;
@@ -319,6 +325,10 @@ typedef struct {
 
     /* notifies caller completion of epilog process */
     cfg_result_cb epilog_cb;
+#if (INTEL_CONTROLLER == TRUE)
+    /* Register event callback for async event */
+    cfg_int_async_evt_callback_reg_cb int_evt_callback_reg_cb;
+#endif
 } bt_vendor_callbacks_t;
 
 /*

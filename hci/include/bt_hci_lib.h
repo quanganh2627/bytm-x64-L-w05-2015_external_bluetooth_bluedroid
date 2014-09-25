@@ -23,10 +23,9 @@
 #include <stdbool.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
+#include "bdroid_buildcfg.h"
 
 /** Struct types */
-
-
 /** Typedefs and defines */
 
 /* Generic purpose transac returned upon request complete */

@@ -105,8 +105,16 @@ static const uint16_t msg_evt_table[] =
 
 #define HCI_COMMAND_COMPLETE_EVT    0x0E
 #define HCI_COMMAND_STATUS_EVT      0x0F
+#if (INTEL_CONTROLLER == TRUE)
+#define HCI_INTEL_VSC_EVT           0xFF
+#endif
 #define HCI_READ_BUFFER_SIZE        0x1005
 #define HCI_LE_READ_BUFFER_SIZE     0x2002
+#if (INTEL_CONTROLLER == TRUE)
+#define HCI_INTEL_SET_UART_BAUD_CMPL    0x12
+#define HCI_INTEL_WRITE_BD_DATA_CMPL    0x19
+#define HCI_INTEL_AFH_INFO              0x20
+#endif
 
 /******************************************************************************
 **  Local type definitions
@@ -151,6 +159,9 @@ typedef struct
 /******************************************************************************
 **  Externs
 ******************************************************************************/
+#if (INTEL_CONTROLLER == TRUE)
+extern tINT_CMD_CBACK p_int_evt_cb;
+#endif
 
 uint8_t hci_h4_send_int_cmd(uint16_t opcode, HC_BT_HDR *p_buf, \
                                   tINT_CMD_CBACK p_cback);
@@ -295,8 +306,61 @@ uint8_t internal_event_intercept(void)
     else if (event_code == HCI_COMMAND_STATUS_EVT)
     {
         num_hci_cmd_pkts = *(++p);
-    }
+#if (INTEL_CONTROLLER == TRUE)
+        if (p_cb->int_cmd_rsp_pending > 0)
+        {
+            p++;
+            STREAM_TO_UINT16(opcode, p)
 
+            if (opcode == p_cb->int_cmd[p_cb->int_cmd_rd_idx].opcode)
+            {
+                HCIDBG( \
+                "Intercept CommandCompleteEvent for internal command (0x%04X)",\
+                          opcode);
+                if (p_cb->int_cmd[p_cb->int_cmd_rd_idx].cback != NULL)
+                {
+                    p_cb->int_cmd[p_cb->int_cmd_rd_idx].cback(p_cb->p_rcv_msg);
+                }
+                else
+                {
+                    // Missing cback function!
+                    // Release the p_rcv_msg buffer.
+                    if (bt_hc_cbacks)
+                    {
+                        bt_hc_cbacks->dealloc(p_cb->p_rcv_msg);
+                    }
+                }
+                return TRUE;
+            }
+        }
+#endif
+    }
+#if (INTEL_CONTROLLER == TRUE)
+    else if (event_code == HCI_INTEL_VSC_EVT)
+    {
+        uint8_t sub_event_code = *p;
+        if (p_int_evt_cb)
+        {
+            p_int_evt_cb(p_cb->p_rcv_msg);
+
+            if((sub_event_code == HCI_INTEL_SET_UART_BAUD_CMPL) ||
+               (sub_event_code == HCI_INTEL_AFH_INFO))
+            {
+                num_hci_cmd_pkts++;
+                p_cb->int_cmd_rd_idx = ((p_cb->int_cmd_rd_idx+1) & \
+                                        INT_CMD_PKT_IDX_MASK);
+                p_cb->int_cmd_rsp_pending--;
+            }
+            else if(sub_event_code == HCI_INTEL_WRITE_BD_DATA_CMPL)
+            {
+                p_cb->int_cmd_rd_idx = ((p_cb->int_cmd_rd_idx+1) & \
+                                        INT_CMD_PKT_IDX_MASK);
+                p_cb->int_cmd_rsp_pending--;
+            }
+            return TRUE;
+        }
+    }
+#endif
     return FALSE;
 }
 
