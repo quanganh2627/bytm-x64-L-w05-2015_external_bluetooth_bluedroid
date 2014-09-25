@@ -28,6 +28,14 @@
 
 
 /** Typedefs and defines */
+#if (INTEL_CONTROLLER == TRUE)
+typedef enum ioctl_status {
+    DO_FW_DL,
+    DO_STACK_INIT,
+    FW_FAILED,
+    FW_SUCCESS
+} ioctl_status_t;
+#endif
 
 /** Vendor specific operations OPCODE */
 typedef enum {
@@ -90,6 +98,38 @@ typedef enum {
  */
     BT_VND_OP_USERIAL_OPEN,
 
+#if (INTEL_CONTROLLER == TRUE)
+/*  [operation]
+ *      Configures the previously opened UART port.
+ *  [input param]
+ *      Baud rate to configure
+ *  [return]
+ *      0 - default, don't care.
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_USERIAL_CONFIG,
+/*  [operation]
+ *      Reports FW download is completed.
+ *  [input param]
+ *      None.
+ *  [return]
+ *      0 - default, don't care.
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_FW_DL_COMPLETE,
+/*  [operation]
+ *      Reports FW download status.
+ *  [input param]
+ *      None.
+ *  [return]
+ *      FW is already downloaded or not.
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_FW_DL_STATUS,
+#endif
 /*  [operation]
  *      Close the previously opened UART port.
  *  [input param]
@@ -169,7 +209,13 @@ typedef enum {
  */
     BT_VND_OP_EPILOG,
 } bt_vendor_opcode_t;
-
+#if (INTEL_CONTROLLER == TRUE)
+/** Baud rate configuration */
+typedef enum {
+    STANDARD_BAUD,
+    HIGHER_BAUD,
+} bt_vendor_baud_config_t;
+#endif
 /** Power on/off control states */
 typedef enum {
     BT_VND_PWR_OFF,

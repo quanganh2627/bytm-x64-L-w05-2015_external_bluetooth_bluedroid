@@ -34,6 +34,9 @@ tINT_CMD_CBACK p_int_evt_cb=NULL;
 // TODO: eliminate these three.
 extern tHCI_IF *p_hci_if;
 extern bool fwcfg_acked;
+#if (INTEL_CONTROLLER == TRUE)
+extern unsigned long module_name;
+#endif
 void lpm_vnd_cback(uint8_t vnd_result);
 
 static const char *VENDOR_LIBRARY_NAME = "libbt-vendor.so";
@@ -125,6 +128,9 @@ static void firmware_config_cb(bt_vendor_op_result_t result) {
   fwcfg_acked = true;
 #if (INTEL_CONTROLLER == TRUE)
   p_int_evt_cb = NULL;
+
+  if (module_name == MODULE_FM)
+      userial_stop_read_thread();
 #endif
 
   bt_hc_postload_result_t status = (result == BT_VND_OP_RESULT_SUCCESS)
