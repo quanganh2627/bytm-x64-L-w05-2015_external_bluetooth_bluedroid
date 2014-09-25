@@ -286,6 +286,9 @@ void bte_main_config_hci_logging(BOOLEAN enable, BOOLEAN bt_disabled)
 static void bte_hci_enable(void)
 {
     APPL_TRACE_DEBUG("%s", __FUNCTION__);
+#if (INTEL_CONTROLLER == TRUE)
+    unsigned long module_name = MODULE_BT;
+#endif
 
     preload_start_wait_timer();
 
@@ -318,8 +321,11 @@ static void bte_hci_enable(void)
         bt_hc_if->set_power(BT_HC_CHIP_PWR_OFF);
 #endif
         bt_hc_if->set_power(BT_HC_CHIP_PWR_ON);
-
+#if (INTEL_CONTROLLER == TRUE)
+        bt_hc_if->preload(&module_name);
+#else
         bt_hc_if->preload(NULL);
+#endif
     }
 }
 

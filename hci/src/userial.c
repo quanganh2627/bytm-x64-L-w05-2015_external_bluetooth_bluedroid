@@ -302,12 +302,12 @@ bool userial_open(userial_port_t port) {
     }
 
     userial_cb.port = port;
-
+#if (INTEL_CONTROLLER == FALSE)
     if (pthread_create(&userial_cb.read_thread, NULL, userial_read_thread, NULL)) {
         ALOGE("%s unable to spawn read thread.", __func__);
         goto error;
     }
-
+#endif
     return true;
 
 error:
@@ -416,3 +416,57 @@ void userial_close(void) {
 
     userial_cb.fd = -1;
 }
+#if (INTEL_CONTROLLER == TRUE)
+/*******************************************************************************
+**
+** Function        userial_start_read_thread
+**
+** Description     Starts read thread on the port
+**
+** Returns         TRUE/FALSE
+**
+*******************************************************************************/
+uint8_t userial_start_read_thread(void)
+{
+    if (pthread_create(&userial_cb.read_thread, NULL, userial_read_thread, NULL)) {
+        ALOGE("%s unable to spawn read thread.", __func__);
+        goto error;
+    }
+
+    return true;
+
+error:
+    vendor_send_command(BT_VND_OP_USERIAL_CLOSE, NULL);
+    return false;
+}
+
+/*******************************************************************************
+**
+** Function        userial_stop_read_thread
+**
+** Description     Stops userial read thread. Keeps the fd open.
+**
+** Returns         None
+**
+*******************************************************************************/
+void userial_stop_read_thread(void)
+{
+    void *buf;
+    assert(bt_hc_cbacks != NULL);
+
+    // Join the reader thread if it's still running.
+    if (userial_running) {
+        send_event(USERIAL_RX_EXIT);
+        int result = pthread_join(userial_cb.read_thread, NULL);
+        if (result)
+            ALOGE("%s failed to join reader thread: %d", __func__, result);
+    }
+
+    // Free all buffers still waiting in the RX queue.
+    // TODO: use list data structure and clean this up.
+    while ((buf = utils_dequeue(&userial_cb.rx_q)) != NULL)
+        bt_hc_cbacks->dealloc(buf);
+
+    userial_cb.fd = -1;
+}
+#endif

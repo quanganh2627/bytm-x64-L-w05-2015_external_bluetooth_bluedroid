@@ -76,6 +76,9 @@ tHCI_IF *p_hci_if;
 volatile bool fwcfg_acked;
 // Cleanup state indication.
 volatile bool has_cleaned_up = false;
+#if (INTEL_CONTROLLER == TRUE)
+unsigned long module_name = MODULE_INVALID;
+#endif
 
 /******************************************************************************
 **  Local type definitions
@@ -103,8 +106,38 @@ static BUFFER_Q tx_q;
 ******************************************************************************/
 
 static void event_preload(UNUSED_ATTR void *context) {
+#if (INTEL_CONTROLLER == TRUE)
+    unsigned long baud_rate;
+    if (userial_open(USERIAL_PORT_1) == FALSE)
+        return;
+
+    switch(vendor_send_command(BT_VND_OP_FW_DL_STATUS, NULL))
+    {
+        case DO_FW_DL:
+            /* DO FW download and all */
+            baud_rate = STANDARD_BAUD;
+            vendor_send_command(BT_VND_OP_USERIAL_CONFIG, &baud_rate);
+            userial_start_read_thread();
+            vendor_send_command(BT_VND_OP_FW_CFG, NULL);
+            break;
+        case DO_STACK_INIT:
+            /* Configure serial port in higher baud.
+               Continue with Stack init */
+            BTHCDBG("GO ON WITH STACK INIT... module_name:%lu", module_name);
+            if (module_name == MODULE_BT)
+                userial_start_read_thread();
+            /* Report the FW DL complete as it is done by another module */
+            vendor_send_command(BT_VND_OP_FW_DL_COMPLETE, NULL);
+            if (bt_hc_cbacks)
+                bt_hc_cbacks->preload_cb(NULL, BT_VND_OP_RESULT_SUCCESS);
+            break;
+        default:
+            break;
+    }
+#else
   userial_open(USERIAL_PORT_1);
   vendor_send_command(BT_VND_OP_FW_CFG, NULL);
+#endif
 }
 
 static void event_postload(UNUSED_ATTR void *context) {
@@ -417,6 +450,10 @@ static int lpm(bt_hc_low_power_event_t event)
 /** Called prior to stack initialization */
 static void preload(UNUSED_ATTR TRANSAC transac) {
   BTHCDBG("preload");
+#if (INTEL_CONTROLLER == TRUE)
+  module_name = *((unsigned long*) transac);
+  BTHCDBG("preload module_name:%lu", module_name);
+#endif
   thread_post(hc_cb.worker_thread, event_preload, NULL);
 }
 

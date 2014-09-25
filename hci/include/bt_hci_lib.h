@@ -27,6 +27,14 @@
 
 /** Struct types */
 /** Typedefs and defines */
+/* Module names */
+#if (INTEL_CONTROLLER == TRUE)
+typedef enum {
+    MODULE_INVALID,
+    MODULE_FM,
+    MODULE_BT,
+} module_name_t;
+#endif
 
 /* Generic purpose transac returned upon request complete */
 typedef void* TRANSAC;
