@@ -280,7 +280,11 @@ void BTM_DeviceReset (tBTM_CMPL_CB *p_cb)
         /* Save address of the completion routine, if provided */
         btm_cb.devcb.p_reset_cmpl_cb = p_cb;
 
+#if (INTEL_CONTROLLER == TRUE)
+        btm_reset_complete ();
+#else
         btm_dev_reset ();
+#endif
     }
     else
     {
