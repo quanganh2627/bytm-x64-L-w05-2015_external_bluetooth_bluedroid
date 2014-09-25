@@ -27,6 +27,10 @@
 #include "hci.h"
 #include "osi.h"
 
+
+#if (INTEL_CONTROLLER == TRUE)
+tINT_CMD_CBACK p_int_evt_cb=NULL;
+#endif
 // TODO: eliminate these three.
 extern tHCI_IF *p_hci_if;
 extern bool fwcfg_acked;
@@ -46,6 +50,9 @@ static void *buffer_alloc(int size);
 static void buffer_free(void *buffer);
 static uint8_t transmit_cb(uint16_t opcode, void *buffer, tINT_CMD_CBACK callback);
 static void epilog_cb(bt_vendor_op_result_t result);
+#if (INTEL_CONTROLLER == TRUE)
+static uint8_t int_evt_callback_reg_cb(tINT_CMD_CBACK p_cb);
+#endif
 
 static const bt_vendor_callbacks_t vendor_callbacks = {
   sizeof(vendor_callbacks),
@@ -57,6 +64,9 @@ static const bt_vendor_callbacks_t vendor_callbacks = {
   buffer_free,
   transmit_cb,
   epilog_cb
+#if (INTEL_CONTROLLER == TRUE)
+  , int_evt_callback_reg_cb
+#endif
 };
 
 bool vendor_open(const uint8_t *local_bdaddr) {
@@ -113,6 +123,9 @@ static void firmware_config_cb(bt_vendor_op_result_t result) {
   assert(bt_hc_cbacks != NULL);
 
   fwcfg_acked = true;
+#if (INTEL_CONTROLLER == TRUE)
+  p_int_evt_cb = NULL;
+#endif
 
   bt_hc_postload_result_t status = (result == BT_VND_OP_RESULT_SUCCESS)
       ? BT_HC_PRELOAD_SUCCESS
@@ -178,3 +191,28 @@ static uint8_t transmit_cb(uint16_t opcode, void *buffer, tINT_CMD_CBACK callbac
 // this callback has been received.
 static void epilog_cb(UNUSED_ATTR bt_vendor_op_result_t result) {
 }
+
+#if (INTEL_CONTROLLER == TRUE)
+/******************************************************************************
+**
+** Function         int_evt_callback_reg_cb
+**
+** Description      HOST/CONTROLLER VEDNOR LIB CALLBACK API - This function is
+**                  called from the libbt-vendor to configure callback function
+**                  to send out anyc events. This is used by libbt to get first
+**                  default bd data event after turning on BT IP.
+**
+** Returns          TRUE/FALSE
+**
+******************************************************************************/
+static uint8_t int_evt_callback_reg_cb(tINT_CMD_CBACK p_cb)
+{
+    if (p_cb)
+    {
+        p_int_evt_cb = p_cb;
+        ALOGI("%s register DONE", __func__);
+        return BT_HC_STATUS_SUCCESS;
+    }
+    return BT_HC_STATUS_FAIL;
+}
+#endif

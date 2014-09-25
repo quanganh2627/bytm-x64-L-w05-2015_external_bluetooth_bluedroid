@@ -58,7 +58,11 @@
 
 /* Stack preload process timeout period  */
 #ifndef PRELOAD_START_TIMEOUT_MS
+#if (INTEL_CONTROLLER == TRUE)
+#define PRELOAD_START_TIMEOUT_MS 30000  // 30 seconds
+#else
 #define PRELOAD_START_TIMEOUT_MS 3000  // 3 seconds
+#endif
 #endif
 
 /* Stack preload process maximum retry attempts  */
