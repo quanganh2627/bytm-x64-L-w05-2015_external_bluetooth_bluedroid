@@ -68,7 +68,8 @@ void btm_ble_vendor_enq_irk_pending(BD_ADDR target_bda, BD_ADDR psuedo_bda, UINT
     p_q->irk_q_action[p_q->q_next] = to_add;
 
     p_q->q_next ++;
-    p_q->q_next %= btm_cb.cmn_ble_vsc_cb.max_irk_list_sz;;
+    if(btm_cb.cmn_ble_vsc_cb.max_irk_list_sz != 0)
+        p_q->q_next %= btm_cb.cmn_ble_vsc_cb.max_irk_list_sz;;
 #endif
     return ;
 }
