@@ -298,6 +298,11 @@ void SBC_Encoder_Init(SBC_ENC_PARAMS *pstrEncParams)
     SINT16 s16BitRate;      /*to store bitrate*/
     SINT16 s16FrameLen;     /*to store frame length*/
     UINT16 HeaderParams;
+    SINT16 s16tmp = 0;
+
+    APPL_TRACE_EVENT("SBC_Encoder_Init : block=%d, subBands=%d, channels=%d",
+            pstrEncParams->s16NumOfBlocks, pstrEncParams->s16NumOfSubBands,
+            pstrEncParams->s16NumOfChannels);
 
     pstrEncParams->u8NumPacketToEncode = 1; /* default is one for retrocompatibility purpose */
 
@@ -317,16 +322,27 @@ void SBC_Encoder_Init(SBC_ENC_PARAMS *pstrEncParams)
     else
         s16SamplingFreq = 48000;
 
+    if (pstrEncParams->s16NumOfBlocks == 0) {
+        APPL_TRACE_ERROR("block is zero - encoder parameters are wrongly initialized!");
+    }
+    if (pstrEncParams->s16NumOfSubBands == 0) {
+        APPL_TRACE_ERROR("subBands is zero - encoder parameters are wrongly initialized!");
+    }
+
     if ( (pstrEncParams->s16ChannelMode == SBC_JOINT_STEREO)
         ||  (pstrEncParams->s16ChannelMode == SBC_STEREO) )
     {
+        if (pstrEncParams->s16NumOfBlocks != 0) {
+            s16tmp = (32 + (4 * pstrEncParams->s16NumOfSubBands *
+                pstrEncParams->s16NumOfChannels)
+                + ( (pstrEncParams->s16ChannelMode - 2) *
+                pstrEncParams->s16NumOfSubBands )   )
+                / pstrEncParams->s16NumOfBlocks;
+        }
+
         s16Bitpool = (SINT16)( (pstrEncParams->u16BitRate *
             pstrEncParams->s16NumOfSubBands * 1000 / s16SamplingFreq)
-            -( (32 + (4 * pstrEncParams->s16NumOfSubBands *
-            pstrEncParams->s16NumOfChannels)
-            + ( (pstrEncParams->s16ChannelMode - 2) *
-            pstrEncParams->s16NumOfSubBands )   )
-            / pstrEncParams->s16NumOfBlocks) );
+            - s16tmp );
 
         s16FrameLen = 4 + (4*pstrEncParams->s16NumOfSubBands*
             pstrEncParams->s16NumOfChannels)/8
@@ -334,9 +350,14 @@ void SBC_Encoder_Init(SBC_ENC_PARAMS *pstrEncParams)
             pstrEncParams->s16NumOfSubBands)
             + (pstrEncParams->s16NumOfBlocks * s16Bitpool) ) / 8;
 
-        s16BitRate = (8 * s16FrameLen * s16SamplingFreq)
-            / (pstrEncParams->s16NumOfSubBands *
-            pstrEncParams->s16NumOfBlocks * 1000);
+        if (pstrEncParams->s16NumOfSubBands != 0) {
+            s16BitRate = (8 * s16FrameLen * s16SamplingFreq)
+                / (pstrEncParams->s16NumOfSubBands *
+                pstrEncParams->s16NumOfBlocks * 1000);
+        }
+        else {
+            s16BitRate = 0;
+        }
 
         if (s16BitRate > pstrEncParams->u16BitRate)
             s16Bitpool--;
@@ -348,12 +369,15 @@ void SBC_Encoder_Init(SBC_ENC_PARAMS *pstrEncParams)
     }
     else
     {
+        if (pstrEncParams->s16NumOfBlocks != 0) {
+            s16tmp = ( (32 / pstrEncParams->s16NumOfChannels) +
+                    (4 * pstrEncParams->s16NumOfSubBands) )
+                    /   pstrEncParams->s16NumOfBlocks;
+        }
         s16Bitpool = (SINT16)( ((pstrEncParams->s16NumOfSubBands *
             pstrEncParams->u16BitRate * 1000)
             / (s16SamplingFreq * pstrEncParams->s16NumOfChannels))
-            -( ( (32 / pstrEncParams->s16NumOfChannels) +
-            (4 * pstrEncParams->s16NumOfSubBands) )
-            /   pstrEncParams->s16NumOfBlocks ) );
+            - s16tmp);
 
         pstrEncParams->s16BitPool = (s16Bitpool >
             (16 * pstrEncParams->s16NumOfSubBands))
