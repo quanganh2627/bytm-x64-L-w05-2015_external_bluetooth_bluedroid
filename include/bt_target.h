@@ -260,11 +260,6 @@
 #define BTA_HOST_INTERLEAVE_SEARCH FALSE
 #endif
 
-/* This feature is used to skip query of ble read remote features*/
-#ifndef BTA_SKIP_BLE_READ_REMOTE_FEAT
-#define BTA_SKIP_BLE_READ_REMOTE_FEAT FALSE
-#endif
-
 #ifndef BT_TRACE_PROTOCOL
 #define BT_TRACE_PROTOCOL  TRUE
 #endif
@@ -1370,10 +1365,6 @@ and USER_HW_DISABLE_API macros */
 
 #ifndef BLE_PERIPHERAL_MODE_SUPPORT
 #define BLE_PERIPHERAL_MODE_SUPPORT  TRUE
-#endif
-
-#ifndef BLE_PERIPHERAL_DISPLAYONLY
-#define BLE_PERIPHERAL_DISPLAYONLY   FALSE
 #endif
 
 #ifndef BLE_PERIPHERAL_ADV_NAME

@@ -453,6 +453,7 @@ static void btm_ble_vendor_capability_vsc_cmpl_cback (tBTM_VSC_CMPL *p_vcs_cplt_
         STREAM_TO_UINT8  (btm_cb.cmn_ble_vsc_cb.filter_support, p);
         STREAM_TO_UINT8  (btm_cb.cmn_ble_vsc_cb.max_filter, p);
         STREAM_TO_UINT8  (btm_cb.cmn_ble_vsc_cb.energy_support, p);
+        btm_cb.cmn_ble_vsc_cb.values_read = TRUE;
     }
 
     BTM_TRACE_DEBUG("btm_ble_vnd_cap_vsc_cmpl_cback: stat=%d, irk=%d, ADV ins:%d, rpa=%d, ener=%d",
@@ -513,6 +514,9 @@ BTM_API extern void BTM_BleGetVendorCapabilities(tBTM_BLE_VSC_CB *p_cmn_vsc_cb)
 *******************************************************************************/
 BTM_API extern void BTM_BleReadControllerFeatures(tBTM_BLE_CTRL_FEATURES_CBACK  *p_vsc_cback)
 {
+    if (TRUE == btm_cb.cmn_ble_vsc_cb.values_read)
+        return;
+
 #if BLE_VND_INCLUDED == TRUE
     BTM_TRACE_DEBUG("BTM_BleReadControllerFeatures");
 
@@ -2844,14 +2848,13 @@ BOOLEAN btm_ble_clear_topology_mask (tBTM_BLE_STATE_MASK request_state_mask)
 ** Returns          void
 **
 *******************************************************************************/
-void btm_ble_update_mode_operation(UINT8 link_role, BD_ADDR bd_addr, BOOLEAN conn_cancel)
+void btm_ble_update_mode_operation(UINT8 link_role, BD_ADDR bd_addr, UINT8 status)
 {
     tACL_CONN   *pa = &btm_cb.acl_db[0];
     UINT16       xx;
     UINT16       mask = BTM_BLE_STATE_ALL_CONN_MASK;
 
     UNUSED(bd_addr);
-    UNUSED (conn_cancel);
 
     if (link_role == HCI_ROLE_SLAVE)
     {
@@ -2880,7 +2883,7 @@ void btm_ble_update_mode_operation(UINT8 link_role, BD_ADDR bd_addr, BOOLEAN con
         btm_ble_set_connectability ( btm_cb.ble_ctr_cb.inq_var.connectable_mode );
     }
 
-    if (btm_ble_get_conn_st() == BLE_CONN_IDLE)
+    if (btm_ble_get_conn_st() == BLE_CONN_IDLE && status != HCI_ERR_HOST_REJECT_RESOURCES)
     {
         if (!btm_send_pending_direct_conn())
         {
@@ -3009,8 +3012,7 @@ void btm_ble_read_remote_features_complete(UINT8 *p)
             if ((p_acl_cb->in_use) && (p_acl_cb->hci_handle == handle))
             {
                 STREAM_TO_ARRAY(p_acl_cb->peer_le_features, p, BD_FEATURES_LEN);
-                /* notify link up here */
-                btm_establish_continue(p_acl_cb);
+                /*notify link up here */
                 l2cble_notify_le_connection (p_acl_cb->remote_addr);
                 break;
             }
@@ -3080,6 +3082,7 @@ void btm_ble_init (void)
 
     memset(p_cb, 0, sizeof(tBTM_BLE_CB));
     memset(&(btm_cb.cmn_ble_vsc_cb), 0 , sizeof(tBTM_BLE_VSC_CB));
+    btm_cb.cmn_ble_vsc_cb.values_read = FALSE;
     p_cb->cur_states       = 0;
 
     p_cb->inq_var.adv_mode = BTM_BLE_ADV_DISABLE;
