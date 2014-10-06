@@ -507,9 +507,6 @@ static void btif_dm_cb_create_bond(bt_bdaddr_t *bd_addr)
                         check_cod(bd_addr, COD_HID_POINTING);
 
     bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDING);
-
-#if 0 /* fix for apple magic mouse connection takes long time and reconnection when pairing
-       initiated from DUT*/
     if (is_hid){
             int status;
             status = btif_hh_connect(bd_addr);
@@ -517,7 +514,6 @@ static void btif_dm_cb_create_bond(bt_bdaddr_t *bd_addr)
                 bond_state_changed(status, bd_addr, BT_BOND_STATE_NONE);
     }
     else
-#endif
     {
 #if BLE_INCLUDED == TRUE
         int device_type;
@@ -1153,7 +1149,6 @@ static void btif_dm_search_services_evt(UINT16 event, char *p_param)
                  BTIF_TRACE_DEBUG1("%s Remote Service SDP done. Call bond_state_changed_cb BONDED",
                                    __FUNCTION__);
                  pairing_cb.sdp_attempts  = 0;
-                 bond_state_changed(BT_STATUS_SUCCESS, &bd_addr, BT_BOND_STATE_BONDED);
                  if (!pairing_cb.is_local_initiated)
                  {
                      BTIF_TRACE_DEBUG1("%s lets try to connect",__FUNCTION__);
@@ -1169,6 +1164,7 @@ static void btif_dm_search_services_evt(UINT16 event, char *p_param)
                  {
                     BTIF_TRACE_DEBUG1("%s It is initiated by local so ignore",__FUNCTION__);
                  }
+                 bond_state_changed(BT_STATUS_SUCCESS, &bd_addr, BT_BOND_STATE_BONDED);
             }
 
             if(p_data->disc_res.num_uuids != 0)
