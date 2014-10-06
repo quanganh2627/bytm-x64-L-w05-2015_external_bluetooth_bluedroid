@@ -468,11 +468,9 @@ static void cleanup(void)
         if (fwcfg_acked)
         {
             epilog_wait_timer();
-            // Stop reading thread
-            userial_close_reader();
-
             thread_post(hc_cb.worker_thread, event_epilog, NULL);
         }
+
         thread_free(hc_cb.worker_thread);
 
         pthread_mutex_lock(&hc_cb.worker_thread_lock);
@@ -485,7 +483,6 @@ static void cleanup(void)
             hc_cb.epilog_timer_created = false;
         }
     }
-    BTHCDBG("%s Finalizing cleanup\n", __func__);
 
     lpm_cleanup();
     userial_close();
