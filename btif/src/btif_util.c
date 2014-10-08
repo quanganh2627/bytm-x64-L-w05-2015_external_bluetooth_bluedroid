@@ -98,9 +98,9 @@ char *bd2str(const bt_bdaddr_t *bdaddr, bdstr_t *bdstr)
     const uint8_t *addr = bdaddr->address;
 
     sprintf(*bdstr, "%02x:%02x:%02x:%02x:%02x:%02x",
-             addr[0], addr[1], addr[2],
-             addr[3], addr[4], addr[5]);
-    return *bdstr;
+		(uint8_t)addr[0],(uint8_t)addr[1],(uint8_t)addr[2],
+		(uint8_t)addr[3],(uint8_t)addr[4],(uint8_t)addr[5]);
+     return *bdstr;
 }
 
 UINT32 devclass2uint(DEV_CLASS dev_class)
