@@ -116,11 +116,15 @@ ifeq ($(TARGET_PRODUCT), full_maguro)
 	LOCAL_CFLAGS += -DTARGET_MAGURO
 endif
 
+LOCAL_C_INCLUDES += \
+        external/libusb
+
 LOCAL_SHARED_LIBRARIES := \
 	libcutils \
 	libdl \
 	liblog \
-	libpower
+	libpower \
+	libusb
 
 LOCAL_STATIC_LIBRARIES := \
 	libbt-brcm_bta \
