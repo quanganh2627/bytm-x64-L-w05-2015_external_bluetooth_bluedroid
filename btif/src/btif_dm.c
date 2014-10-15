@@ -598,6 +598,17 @@ static void btif_dm_cb_create_bond(bt_bdaddr_t *bd_addr, tBTA_TRANSPORT transpor
     int addr_type;
     bdstr_t bdstr;
     bd2str(bd_addr, &bdstr);
+    if (transport == BT_TRANSPORT_LE)
+    {
+        if (!btif_config_get_int("Remote", (char const *)&bdstr,"DevType", &device_type))
+        {
+            btif_config_set_int("Remote", bdstr, "DevType", BT_DEVICE_TYPE_BLE);
+        }
+        if (btif_storage_get_remote_addr_type(bd_addr, &addr_type) != BT_STATUS_SUCCESS)
+        {
+            btif_storage_set_remote_addr_type(bd_addr, BLE_ADDR_PUBLIC);
+        }
+    }
     if((btif_config_get_int("Remote", (char const *)&bdstr,"DevType", &device_type) &&
        (btif_storage_get_remote_addr_type(bd_addr, &addr_type) == BT_STATUS_SUCCESS) &&
        (device_type == BT_DEVICE_TYPE_BLE)) || (transport == BT_TRANSPORT_LE))
@@ -1495,6 +1506,11 @@ static void btif_dm_upstreams_evt(UINT16 event, char* p_param)
                  BTA_DmSetDeviceName(btif_get_default_local_name());
              }
 
+#if (defined(BLE_INCLUDED) && (BLE_INCLUDED == TRUE))
+             /* Enable local privacy */
+             BTA_DmBleConfigLocalPrivacy(TRUE);
+#endif
+
              /* for each of the enabled services in the mask, trigger the profile
               * enable */
              service_mask = btif_get_enabled_services_mask();
@@ -1517,12 +1533,6 @@ static void btif_dm_upstreams_evt(UINT16 event, char* p_param)
              btif_storage_load_autopair_device_list();
 
              btif_enable_bluetooth_evt(p_data->enable.status, p_data->enable.bd_addr);
-
-             #if (defined(BLE_INCLUDED) && (BLE_INCLUDED == TRUE))
-             /* Enable local privacy */
-             /*TODO  Should this call be exposed to JAVA...? */
-             BTA_DmBleConfigLocalPrivacy(TRUE);
-             #endif
         }
         break;
 

@@ -334,7 +334,7 @@ extern UINT8 *btm_ble_build_adv_data(tBTM_BLE_AD_MASK *p_data_mask, UINT8 **p_ds
 extern tBTM_STATUS btm_ble_start_adv(void);
 extern tBTM_STATUS btm_ble_stop_adv(void);
 extern tBTM_STATUS btm_ble_start_scan (UINT8 filter_enb);
-
+extern void btm_ble_create_ll_conn_complete (UINT8 status);
 
 /* LE security function from btm_sec.c */
 #if SMP_INCLUDED == TRUE
@@ -363,8 +363,8 @@ extern void btm_ble_update_sec_key_size(BD_ADDR bd_addr, UINT8 enc_key_size);
 extern UINT8 btm_ble_read_sec_key_size(BD_ADDR bd_addr);
 
 /* white list function */
-extern BOOLEAN btm_update_dev_to_white_list(BOOLEAN to_add, BD_ADDR bd_addr,UINT8 wl_type);
-extern BOOLEAN btm_update_bg_conn_list(BOOLEAN to_add, BD_ADDR bd_addr, UINT8 *p_attr_tag);
+extern BOOLEAN btm_update_dev_to_white_list(BOOLEAN to_add, BD_ADDR bd_addr);
+extern BOOLEAN btm_update_bg_conn_list(BOOLEAN to_add, BD_ADDR bd_addr);
 extern void btm_update_scanner_filter_policy(tBTM_BLE_SFP scan_policy);
 extern void btm_update_scan_filter_policy(tBTM_BLE_AFP adv_policy);
 extern void btm_ble_clear_white_list (void);
@@ -378,7 +378,7 @@ extern BOOLEAN btm_ble_start_select_conn(BOOLEAN start,tBTM_BLE_SEL_CBACK   *p_s
 extern BOOLEAN btm_ble_renew_bg_conn_params(BOOLEAN add, BD_ADDR bd_addr);
 extern UINT8 btm_ble_count_unconn_dev_in_whitelist(void);
 extern void btm_write_dir_conn_wl(BD_ADDR target_addr);
-extern void btm_ble_update_mode_operation(UINT8 link_role, BD_ADDR bda, BOOLEAN conn_ccancel);
+extern void btm_ble_update_mode_operation(UINT8 link_role, BD_ADDR bda, UINT8 status);
 extern BOOLEAN btm_execute_wl_dev_operation(void);
 
 /* direct connection utility */
