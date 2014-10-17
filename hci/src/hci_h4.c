@@ -631,10 +631,10 @@ void hci_h4_send_msg(HC_BT_HDR *p_msg)
             *p = type;
             bytes_to_send = acl_pkt_size + 1; /* packet_size + message type */
 
-            bytes_sent = userial_write(event,(uint8_t *) p,bytes_to_send);
-
             /* generate snoop trace message */
-            btsnoop_capture(p_msg, false);
+            btsnoop_capture(p_msg, FALSE);
+
+            bytes_sent = userial_write(event,(uint8_t *) p,bytes_to_send);
 
             p_msg->layer_specific = lay_spec;
             /* Adjust offset and length for what we just sent */
