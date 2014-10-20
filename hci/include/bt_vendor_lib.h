@@ -187,6 +187,21 @@ typedef enum {
  */
     BT_VND_OP_LPM_WAKE_SET_STATE,
 
+#ifdef INTEL_CONTROLLER
+/*  [operation]
+ *      Informs that this module is in idle state.
+ *  [input param]
+ *      A pointer to uint8_t containing the bt wake state.
+ *      Typecasting conversion: (uint8_t *) param.
+ *      Parameter denotes the module name that is requesting.
+ *  [return]
+ *      0 - default, don't care.
+ *  [callback]
+ *      None.
+ */
+    BT_VND_OP_LPM_SET_IDLE_STATE,
+#endif
+
 /*  [operation]
  *      Perform any vendor specific commands related to audio state changes.
  *  [input param]

@@ -55,7 +55,9 @@
 /******************************************************************************
 **  Externs
 ******************************************************************************/
-
+#ifdef INTEL_CONTROLLER
+extern unsigned long module_name;
+#endif
 /******************************************************************************
 **  Local type definitions
 ******************************************************************************/
@@ -371,6 +373,13 @@ void lpm_wake_assert(void)
 *******************************************************************************/
 void lpm_allow_bt_device_sleep(void)
 {
+#ifdef INTEL_CONTROLLER
+    if (bt_lpm_cb.state == LPM_ENABLED)
+    {
+        BTLPMDBG("%s", __func__);
+        vendor_send_command(BT_VND_OP_LPM_SET_IDLE_STATE, &module_name);
+    }
+#endif
     if ((bt_lpm_cb.state == LPM_ENABLED) && \
         (bt_lpm_cb.wake_state == LPM_WAKE_ASSERTED))
     {
