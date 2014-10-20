@@ -358,6 +358,10 @@ void bta_hh_sm_execute(tBTA_HH_DEV_CB *p_cb, UINT16 event, tBTA_HH_DATA * p_data
             default:
                 /* invalid handle, call bad API event */
                 APPL_TRACE_ERROR1("wrong device handle: [%d]", p_data->hdr.layer_specific);
+                if (((tBTA_HH_CBACK_DATA*)p_data)->p_data != NULL)
+                {
+                    GKI_freebuf(((tBTA_HH_CBACK_DATA*)p_data)->p_data);
+                }
                 break;
             }
            if (cback_event)
