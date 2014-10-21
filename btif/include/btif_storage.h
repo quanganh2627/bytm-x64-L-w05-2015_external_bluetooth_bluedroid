@@ -253,6 +253,18 @@ bt_status_t btif_storage_load_bonded_hid_info(void);
 
 /*******************************************************************************
 **
+** Function         btif_storage_is_device_bonded
+**
+** Description      BTIF storage API - Loads bonded info for the specific devices from NVRAM
+**
+**
+** Returns          TRUE if device bonded else FALSE
+**
+*******************************************************************************/
+BOOLEAN btif_storage_is_device_bonded(bt_bdaddr_t *remote_bd_addr);
+
+/*******************************************************************************
+**
 ** Function         btif_storage_remove_hid_info
 **
 ** Description      BTIF storage API - Deletes the bonded hid device info from NVRAM

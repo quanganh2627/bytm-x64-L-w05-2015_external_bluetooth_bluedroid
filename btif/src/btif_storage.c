@@ -1398,6 +1398,28 @@ bt_status_t btif_storage_add_hid_device_info(bt_bdaddr_t *remote_bd_addr,
 
 /*******************************************************************************
 **
+** Function         btif_storage_is_device_bonded
+**
+** Description      BTIF storage API - Loads bonded info for the specific devices from NVRAM
+**
+**
+** Returns          TRUE if device bonded else FALSE
+**
+*******************************************************************************/
+BOOLEAN btif_storage_is_device_bonded(bt_bdaddr_t *remote_bd_addr)
+{
+    bdstr_t bdstr;
+    bd2str(remote_bd_addr, &bdstr);
+    int linkkey_type;
+
+    if(btif_config_get_int("Remote", bdstr, "LinkKeyType", &linkkey_type))
+        return TRUE;
+    else
+        return FALSE;
+}
+
+/*******************************************************************************
+**
 ** Function         btif_storage_load_bonded_hid_info
 **
 ** Description      BTIF storage API - Loads hid info for all the bonded devices from NVRAM

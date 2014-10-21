@@ -655,6 +655,10 @@ bt_status_t btif_hh_connect(bt_bdaddr_t *bd_addr)
             added_dev = &btif_hh_cb.added_devices[i];
              BTIF_TRACE_WARNING3("%s: Device %s already added, attr_mask = 0x%x",
                  __FUNCTION__, bda_str, added_dev->attr_mask);
+            if (btif_storage_is_device_bonded(&added_dev->bd_addr) == FALSE) {
+                btif_hh_remove_device(added_dev->bd_addr);
+                added_dev = NULL;
+            }
         }
     }
 
