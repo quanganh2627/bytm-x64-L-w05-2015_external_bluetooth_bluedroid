@@ -56,8 +56,8 @@ void btm_update_scanner_filter_policy(tBTM_BLE_SFP scan_policy)
     p_inq->scan_type = (p_inq->scan_type == BTM_BLE_SCAN_MODE_NONE) ? BTM_BLE_SCAN_MODE_ACTI: p_inq->scan_type;
 
     btsnd_hcic_ble_set_scan_params (p_inq->scan_type,
-                                    (UINT16)(!p_inq->scan_interval ? BTM_BLE_GAP_DISC_SCAN_INT : p_inq->scan_interval),
-                                    (UINT16)(!p_inq->scan_window ? BTM_BLE_GAP_DISC_SCAN_WIN : p_inq->scan_window),
+                                    (UINT16)(!p_inq->scan_interval ? BTM_BLE_SCAN_FAST_INT : p_inq->scan_interval),
+                                    (UINT16)(!p_inq->scan_window ? BTM_BLE_SCAN_FAST_WIN : p_inq->scan_window),
                                      btm_cb.ble_ctr_cb.addr_mgnt_cb.own_addr_type,
                                      scan_policy);
 }
