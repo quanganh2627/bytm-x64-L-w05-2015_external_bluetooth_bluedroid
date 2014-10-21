@@ -27,6 +27,7 @@
 #if BLE_INCLUDED == TRUE
 
 #include <string.h>
+#include <unistd.h>
 
 #include "bt_types.h"
 #include "hcimsgs.h"
@@ -1166,6 +1167,11 @@ tBTM_STATUS btm_ble_set_encryption (BD_ADDR bd_addr, void *p_ref_data, UINT8 lin
                     cmd = BTM_CMD_STARTED;
                 }
                 else {
+                     /* Adding a delay of 500ms, so that command complete of
+                       HCI_LE_READ_REMOTE_USED_FEATURES is received before
+                       sending HCI_LE_START_ENCRYPTION */
+                    usleep(500000);
+
                     /* start link layer encryption using the security info stored */
                     if (btm_ble_start_encrypt(bd_addr, FALSE, NULL))
                     {
