@@ -28,8 +28,9 @@
 
 #include "bt_types.h"
 #include "bt_utils.h"
-#include "btu.h"
 #include "btm_int.h"
+#include "btm_ble_api.h"
+#include "btu.h"
 #include "hcimsgs.h"
 #if (GAP_INCLUDED == TRUE)
 #include "gap_api.h"
@@ -466,6 +467,10 @@ static void btm_ble_vendor_capability_vsc_cmpl_cback (tBTM_VSC_CMPL *p_vcs_cplt_
     if (btm_cb.cmn_ble_vsc_cb.max_filter > 0)
     {
         btm_ble_adv_filter_init();
+    }
+
+    if (btm_cb.cmn_ble_vsc_cb.max_irk_list_sz > 0)
+    {
         btm_ble_vendor_init(btm_cb.cmn_ble_vsc_cb.max_irk_list_sz);
     }
 
@@ -609,7 +614,8 @@ void BTM_BleConfigPrivacy(BOOLEAN enable)
 *******************************************************************************/
 BTM_API extern UINT8  BTM_BleMaxMultiAdvInstanceCount()
 {
-    return btm_cb.cmn_ble_vsc_cb.adv_inst_max;
+    return btm_cb.cmn_ble_vsc_cb.adv_inst_max < BTM_BLE_MULTI_ADV_MAX ?
+        btm_cb.cmn_ble_vsc_cb.adv_inst_max : BTM_BLE_MULTI_ADV_MAX;
 }
 
 #if BLE_PRIVACY_SPT == TRUE
@@ -1714,8 +1720,7 @@ tBTM_STATUS btm_ble_start_inquiry (UINT8 mode, UINT8   duration)
 
 #if (defined BLE_PRIVACY_SPT && BLE_PRIVACY_SPT == TRUE)
         /* enable IRK list */
-        if (btm_cb.cmn_ble_vsc_cb.rpa_offloading == TRUE)
-            btm_ble_vendor_irk_list_known_dev (TRUE);
+        btm_ble_vendor_irk_list_known_dev (TRUE);
 #endif
         status = btm_ble_start_scan(BTM_BLE_DUPLICATE_DISABLE);
     }
@@ -3039,12 +3044,6 @@ void btm_ble_write_adv_enable_complete(UINT8 * p)
         /* toggle back the adv mode */
         p_cb->adv_mode = !p_cb->adv_mode;
     }
-
-#if (BLE_PRIVACY_SPT == TRUE)
-    if ((p_cb->adv_mode == BTM_BLE_ADV_DISABLE) &&
-        (btm_cb.cmn_ble_vsc_cb.rpa_offloading == TRUE))
-        btm_ble_vendor_disable_irk_list();
-#endif
 }
 
 /*******************************************************************************
