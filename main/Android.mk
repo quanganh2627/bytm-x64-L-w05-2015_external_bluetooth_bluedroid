@@ -106,6 +106,10 @@ LOCAL_C_INCLUDES += . \
 LOCAL_CFLAGS += -DBUILDCFG $(bdroid_CFLAGS) -Wno-error=maybe-uninitialized -Wno-error=uninitialized -Wno-error=unused-parameter
 LOCAL_CONLYFLAGS := -std=c99
 
+ifeq ($(BOARD_HAVE_BLUETOOTH_INTEL),true)
+  LOCAL_CFLAGS += -DINTEL_CONTROLLER
+endif
+
 ifeq ($(TARGET_PRODUCT), full_crespo)
 	LOCAL_CFLAGS += -DTARGET_CRESPO
 endif

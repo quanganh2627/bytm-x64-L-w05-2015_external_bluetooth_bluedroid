@@ -4,6 +4,10 @@ include $(CLEAR_VARS)
 
 LOCAL_CFLAGS += $(bdroid_CFLAGS)
 
+ifeq ($(BOARD_HAVE_BLUETOOTH_INTEL),true)
+  LOCAL_CFLAGS += -DINTEL_CONTROLLER
+endif
+
 LOCAL_SRC_FILES := \
 	src/bt_hci_bdroid.c \
 	src/btsnoop.c \
@@ -12,7 +16,7 @@ LOCAL_SRC_FILES := \
 	src/utils.c \
 	src/vendor.c
 
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS += -Wno-unused-parameter
 
 ifeq ($(BLUETOOTH_HCI_USE_MCT),true)
 

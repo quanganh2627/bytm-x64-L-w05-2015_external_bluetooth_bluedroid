@@ -76,7 +76,7 @@ tHCI_IF *p_hci_if;
 volatile bool fwcfg_acked;
 // Cleanup state indication.
 volatile bool has_cleaned_up = false;
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 unsigned long module_name = MODULE_INVALID;
 #endif
 
@@ -106,7 +106,7 @@ static BUFFER_Q tx_q;
 ******************************************************************************/
 
 static void event_preload(UNUSED_ATTR void *context) {
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
     unsigned long baud_rate;
     if (userial_open(USERIAL_PORT_1) == FALSE)
         return;
@@ -450,7 +450,7 @@ static int lpm(bt_hc_low_power_event_t event)
 /** Called prior to stack initialization */
 static void preload(UNUSED_ATTR TRANSAC transac) {
   BTHCDBG("preload");
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
   module_name = *((unsigned long*) transac);
   BTHCDBG("preload module_name:%lu", module_name);
 #endif

@@ -11,6 +11,10 @@ else
   bdroid_CFLAGS += -DHAS_NO_BDROID_BUILDCFG
 endif
 
+ifeq ($(BOARD_HAVE_BLUETOOTH_INTEL),true)
+  bdroid_CFLAGS += -DINTEL_CONTROLLER
+endif
+
 bdroid_CFLAGS += -Wall -Werror
 
 ifneq ($(BOARD_BLUETOOTH_BDROID_HCILP_INCLUDED),)

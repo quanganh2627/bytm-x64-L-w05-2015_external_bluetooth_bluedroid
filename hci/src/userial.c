@@ -302,7 +302,7 @@ bool userial_open(userial_port_t port) {
     }
 
     userial_cb.port = port;
-#if (INTEL_CONTROLLER == FALSE)
+#ifndef INTEL_CONTROLLER
     if (pthread_create(&userial_cb.read_thread, NULL, userial_read_thread, NULL)) {
         ALOGE("%s unable to spawn read thread.", __func__);
         goto error;
@@ -416,7 +416,7 @@ void userial_close(void) {
 
     userial_cb.fd = -1;
 }
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 /*******************************************************************************
 **
 ** Function        userial_start_read_thread

@@ -17,6 +17,10 @@ LOCAL_CFLAGS += \
 	-DBOARD_HAVE_BLUETOOTH_BCM
 endif
 
+ifeq ($(BOARD_HAVE_BLUETOOTH_INTEL),true)
+  LOCAL_CFLAGS += -DINTEL_CONTROLLER
+endif
+
 LOCAL_PRELINK_MODULE := false
 LOCAL_SRC_FILES := \
 	./common/gki_buffer.c \

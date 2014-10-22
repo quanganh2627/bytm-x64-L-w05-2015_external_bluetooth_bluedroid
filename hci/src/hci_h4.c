@@ -105,12 +105,12 @@ static const uint16_t msg_evt_table[] =
 
 #define HCI_COMMAND_COMPLETE_EVT    0x0E
 #define HCI_COMMAND_STATUS_EVT      0x0F
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 #define HCI_INTEL_VSC_EVT           0xFF
 #endif
 #define HCI_READ_BUFFER_SIZE        0x1005
 #define HCI_LE_READ_BUFFER_SIZE     0x2002
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 #define HCI_INTEL_SET_UART_BAUD_CMPL    0x12
 #define HCI_INTEL_WRITE_BD_DATA_CMPL    0x19
 #define HCI_INTEL_AFH_INFO              0x20
@@ -159,7 +159,7 @@ typedef struct
 /******************************************************************************
 **  Externs
 ******************************************************************************/
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 extern tINT_CMD_CBACK p_int_evt_cb;
 #endif
 
@@ -306,7 +306,7 @@ uint8_t internal_event_intercept(void)
     else if (event_code == HCI_COMMAND_STATUS_EVT)
     {
         num_hci_cmd_pkts = *(++p);
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
         if (p_cb->int_cmd_rsp_pending > 0)
         {
             p++;
@@ -335,7 +335,7 @@ uint8_t internal_event_intercept(void)
         }
 #endif
     }
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
     else if (event_code == HCI_INTEL_VSC_EVT)
     {
         uint8_t sub_event_code = *p;

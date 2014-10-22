@@ -30,7 +30,9 @@
 #pragma once
 
 #include "bt_hci_lib.h"
+#ifdef HAS_BDROID_BUILDCFG
 #include "bdroid_buildcfg.h"
+#endif
 
 /******************************************************************************
 **  Constants & Macros
