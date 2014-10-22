@@ -18,6 +18,8 @@
  ******************************************************************************/
 
 #include "bta_hf_client_int.h"
+#include "bta_dm_co.h"
+#include "bta_hf_client_co.h"
 #include <bt_trace.h>
 #include <bd.h>
 #include <string.h>
@@ -326,6 +328,15 @@ static void bta_hf_client_sco_create(BOOLEAN is_orig)
     {
         bta_hf_client_cb.scb.retry_with_sco_only = FALSE;
     }
+
+#if (BTM_WBS_INCLUDED == TRUE )
+    /* Allow any platform specific pre-SCO set up to take place */
+    bta_hf_client_co_audio_state(1, 1, BTA_HF_CLIENT_CO_AUD_STATE_SETUP,
+            bta_hf_client_cb.scb.negotiated_codec);
+#else
+    /* Allow any platform specific pre-SCO set up to take place */
+    bta_hf_client_co_audio_state(1, 1, BTA_HF_CLIENT_CO_AUD_STATE_SETUP);
+#endif
 
     p_bd_addr = bta_hf_client_cb.scb.peer_addr;
 
@@ -637,6 +648,13 @@ void bta_hf_client_sco_conn_open(tBTA_HF_CLIENT_DATA *p_data)
 
     bta_sys_sco_open(BTA_ID_HS, 1, bta_hf_client_cb.scb.peer_addr);
 
+#if (BTM_WBS_INCLUDED == TRUE)
+    bta_hf_client_co_audio_state(1, 1, BTA_HF_CLIENT_CO_AUD_STATE_ON,
+            bta_hf_client_cb.scb.negotiated_codec);
+#else
+    bta_hf_client_co_audio_state(1, 1, BTA_HF_CLIENT_CO_AUD_STATE_ON);
+#endif
+
     if (bta_hf_client_cb.scb.negotiated_codec == BTM_SCO_CODEC_MSBC)
     {
         bta_hf_client_cback_sco(BTA_HF_CLIENT_AUDIO_MSBC_OPEN_EVT);
@@ -674,6 +692,15 @@ void bta_hf_client_sco_conn_close(tBTA_HF_CLIENT_DATA *p_data)
     }
     else
     {
+#if (BTM_WBS_INCLUDED == TRUE)
+        /* Indicate if the closing of audio is because of transfer */
+        bta_hf_client_co_audio_state(1, 1, BTA_HF_CLIENT_CO_AUD_STATE_OFF,
+                bta_hf_client_cb.scb.negotiated_codec);
+#else
+        /* Indicate if the closing of audio is because of transfer */
+        bta_hf_client_co_audio_state(1, 1, BTA_HF_CLIENT_CO_AUD_STATE_OFF);
+#endif
+
         bta_hf_client_sco_event(BTA_HF_CLIENT_SCO_CONN_CLOSE_E);
 
         bta_sys_sco_close(BTA_ID_HS, 1, bta_hf_client_cb.scb.peer_addr);

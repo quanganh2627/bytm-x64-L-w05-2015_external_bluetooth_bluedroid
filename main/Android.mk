@@ -58,6 +58,7 @@ LOCAL_SRC_FILES += \
 	../btif/co/bta_gatts_co.c \
 	../btif/co/bta_hh_co.c \
 	../btif/co/bta_hl_co.c \
+	../btif/co/bta_hf_client_co.c \
 	../btif/co/bta_pan_co.c \
 	../btif/co/bta_sys_co.c
 
