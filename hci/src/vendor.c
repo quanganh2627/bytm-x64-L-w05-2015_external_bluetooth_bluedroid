@@ -24,17 +24,18 @@
 
 #include "bt_hci_bdroid.h"
 #include "bt_vendor_lib.h"
+#include "userial.h"
 #include "hci.h"
 #include "osi.h"
 
 
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 tINT_CMD_CBACK p_int_evt_cb=NULL;
 #endif
 // TODO: eliminate these three.
 extern tHCI_IF *p_hci_if;
 extern bool fwcfg_acked;
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 extern unsigned long module_name;
 #endif
 void lpm_vnd_cback(uint8_t vnd_result);
@@ -53,7 +54,7 @@ static void *buffer_alloc(int size);
 static void buffer_free(void *buffer);
 static uint8_t transmit_cb(uint16_t opcode, void *buffer, tINT_CMD_CBACK callback);
 static void epilog_cb(bt_vendor_op_result_t result);
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 static uint8_t int_evt_callback_reg_cb(tINT_CMD_CBACK p_cb);
 #endif
 
@@ -67,7 +68,7 @@ static const bt_vendor_callbacks_t vendor_callbacks = {
   buffer_free,
   transmit_cb,
   epilog_cb
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
   , int_evt_callback_reg_cb
 #endif
 };
@@ -126,7 +127,7 @@ static void firmware_config_cb(bt_vendor_op_result_t result) {
   assert(bt_hc_cbacks != NULL);
 
   fwcfg_acked = true;
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
   p_int_evt_cb = NULL;
 
   if (module_name == MODULE_FM)
@@ -198,7 +199,7 @@ static uint8_t transmit_cb(uint16_t opcode, void *buffer, tINT_CMD_CBACK callbac
 static void epilog_cb(UNUSED_ATTR bt_vendor_op_result_t result) {
 }
 
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 /******************************************************************************
 **
 ** Function         int_evt_callback_reg_cb

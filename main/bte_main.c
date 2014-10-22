@@ -58,7 +58,7 @@
 
 /* Stack preload process timeout period  */
 #ifndef PRELOAD_START_TIMEOUT_MS
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 #define PRELOAD_START_TIMEOUT_MS 30000  // 30 seconds
 #else
 #define PRELOAD_START_TIMEOUT_MS 3000  // 3 seconds
@@ -286,7 +286,7 @@ void bte_main_config_hci_logging(BOOLEAN enable, BOOLEAN bt_disabled)
 static void bte_hci_enable(void)
 {
     APPL_TRACE_DEBUG("%s", __FUNCTION__);
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
     unsigned long module_name = MODULE_BT;
 #endif
 
@@ -321,7 +321,7 @@ static void bte_hci_enable(void)
         bt_hc_if->set_power(BT_HC_CHIP_PWR_OFF);
 #endif
         bt_hc_if->set_power(BT_HC_CHIP_PWR_ON);
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
         bt_hc_if->preload(&module_name);
 #else
         bt_hc_if->preload(NULL);

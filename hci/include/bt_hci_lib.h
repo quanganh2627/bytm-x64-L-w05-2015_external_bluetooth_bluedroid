@@ -23,12 +23,16 @@
 #include <stdbool.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
+#ifdef INTEL_CONTROLLER
+#ifdef HAS_BDROID_BUILDCFG
 #include "bdroid_buildcfg.h"
+#endif
+#endif
 
 /** Struct types */
 /** Typedefs and defines */
 /* Module names */
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 typedef enum {
     MODULE_INVALID,
     MODULE_FM,

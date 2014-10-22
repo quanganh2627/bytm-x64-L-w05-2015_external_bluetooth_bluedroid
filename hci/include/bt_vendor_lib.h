@@ -22,13 +22,17 @@
 #include <stdint.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
+#ifdef INTEL_CONTROLLER
+#ifdef HAS_BDROID_BUILDCFG
 #include "bdroid_buildcfg.h"
+#endif
+#endif
 
 /** Struct types */
 
 
 /** Typedefs and defines */
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 typedef enum ioctl_status {
     DO_FW_DL,
     DO_STACK_INIT,
@@ -98,7 +102,7 @@ typedef enum {
  */
     BT_VND_OP_USERIAL_OPEN,
 
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 /*  [operation]
  *      Configures the previously opened UART port.
  *  [input param]
@@ -209,7 +213,7 @@ typedef enum {
  */
     BT_VND_OP_EPILOG,
 } bt_vendor_opcode_t;
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 /** Baud rate configuration */
 typedef enum {
     STANDARD_BAUD,
@@ -334,7 +338,7 @@ typedef void (*tINT_CMD_CBACK)(void *p_mem);
  */
 typedef uint8_t (*cmd_xmit_cb)(uint16_t opcode, void *p_buf, tINT_CMD_CBACK p_cback);
 
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
 /* Registers aync event callback function */
 typedef uint8_t (*cfg_int_async_evt_callback_reg_cb)(tINT_CMD_CBACK p_cb);
 #endif
@@ -371,7 +375,7 @@ typedef struct {
 
     /* notifies caller completion of epilog process */
     cfg_result_cb epilog_cb;
-#if (INTEL_CONTROLLER == TRUE)
+#ifdef INTEL_CONTROLLER
     /* Register event callback for async event */
     cfg_int_async_evt_callback_reg_cb int_evt_callback_reg_cb;
 #endif
