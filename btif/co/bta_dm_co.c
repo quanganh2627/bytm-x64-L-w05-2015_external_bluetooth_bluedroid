@@ -299,13 +299,6 @@ UINT16 BTA_dm_hsp_read_rx_data_buf(void *p_buf, UINT16 length)
 
 /*******************************************************************************
 **
-@ -193,6 +452,25 @@ static void btui_sco_codec_callback(UINT16 event, UINT16 sco_handle)
-{
-    bta_dm_sco_ci_data_ready(event, sco_handle);
-}
-
-/*******************************************************************************
-**
 ** Function	    btui_sco_register
 **
 ** Description      Sco register function which initializes the callbacks.
@@ -323,7 +316,6 @@ static void btui_sco_register(tBTM_SCO_CFG *cfg)
     cur_cfg.sco_pool_id = cfg->sco_pool_id;
 }
 
-/*******************************************************************************
 /*******************************************************************************
 **
 ** Function         bta_dm_co_get_compress_memory
