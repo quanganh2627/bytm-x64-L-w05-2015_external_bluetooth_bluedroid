@@ -3187,6 +3187,14 @@ void l2cu_set_acl_hci_header (BT_HDR *p_buf, tL2C_CCB *p_ccb)
     }
     else
     {
+#if (BLE_INCLUDED == TRUE)
+        /* For LE the PB flag of 0x02 is not allowed, hence set it to 0x00 */
+        if (p_ccb->p_lcb->is_ble_link)
+        {
+            UINT16_TO_STREAM (p, p_ccb->p_lcb->handle | (L2CAP_PKT_START_NON_FLUSHABLE << L2CAP_PKT_TYPE_SHIFT));
+        }
+        else
+#endif
         UINT16_TO_STREAM (p, p_ccb->p_lcb->handle | l2cb.non_flushable_pbf);
     }
 #else

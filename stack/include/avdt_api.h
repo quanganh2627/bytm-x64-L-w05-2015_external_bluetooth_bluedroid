@@ -193,12 +193,14 @@ typedef UINT8 AVDT_REPORT_TYPE;
 #define AVDT_REPORT_DISCONN_EVT     19      /* Reporting channel disconnected */
 #define AVDT_DELAY_REPORT_EVT       20      /* Delay report received */
 #define AVDT_DELAY_REPORT_CFM_EVT   21      /* Delay report response received */
+#if defined(AVDTP_TESTER) || defined(AVDTP_VERIFIER)
 #define AVDT_ABORT_CFM_EVT          22
 #define AVDT_GETCFG_CFM_EVT         23
 #define AVDT_DISCOVER_IND_EVT       24
 #define AVDT_GETCAP_IND_EVT         25
 #define AVDT_GETCFG_IND_EVT         26
 #define AVDT_ABORT_IND_EVT          27
+#endif //AVDTP_TESTER
 
 #define AVDT_MAX_EVT                (AVDT_DELAY_REPORT_CFM_EVT)
 

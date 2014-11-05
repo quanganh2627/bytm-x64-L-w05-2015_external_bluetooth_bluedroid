@@ -544,8 +544,10 @@ static void bta_av_api_register(tBTA_AV_DATA *p_data)
         cs.p_data_cback = NULL;
         cs.p_report_cback = NULL;
         */
+#ifndef AVDTP_TESTER
         cs.nsc_mask = AVDT_NSC_RECONFIG |
               ((bta_av_cb.features & BTA_AV_FEAT_PROTECT) ? 0 : AVDT_NSC_SECURITY);
+#endif
         APPL_TRACE_DEBUG1("nsc_mask: 0x%x", cs.nsc_mask);
 
         if (p_data->api_reg.p_service_name[0] == 0)
