@@ -57,6 +57,11 @@ extern void btm_ble_test_command_complete(UINT8 *p);
 #endif
 // btla-specific --
 
+//WorkAround for HW Error
+#ifdef INTEL_CONTROLLER
+#define HW_ERR_EVENT_OTP_READ_FAILURE    14
+#endif
+
 //Counter to track number of HCI command timeout
 static int num_hci_cmds_timed_out;
 
@@ -1698,6 +1703,12 @@ void btu_hcif_cmd_timeout (UINT8 controller_id)
 static void btu_hcif_hardware_error_evt (UINT8 *p)
 {
     HCI_TRACE_ERROR("Ctlr H/w error event - code:0x%x", *p);
+
+#ifdef INTEL_CONTROLLER
+    /* Ignore HW_ERR_EVENT_OTP_READ_FAILURE*/
+    if(*p == HW_ERR_EVENT_OTP_READ_FAILURE)
+       return;
+#endif
 
     /* If anyone wants device status notifications, give him one. */
     btm_report_device_status (BTM_DEV_STATUS_DOWN);
