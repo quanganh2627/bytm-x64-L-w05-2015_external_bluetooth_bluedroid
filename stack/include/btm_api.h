@@ -40,6 +40,8 @@
 ******************************/
 /* Maximum number of bytes allowed for vendor specific command parameters */
 #define BTM_MAX_VENDOR_SPECIFIC_LEN  HCI_COMMAND_SIZE
+#define SCO_ON 1
+#define SCO_OFF 0
 
 /* BTM application return status codes */
 enum
@@ -968,6 +970,8 @@ typedef UINT8 tBTM_SCO_TYPE;
 /*******************
 ** SCO Routing Path
 ********************/
+#define HCI_BRCM_SCO_ROUTE_PCM 0
+#define HCI_BRCM_SCO_ROUTE_HCI 1
 #define BTM_SCO_ROUTE_PCM           HCI_BRCM_SCO_ROUTE_PCM
 #define BTM_SCO_ROUTE_HCI           HCI_BRCM_SCO_ROUTE_HCI
 typedef UINT8 tBTM_SCO_ROUTE_TYPE;
@@ -4478,6 +4482,8 @@ BTM_API extern tBTM_STATUS BTM_SetWBSCodec (tBTM_SCO_CODEC_TYPE codec_type);
 **
 *******************************************************************************/
     BTM_API extern tBTM_STATUS BTM_WriteScoData (UINT16 sco_inx, BT_HDR *p_buf);
+
+BTM_API extern void BTM_sco_trigger(int state, int index);
 
 /*******************************************************************************
 **

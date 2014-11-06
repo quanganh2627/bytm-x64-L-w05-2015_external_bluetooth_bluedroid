@@ -74,6 +74,10 @@ void init_vnd_if(unsigned char *local_bdaddr);
 bt_hc_callbacks_t *bt_hc_cbacks = NULL;
 tHCI_IF *p_hci_if;
 volatile bool fwcfg_acked;
+
+static int sco_state = 0;
+static uint16_t hc_sco_handle = 0;
+
 // Cleanup state indication.
 volatile bool has_cleaned_up = false;
 
@@ -455,6 +459,11 @@ static int tx_hc_cmd(TRANSAC transac, char *p_buf, int len) {
   return BT_HC_STATUS_SUCCESS;
 }
 
+static void event_sco_trigger(UNUSED_ATTR void *context) {
+    ALOGD("SCO triger event in the bt hc worker thread");
+    p_hci_if->sco_trigger(sco_state, hc_sco_handle);
+}
+
 // Closes the interface.
 // This routine is not thread safe.
 static void cleanup(void)
@@ -502,6 +511,14 @@ static void cleanup(void)
     has_cleaned_up = true;
 }
 
+static void sco_rx_trigger(int state, uint16_t sco_handle)
+{
+    ALOGD("%s", __func__);
+    sco_state = state;
+    hc_sco_handle = sco_handle;
+    thread_post(hc_cb.worker_thread, event_sco_trigger, NULL);
+}
+
 static const bt_hc_interface_t bluetoothHCLibInterface = {
     sizeof(bt_hc_interface_t),
     init,
@@ -511,6 +528,7 @@ static const bt_hc_interface_t bluetoothHCLibInterface = {
     postload,
     transmit_buf,
     logging,
+    sco_rx_trigger,
     cleanup,
     tx_hc_cmd,
 };

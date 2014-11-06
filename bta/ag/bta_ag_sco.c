@@ -662,6 +662,7 @@ static void bta_ag_cn_timer_cback (TIMER_LIST_ENT *p_tle)
 
             /* call app callback */
             bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+            BTM_sco_trigger(SCO_OFF, bta_ag_scb_to_idx(p_scb));
         }
     }
 }
@@ -1469,6 +1470,7 @@ void bta_ag_sco_conn_open(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
 
     /* call app callback */
     bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_OPEN_EVT);
+    BTM_sco_trigger(SCO_ON, bta_ag_scb_to_idx(p_scb));
 
     p_scb->retry_with_sco_only = FALSE;
 #if (BTM_WBS_INCLUDED == TRUE)
@@ -1542,6 +1544,8 @@ void bta_ag_sco_conn_close(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
 
         /* call app callback */
         bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+        APPL_TRACE_DEBUG("%s Audio close", __func__);
+        BTM_sco_trigger(SCO_OFF, bta_ag_scb_to_idx(p_scb));
 #if (BTM_WBS_INCLUDED == TRUE)
         p_scb->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;
 #endif

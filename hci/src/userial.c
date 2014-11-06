@@ -403,3 +403,18 @@ void userial_close(void) {
 
     userial_cb.fd = -1;
 }
+
+/*******************************************************************************
+**
+** Function        userial_sco_trigger
+**
+** Description     Trigger SCO Connection
+**
+** Returns         None
+**
+*******************************************************************************/
+void userial_sco_trigger(int state, uint16_t sco_handle)
+{
+    /* Not Implemented for UART interface */
+    return;
+}

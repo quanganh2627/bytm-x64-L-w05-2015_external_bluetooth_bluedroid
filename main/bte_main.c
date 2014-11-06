@@ -607,6 +607,13 @@ void bte_main_hci_send (BT_HDR *p_msg, UINT16 event)
     }
 }
 
+void bte_main_sco_trigger_send(int state, UINT16 sco_handle)
+{
+    APPL_TRACE_DEBUG("%s", __func__);
+    bt_hc_if->sco_trigger(state, sco_handle);
+
+}
+
 /******************************************************************************
 **
 ** Function         bte_main_post_reset_init

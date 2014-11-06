@@ -36,6 +36,7 @@ LOCAL_SRC_FILES += \
 	../btif/src/btif_hl.c \
 	../btif/src/btif_mce.c \
 	../btif/src/btif_media_task.c \
+        ../btif/src/btif_hsp_task.c\
 	../btif/src/btif_pan.c \
 	../btif/src/btif_profile_queue.c \
 	../btif/src/btif_rc.c \
@@ -100,6 +101,7 @@ LOCAL_C_INCLUDES += . \
 	$(LOCAL_PATH)/../embdrv/sbc/decoder/include \
 	$(LOCAL_PATH)/../audio_a2dp_hw \
 	$(LOCAL_PATH)/../utils/include \
+        $(LOCAL_PATH)/../audio_hsp_hw \
 	$(bdroid_C_INCLUDES) \
 	external/tinyxml2
 

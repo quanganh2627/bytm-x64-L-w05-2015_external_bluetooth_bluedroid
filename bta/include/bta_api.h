@@ -1366,6 +1366,69 @@ extern "C"
 
 /*******************************************************************************
 **
+** Function         BTA_dm_hsp_write_tx_data_buf
+**
+** Description      This function writes the data coming from AF to
+**                  internal HSP Tx buffer for HSP outstream.
+**
+**
+** Returns          Void.
+**
+*******************************************************************************/
+BTA_API extern void BTA_dm_hsp_write_tx_data_buf(void *p_buf,UINT16 length);
+
+/*******************************************************************************
+**
+** Function         BTA_dm_hsp_read_rx_data_buf
+**
+** Description      This function reads the data from internal HSP Rx
+**                  buffer and give it to upper layer for HSP instream.
+**
+**
+** Returns          Length of the read bytes.
+**
+*******************************************************************************/
+BTA_API extern UINT16 BTA_dm_hsp_read_rx_data_buf(void *p_buf,UINT16 length);
+
+/*******************************************************************************
+**
+** Function         BTA_dm_hsp_get_tx_data_buf_size
+**
+** Description      This function check the available free buffer size
+**                  of the HSP Tx buffer.
+**
+**
+** Returns          Available free buffer size.
+**
+*******************************************************************************/
+BTA_API extern int BTA_dm_hsp_get_tx_data_buf_size();
+
+/*******************************************************************************
+**
+** Function         BTA_dm_hsp_flush_tx_data_buf
+**
+** Description      This function flush the HSP Tx data buffer.
+**
+**
+** Returns          Void.
+**
+*******************************************************************************/
+BTA_API extern void BTA_dm_hsp_flush_tx_data_buf();
+
+/*******************************************************************************
+**
+** Function         BTA_dm_hsp_flush_rx_data_buf
+**
+** Description      This function flush the HSP Rx data buffer.
+**
+**
+** Returns          Void.
+**
+*******************************************************************************/
+BTA_API extern void BTA_dm_hsp_flush_rx_data_buf();
+
+/*******************************************************************************
+**
 ** Function         BTA_EnableBluetooth
 **
 ** Description      This function initializes BTA and prepares BTA and the

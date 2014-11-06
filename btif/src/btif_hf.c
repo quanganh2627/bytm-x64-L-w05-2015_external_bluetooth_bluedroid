@@ -36,6 +36,9 @@
 
 #include "bd.h"
 #include "bta_ag_api.h"
+#include "btif_hf.h"
+#include "gki.h"
+#include "btif_hsp_task.h"
 
 /************************************************************************************
 **  Constants & Macros
@@ -89,11 +92,8 @@
 
 #define BTIF_HF_INVALID_IDX       -1
 
-/* Number of BTIF-HF control blocks */
-#define BTIF_HF_NUM_CB       2
-
-/* Max HF clients supported from App */
-UINT16 btif_max_hf_clients = -1;
+/* Number of BTIF-HF control blocks *
+#define BTIF_HF_NUM_CB       2*/
 
 /* HF app ids for service registration */
 typedef enum {
@@ -145,24 +145,6 @@ static int hf_idx = BTIF_HF_INVALID_IDX;
         BTIF_TRACE_EVENT("BTHF: %s", __FUNCTION__);\
     }
 
-/* BTIF-HF control block to map bdaddr to BTA handle */
-typedef struct _btif_hf_cb
-{
-    UINT16                  handle;
-    bt_bdaddr_t             connected_bda;
-    bthf_connection_state_t state;
-    bthf_vr_state_t         vr_state;
-    tBTA_AG_PEER_FEAT       peer_feat;
-    int                     num_active;
-    int                     num_held;
-    struct timespec         call_end_timestamp;
-    struct timespec         connected_timestamp;
-    bthf_call_state_t       call_setup_state;
-} btif_hf_cb_t;
-
-static btif_hf_cb_t btif_hf_cb[BTIF_HF_NUM_CB];
-
-
 /************************************************************************************
 **  Static functions
 ************************************************************************************/
@@ -204,6 +186,27 @@ static BOOLEAN is_connected(bt_bdaddr_t *bd_addr)
                 return TRUE;
         }
         return FALSE;
+}
+
+/*******************************************************************************
+**
+** Function         is_audio_connected
+**
+** Description      Internal function to check if audio is connected
+**
+** Returns          TRUE if connected
+**
+*******************************************************************************/
+BOOLEAN is_audio_connected()
+{
+    int i;
+    for (i = 0; i < btif_max_hf_clients; ++i)
+    {
+        if (((btif_hf_cb[i].state == BTHF_CONNECTION_STATE_CONNECTED) ||
+            (btif_hf_cb[i].state == BTHF_CONNECTION_STATE_SLC_CONNECTED)))
+            return TRUE;
+    }
+    return FALSE;
 }
 
 /*******************************************************************************
@@ -706,6 +709,8 @@ static bt_status_t init( bthf_callbacks_t* callbacks, int max_hf_clients)
      * Internally, the HSP_SERVICE_ID shall also be enabled if HFP is enabled (phone)
      * othwerwise only HSP is enabled (tablet)
     */
+    if (btif_start_hsp_task() != GKI_SUCCESS)
+        return BT_STATUS_FAIL;
 #if (defined(BTIF_HF_SERVICES) && (BTIF_HF_SERVICES & BTA_HFP_SERVICE_MASK))
     btif_enable_service(BTA_HFP_SERVICE_ID);
 #else
@@ -1414,6 +1419,7 @@ static void  cleanup( void )
 
     if (bt_hf_callbacks)
     {
+        btif_stop_hsp_task();
         btif_disable_service(BTA_HFP_SERVICE_ID);
         bt_hf_callbacks = NULL;
     }
