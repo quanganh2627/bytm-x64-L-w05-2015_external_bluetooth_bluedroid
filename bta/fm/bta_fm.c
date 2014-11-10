@@ -108,7 +108,7 @@ void bta_fm_register()
     APPL_TRACE_DEBUG1("%s : ", __FUNCTION__);
     if(bta_fm_registered)
     {
-        APPL_TRACE_DEBUG1("%s : Already registered", __FUNCTION__);
+        APPL_TRACE_WARNING1("%s : Already registered", __FUNCTION__);
         return;
     }
     /* creates queue and thread for listening to remote procedure calls,
@@ -154,12 +154,12 @@ void  bta_fm_init()
         }
     }
     UTA_REMOTE_CALL(IuiFmRegisterMitigationCallback)( IUI_FM_MACRO_ID_BT, bt_iui_fm_mitigation_cb );
-    APPL_TRACE_DEBUG1("%s : IuiFmRegisterMitigationCallback - BT mitigation cb registered ", __FUNCTION__);
+    APPL_TRACE_WARNING1("%s : IuiFmRegisterMitigationCallback - BT mitigation cb registered ", __FUNCTION__);
     binfo_on->bt_state=IUI_FM_BT_STATE_ON;
     FmNotification_on.info.bt_info = binfo_on;
     FmNotification_on.type=IUI_FM_FREQ_NOTIFICATION_TYPE_BT;
     UTA_REMOTE_CALL(IuiFmNotifyFrequency)(IUI_FM_MACRO_ID_BT,  notification_on );
-    APPL_TRACE_DEBUG1("%s : IuiFmNotifyFrequency - BT on notification ", __FUNCTION__);
+    APPL_TRACE_WARNING1("%s : IuiFmNotifyFrequency - BT on notification ", __FUNCTION__);
     ALOGI("%s:IuiFmNotifyFrequency - BT on notification",__FUNCTION__);
     GKI_freebuf(binfo_on);
     binfo_on=NULL;
@@ -194,10 +194,10 @@ void bta_fm_deinit()
     FmNotification_off.info.bt_info = binfo_off;
     FmNotification_off.type=IUI_FM_FREQ_NOTIFICATION_TYPE_BT;
     UTA_REMOTE_CALL(IuiFmNotifyFrequency)(IUI_FM_MACRO_ID_BT,  notification_off );
-    APPL_TRACE_DEBUG1("%s : IuiFmNotifyFrequency - BT off notification ", __FUNCTION__);
+    APPL_TRACE_WARNING1("%s : IuiFmNotifyFrequency - BT off notification ", __FUNCTION__);
     ALOGI("%s: BT off notification",__FUNCTION__);
     UTA_REMOTE_CALL(IuiFmRegisterMitigationCallback)( IUI_FM_MACRO_ID_BT, NULL );
-    APPL_TRACE_DEBUG1("%s : IuiFmRegisterMitigationCallback - unregister ", __FUNCTION__);
+    APPL_TRACE_WARNING1("%s : IuiFmRegisterMitigationCallback - unregister ", __FUNCTION__);
     GKI_freebuf(binfo_off);
     binfo_off=NULL;
 }
