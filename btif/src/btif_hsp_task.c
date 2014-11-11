@@ -746,7 +746,8 @@ static void btif_hsp_task_in_handle_timer(void)
 
     APPL_TRACE_DEBUG("Timer timed out : Sending sco data audio flinger");
 
-    if((length_read = BTA_dm_hsp_read_rx_data_buf(buffer,VOICE_MAX_RX_DATA_BTYES))>0)
+    if(((length_read = BTA_dm_hsp_read_rx_data_buf(buffer,VOICE_MAX_RX_DATA_BTYES))>0) &&
+        (length_read <= VOICE_MAX_RX_DATA_BTYES))
     {
         UIPC_Send(UIPC_CH_ID_VOICE_IN_DATA, 0, buffer, length_read);
     }
