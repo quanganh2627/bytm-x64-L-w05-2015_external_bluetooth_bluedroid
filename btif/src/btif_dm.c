@@ -1407,7 +1407,10 @@ static void btif_dm_upstreams_evt(UINT16 event, char* p_param)
             btif_storage_remove_ble_bonding_keys(&bd_addr);
             #endif
             btif_storage_remove_bonded_device(&bd_addr);
-            bond_state_changed(BT_STATUS_SUCCESS, &bd_addr, BT_BOND_STATE_NONE);
+            if (pairing_cb.state == BT_BOND_STATE_BONDING)
+                bond_state_changed(BT_STATUS_RMT_DEV_DOWN, &bd_addr, BT_BOND_STATE_NONE);
+            else
+                bond_state_changed(BT_STATUS_SUCCESS, &bd_addr, BT_BOND_STATE_NONE);
             break;
 
         case BTA_DM_BUSY_LEVEL_EVT:

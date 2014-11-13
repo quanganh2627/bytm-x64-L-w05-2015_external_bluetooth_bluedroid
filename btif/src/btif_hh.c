@@ -847,6 +847,8 @@ static void btif_hh_upstreams_evt(UINT16 event, char* p_param)
                 bt_bdaddr_t *bdaddr = (bt_bdaddr_t*)p_data->conn.bda;
                 HAL_CBACK(bt_hh_callbacks, connection_state_cb, (bt_bdaddr_t*) &p_data->conn.bda,BTHH_CONN_STATE_DISCONNECTED);
                 btif_hh_cb.status = BTIF_HH_DEV_DISCONNECTED;
+                if (p_data->conn.status == BTA_HH_ERR_SDP)
+                    btif_dm_remove_bond(bdaddr);
             }
             break;
         case BTA_HH_CLOSE_EVT:
