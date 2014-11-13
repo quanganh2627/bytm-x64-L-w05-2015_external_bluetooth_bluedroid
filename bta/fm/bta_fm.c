@@ -47,6 +47,7 @@
 extern void bta_dm_btfm_set_afh_channels(UINT8 ch_mask[]);
 
 static  IuiFmMitigationStatus    bt_iui_fm_mitigation_cb(const IuiFmMacroId macro_id, const IuiFmMitigation *mitigation, const IuiFmMitigationSequence sequence);
+void bta_btfm_set_afh_channels_evt_cb(UINT8 result);
 
 /*Structure that has member to receive value from FM*/
 typedef struct BtFmMitigation{

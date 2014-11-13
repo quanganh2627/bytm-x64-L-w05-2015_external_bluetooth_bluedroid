@@ -10,7 +10,7 @@ ifeq ($(BOARD_HAVE_BLUETOOTH_BCM),true)
 LOCAL_CFLAGS += \
     -DBOARD_HAVE_BLUETOOTH_BCM
 endif
-ifneq ($(BOARD_SUPPORTS_FREQUENCY_MANAGER), false)
+ifneq ($(FREQUENCY_MANAGER_ENABLE), false)
 LOCAL_CFLAGS += -DBT_FM_MITIGATION
 endif
 LOCAL_CFLAGS += -DBUILDCFG $(bdroid_CFLAGS)
@@ -88,7 +88,7 @@ LOCAL_SRC_FILES:= \
     ./jv/bta_jv_main.c \
     ./jv/bta_jv_api.c
 
-ifneq ($(BOARD_SUPPORTS_FREQUENCY_MANAGER), false)
+ifneq ($(FREQUENCY_MANAGER_ENABLE), false)
 LOCAL_SRC_FILES+= ./fm/bta_fm.c
 endif
 
@@ -141,7 +141,7 @@ LOCAL_C_INCLUDES += $(INC_PATH)/multi-client/rpc-stubs/fm/inc
 LOCAL_LDLIBS := -ldl
 
 LOCAL_WHOLE_STATIC_LIBRARIES :=
-ifneq ($(BOARD_SUPPORTS_FREQUENCY_MANAGER), false)
+ifneq ($(FREQUENCY_MANAGER_ENABLE), false)
 LOCAL_WHOLE_STATIC_LIBRARIES += librpc_fmstub
 endif
 
