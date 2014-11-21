@@ -1261,6 +1261,30 @@ uint16_t usb_write(uint16_t msg_id, uint8_t *p_data, uint16_t len)
 }
 
 /*******************************************************************************
+** Function        usb_close_reader
+**
+** Description     Close usb reader
+**
+** Returns         None
+**
+*******************************************************************************/
+void usb_close_reader(void)
+{
+    if (usb_running)
+    {
+        int result;
+        // set status to trigger exit
+        usb_xfer_status |= RX_DEAD;
+        // block waiting .. result should be 0
+        if ((result = pthread_join(usb.read_thread, NULL)) != 0)
+            USBERR( "pthread_join() FAILED errno = %#x\n", result);
+        return;
+    }
+
+    USBDBG("%s Already closed usb reader thread", __func__);
+}
+
+/*******************************************************************************
 **
 ** Function        usb_close
 **

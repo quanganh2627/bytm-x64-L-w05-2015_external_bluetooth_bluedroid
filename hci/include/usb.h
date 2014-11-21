@@ -39,6 +39,7 @@
 #define usb_open            userial_open
 #define usb_write           userial_write
 #define usb_read            userial_read
+#define usb_close_reader    userial_close_reader
 #define usb_close           userial_close
 #define usb_ioctl           userial_ioctl
 #define usb_sco_trigger     userial_sco_trigger
