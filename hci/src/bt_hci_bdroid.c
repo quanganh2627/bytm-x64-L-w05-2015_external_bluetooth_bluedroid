@@ -107,7 +107,8 @@ static BUFFER_Q tx_q;
 ******************************************************************************/
 
 static void event_preload(UNUSED_ATTR void *context) {
-  userial_open(USERIAL_PORT_1);
+  if (userial_open(USERIAL_PORT_1) == false)
+    return;
   vendor_send_command(BT_VND_OP_FW_CFG, NULL);
 }
 
