@@ -960,19 +960,8 @@ void btm_read_local_supported_codecs_complete (UINT8 *p, UINT16 evt_len)
 
         /* Skipping vendor specific codecs. */
     }
-#if BLE_INCLUDED == TRUE
-    {
-        btm_read_ble_wl_size();
-    }
-#elif BTM_INTERNAL_BB == TRUE
-    {
-        UINT8 buf[9] = BTM_INTERNAL_LOCAL_FEA;
-        btm_read_local_features_complete( buf, 9 );
-    }
-#else
     /* get local feature if BRCM specific feature is not included  */
     btm_get_local_features ();
-#endif
 }
 
 /*******************************************************************************
@@ -1542,6 +1531,17 @@ void btm_read_local_supported_cmds_complete (UINT8 *p)
 
     if (status == HCI_SUCCESS)
     {
+        btm_cb.devcb.enhanced_hci_cmds = BTM_ENHANCED_HCI_CMD_SUPPORT(p);
+#if (BTM_WBS_INCLUDED == TRUE)
+        btm_cb.devcb.enhanced_hci_sco  = btm_cb.devcb.enhanced_hci_cmds &
+                                                    BTM_ENHANCED_SETUP_SYNC_CON_MASK;
+        if (btm_cb.devcb.enhanced_hci_cmds & BTM_READ_LOCAL_SUPPORTED_CODEC_MASK)
+        {
+            // Send out read local supported codecs.
+            btsnd_hcic_read_local_supported_codecs();
+            return;
+        }
+#endif
         /* Save the supported commands bit mask */
         STREAM_TO_ARRAY(p_devcb->supported_cmds, p, HCI_NUM_SUPP_COMMANDS_BYTES);
     }
