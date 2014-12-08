@@ -305,6 +305,9 @@ static void a2dp_stream_out_init(struct a2dp_stream_out *out)
 {
     pthread_mutexattr_t lock_attr;
 
+    if(out == NULL)
+       return;
+
     FNLOG();
 
     pthread_mutexattr_init(&lock_attr);
@@ -439,6 +442,9 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
 {
     struct a2dp_stream_out *out = (struct a2dp_stream_out *)stream;
     int sent;
+
+    if(out == NULL)
+       return 0;
 
     DEBUG("write %d bytes (fd %d)", bytes, out->audio_fd);
 
@@ -576,9 +582,12 @@ static int out_dump(const struct audio_stream *stream, int fd)
 static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
 {
     struct a2dp_stream_out *out = (struct a2dp_stream_out *)stream;
-    struct str_parms *parms;
+    struct str_parms *parms = NULL;
     char keyval[16];
     int retval = 0;
+
+    if(out == NULL)
+       return 0;
 
     INFO("state %d", out->state);
 
@@ -905,9 +914,12 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 static char * adev_get_parameters(const struct audio_hw_device *dev,
                                   const char *keys)
 {
-    struct str_parms *parms;
+    struct str_parms *parms = NULL;
 
     FNLOG();
+
+    if(keys == NULL)
+       return 0;
 
     parms = str_parms_create_str(keys);
 

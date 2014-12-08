@@ -441,9 +441,12 @@ BOOLEAN SDP_FindServiceUUIDInRec(tSDP_DISC_REC *p_rec, tBT_UUID * p_uuid)
 BOOLEAN SDP_FindServiceUUIDInRec_128bit(tSDP_DISC_REC *p_rec, tBT_UUID * p_uuid)
 {
 #if SDP_CLIENT_ENABLED == TRUE
-    tSDP_DISC_ATTR  *p_attr, *p_sattr, *p_extra_sattr;
+    tSDP_DISC_ATTR  *p_attr, *p_sattr = NULL, *p_extra_sattr;
 
     p_attr = p_rec->p_first_attr;
+
+    if(p_uuid == NULL)
+        return FALSE;
 
     while (p_attr)
     {

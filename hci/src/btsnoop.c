@@ -455,7 +455,7 @@ static int ext_parser_accept(int port)
 {
     socklen_t           clilen;
     struct sockaddr_in  cliaddr, servaddr;
-    int s, srvlen;
+    int s = 0, srvlen;
     int n = 1;
     int size_n;
     int result = 0;

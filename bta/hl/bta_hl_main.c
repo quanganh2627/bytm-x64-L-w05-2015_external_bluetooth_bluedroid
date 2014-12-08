@@ -1835,7 +1835,7 @@ static void bta_hl_mca_delete_mdl_ind(tBTA_HL_CB *p_cb, tBTA_HL_DATA *p_data)
     if (send_ind_evt)
     {
         p_acb = BTA_HL_GET_APP_CB_PTR(app_idx);
-        if (p_acb->p_cback)
+        if ((p_acb) && p_acb->p_cback)
         {
             evt_data.delete_mdl_ind.mcl_handle = p_mcb->mcl_handle;
             evt_data.delete_mdl_ind.app_handle = p_acb->app_handle;

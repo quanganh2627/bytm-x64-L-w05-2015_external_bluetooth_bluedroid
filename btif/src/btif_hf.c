@@ -904,7 +904,7 @@ static bt_status_t clcc_response(int index, bthf_call_direction_t dir,
             xx = sprintf (ag_res.str, "%d,%d,%d,%d,%d",
                          index, dir, state, mode, mpty);
 
-            if (number)
+            if (number && (xx >= 0))
             {
                 if ((type == BTHF_CALL_ADDRTYPE_INTERNATIONAL) && (*number != '+'))
                     sprintf (&ag_res.str[xx], ",\"+%s\",%d", number, type);
@@ -1046,7 +1046,7 @@ static bt_status_t phone_state_change(int num_active, int num_held, bthf_call_st
                         xx = sprintf (ag_res.str, "\"%s\"", number);
                     ag_res.num = type;
 
-                    if (res == BTA_AG_CALL_WAIT_RES)
+                    if ((res == BTA_AG_CALL_WAIT_RES) && (xx >= 0))
                         sprintf(&ag_res.str[xx], ",%d", type);
                 }
                 break;
