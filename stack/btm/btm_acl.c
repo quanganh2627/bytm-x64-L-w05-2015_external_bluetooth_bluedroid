@@ -3008,7 +3008,8 @@ void btm_read_tx_power_complete (UINT8 *p, BOOLEAN is_ble)
         else
             results.status = BTM_ERR_PROCESSING;
 
-        (*p_cb)(&results);
+        if(p_cb)
+           (*p_cb)(&results);
     }
 }
 

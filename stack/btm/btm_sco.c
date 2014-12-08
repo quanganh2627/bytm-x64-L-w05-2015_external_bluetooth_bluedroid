@@ -418,6 +418,9 @@ void btm_sco_check_send_pkts (UINT16 sco_inx)
 #endif
         p_buf = (BT_HDR *)GKI_dequeue (&p_ccb->xmit_data_q);
 
+        if(p_buf == NULL)
+           return;
+
         HCI_SCO_DATA_TO_LOWER (p_buf);
     }
 }
