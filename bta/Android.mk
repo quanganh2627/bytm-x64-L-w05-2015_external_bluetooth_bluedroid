@@ -93,6 +93,7 @@ LOCAL_SRC_FILES+= ./fm/bta_fm.c
 endif
 
 LOCAL_C_INCLUDES+= . \
+                   ../../../../hardware/imc/rpc/rpcService \
                    $(LOCAL_PATH)/include \
                    $(LOCAL_PATH)/sys \
                    $(LOCAL_PATH)/dm \
@@ -137,6 +138,7 @@ LOCAL_C_INCLUDES += $(INC_PATH)/multi-client/utils/
 LOCAL_C_INCLUDES += $(INC_PATH)/multi-client/rpc-stubs/fm/uta_rpc/uta_2_0
 LOCAL_C_INCLUDES += $(INC_PATH)/multi-client/rpc-stubs/fm/uta_rpc/uta_2_0/host
 LOCAL_C_INCLUDES += $(INC_PATH)/multi-client/rpc-stubs/fm/inc
+LOCAL_C_INCLUDES += $(INC_PATH)/rpcService
 
 LOCAL_LDLIBS := -ldl
 
@@ -145,7 +147,7 @@ ifneq ($(FREQUENCY_MANAGER_ENABLE), false)
 LOCAL_WHOLE_STATIC_LIBRARIES += librpc_fmstub
 endif
 
-LOCAL_SHARED_LIBRARIES := libcutils libc libutils libdl
+LOCAL_SHARED_LIBRARIES := libcutils libc libutils libdl libRpcService
 
 LOCAL_MODULE := libbt-brcm_bta
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
