@@ -132,6 +132,7 @@ LOCAL_C_INCLUDES+= . \
     $(LOCAL_PATH)/../audio_a2dp_hw \
     $(LOCAL_PATH)/../utils/include \
     $(LOCAL_PATH)/../audio_hsp_hw \
+    $(LOCAL_PATH)/../../../../hardware/imc/rpc/rpcService \
     $(bdroid_C_INCLUDES) \
     external/tinyxml2
 
@@ -162,7 +163,8 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libpower \
     libbt-hci \
-    libbt-utils
+    libbt-utils \
+    libRpcService
 
 #LOCAL_WHOLE_STATIC_LIBRARIES := libbt-brcm_gki libbt-brcm_stack libbt-brcm_bta
 LOCAL_STATIC_LIBRARIES := libbt-brcm_gki libbt-brcm_bta libbt-brcm_stack libtinyxml2
