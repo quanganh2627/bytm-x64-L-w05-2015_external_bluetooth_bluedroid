@@ -70,7 +70,6 @@ static const tL2CAP_APPL_INFO dyn_info =
     NULL,
     gatt_l2cif_data_ind_cback,
     gatt_l2cif_congest_cback,
-	NULL,
     NULL
 } ;
 
