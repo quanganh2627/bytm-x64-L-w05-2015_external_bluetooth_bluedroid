@@ -75,14 +75,8 @@ void init_vnd_if(unsigned char *local_bdaddr);
 bt_hc_callbacks_t *bt_hc_cbacks = NULL;
 tHCI_IF *p_hci_if;
 volatile bool fwcfg_acked;
-//<<<<<<< HEAD
-// Cleanup state indication.
-volatile bool has_cleaned_up = false;
-
-//=======
 static int sco_state = 0;
 static uint16_t hc_sco_handle = 0;
-//>>>>>>> [PATCH 1/2] merge audio/fm patch from Kitkat
 /******************************************************************************
 **  Local type definitions
 ******************************************************************************/
@@ -113,7 +107,7 @@ static void event_preload(UNUSED_ATTR void *context) {
   if(userial_open(USERIAL_PORT_1) == FALSE)
   {
      BTHCDBG("event_preload:userial open fail");
-     return;
+     return;   
   }
   lpm_enable(true);
   vendor_send_command(BT_VND_OP_FW_CFG, NULL);
@@ -343,7 +337,6 @@ static int init(const bt_hc_callbacks_t* p_cb, unsigned char *local_bdaddr)
 
     hc_cb.epilog_timer_created = false;
     fwcfg_acked = false;
-    has_cleaned_up = false;
 
     pthread_mutex_init(&hc_cb.worker_thread_lock, NULL);
 
@@ -373,16 +366,13 @@ static int init(const bt_hc_callbacks_t* p_cb, unsigned char *local_bdaddr)
         ALOGW("init has been called repeatedly without calling cleanup ?");
     }
 
-    // Set prio here and let hci worker thread inherit prio
-    // remove once new thread api (thread_set_priority() ?)
-    // can switch prio
-    raise_priority_a2dp(TASK_HIGH_HCI_WORKER);
-
     hc_cb.worker_thread = thread_new("bt_hc_worker");
     if (!hc_cb.worker_thread) {
         ALOGE("%s unable to create worker thread.", __func__);
         return BT_HC_STATUS_FAIL;
     }
+
+    // TODO(sharvil): increase thread priority (raise_priority_a2dp)
 
     return BT_HC_STATUS_SUCCESS;
 }
@@ -458,13 +448,13 @@ static int set_rxflow(bt_rx_flow_state_t state)
     return BT_HC_STATUS_SUCCESS;
 }
 /** Controls HCI logging on/off */
-static int logging(bt_hc_logging_state_t state, char *p_path, bool save_existing) {
+static int logging(bt_hc_logging_state_t state, char *p_path) {
   BTHCDBG("logging %d", state);
 
   if (state != BT_HC_LOGGING_ON)
     btsnoop_close();
   else if (p_path != NULL)
-    btsnoop_open(p_path, save_existing);
+    btsnoop_open(p_path);
 
   return BT_HC_STATUS_SUCCESS;
 }
@@ -480,15 +470,9 @@ static int tx_hc_cmd(TRANSAC transac, char *p_buf, int len) {
   return BT_HC_STATUS_SUCCESS;
 }
 
-// Closes the interface.
-// This routine is not thread safe.
-static void cleanup(void)
+/** Closes the interface */
+static void cleanup( void )
 {
-    if (has_cleaned_up) {
-        ALOGW("%s Already cleaned up for this session\n", __func__);
-        return;
-    }
-
     BTHCDBG("cleanup");
 
     if (hc_cb.worker_thread)
@@ -496,11 +480,9 @@ static void cleanup(void)
         if (fwcfg_acked)
         {
             epilog_wait_timer();
-            // Stop reading thread
-            userial_close_reader();
-
             thread_post(hc_cb.worker_thread, event_epilog, NULL);
         }
+
         thread_free(hc_cb.worker_thread);
 
         pthread_mutex_lock(&hc_cb.worker_thread_lock);
@@ -513,7 +495,6 @@ static void cleanup(void)
             hc_cb.epilog_timer_created = false;
         }
     }
-    BTHCDBG("%s Finalizing cleanup\n", __func__);
 
     lpm_cleanup();
     userial_close();
@@ -527,7 +508,6 @@ static void cleanup(void)
 
     fwcfg_acked = false;
     bt_hc_cbacks = NULL;
-    has_cleaned_up = true;
 }
 
 static void sco_rx_trigger(int state, uint16_t sco_handle)

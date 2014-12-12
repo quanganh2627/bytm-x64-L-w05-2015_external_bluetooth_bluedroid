@@ -87,8 +87,8 @@ typedef struct
 ******************************************************************************/
 BOOLEAN hci_logging_enabled = FALSE;    /* by default, turn hci log off */
 BOOLEAN hci_logging_config = FALSE;    /* configured from bluetooth framework */
-BOOLEAN hci_save_log = FALSE; /* save a copy of the log before starting again */
 char hci_logfile[256] = HCI_LOGGING_FILENAME;
+
 
 /*******************************************************************************
 **  Static variables
@@ -97,8 +97,6 @@ static bt_hc_interface_t *bt_hc_if=NULL;
 static const bt_hc_callbacks_t hc_callbacks;
 static BOOLEAN lpm_enabled = FALSE;
 static bt_preload_retry_cb_t preload_retry_cb;
-// Lock to serialize cleanup requests from upper layer.
-static pthread_mutex_t cleanup_lock;
 
 /*******************************************************************************
 **  Static functions
@@ -178,9 +176,6 @@ void bte_main_boot_entry(void)
     /* Initialize trace feature */
     BTTRC_TraceInit(MAX_TRACE_RAM_SIZE, &BTE_TraceLogBuf[0], BTTRC_METHOD_RAM);
 #endif
-
-    pthread_mutex_init(&cleanup_lock, NULL);
-
 }
 
 /******************************************************************************
@@ -194,8 +189,6 @@ void bte_main_boot_entry(void)
 ******************************************************************************/
 void bte_main_shutdown()
 {
-    pthread_mutex_destroy(&cleanup_lock);
-
     GKI_shutdown();
 }
 
@@ -275,7 +268,7 @@ void bte_main_config_hci_logging(BOOLEAN enable, BOOLEAN bt_disabled)
         return;
     }
 
-    bt_hc_if->logging(new ? BT_HC_LOGGING_ON : BT_HC_LOGGING_OFF, hci_logfile, hci_save_log);
+    bt_hc_if->logging(new ? BT_HC_LOGGING_ON : BT_HC_LOGGING_OFF, hci_logfile);
 }
 
 /******************************************************************************
@@ -301,7 +294,7 @@ static void bte_hci_enable(void)
         assert(result == BT_HC_STATUS_SUCCESS);
 
         if (hci_logging_enabled == TRUE || hci_logging_config == TRUE)
-            bt_hc_if->logging(BT_HC_LOGGING_ON, hci_logfile, hci_save_log);
+            bt_hc_if->logging(BT_HC_LOGGING_ON, hci_logfile);
 
 #if (defined (BT_CLEAN_TURN_ON_DISABLED) && BT_CLEAN_TURN_ON_DISABLED == TRUE)
         APPL_TRACE_DEBUG("%s  Not Turninig Off the BT before Turninig ON", __FUNCTION__);
@@ -340,20 +333,6 @@ static void bte_hci_disable(void)
 {
     APPL_TRACE_DEBUG("%s", __FUNCTION__);
 
-//<<<<<<< HEAD
-    if (!bt_hc_if)
-        return;
-
-    // Cleanup is not thread safe and must be protected.
-    pthread_mutex_lock(&cleanup_lock);
-
-    if (hci_logging_enabled == TRUE ||  hci_logging_config == TRUE)
-        bt_hc_if->logging(BT_HC_LOGGING_OFF, hci_logfile, hci_save_log);
-    bt_hc_if->cleanup();
-
-    pthread_mutex_unlock(&cleanup_lock);
-/*
-=======
     if (bt_hc_if)
     {
         //bt_hc_if->cleanup();
@@ -364,8 +343,6 @@ static void bte_hci_disable(void)
        // bt_hc_if->cleanup();
     }
     APPL_TRACE_DEBUG("%s exit", __FUNCTION__);
->>>>>>> [PATCH] Signed-off-by: Huan Zheng <huan.zheng@intel.com>
-*/
 }
 
 /*******************************************************************************

@@ -40,7 +40,6 @@
 #include "l2c_int.h"
 #include "btu.h"
 #include "bt_utils.h"
-#include <sys/prctl.h>
 
 #include "sdpint.h"
 
@@ -222,8 +221,6 @@ BTU_API UINT32 btu_task (UINT32 param)
 
     /* Send a startup evt message to BTIF_TASK to kickstart the init procedure */
     GKI_send_event(BTIF_TASK, BT_EVT_TRIGGER_STACK_INIT);
-
-    prctl(PR_SET_NAME, (unsigned long)"BTU TASK", 0, 0, 0);
 
     raise_priority_a2dp(TASK_HIGH_BTU);
 
@@ -421,6 +418,10 @@ BTU_API UINT32 btu_task (UINT32 param)
                     case BTU_TTYPE_L2CAP_HOLD:
                     case BTU_TTYPE_L2CAP_INFO:
                     case BTU_TTYPE_L2CAP_FCR_ACK:
+#if (BLE_INCLUDED == TRUE)
+                    case BTU_TTYPE_L2CAP_END_CONN_UPD:
+#endif
+
                         l2c_process_timeout (p_tle);
                         break;
 
@@ -602,13 +603,6 @@ BTU_API UINT32 btu_task (UINT32 param)
                         btm_ble_timeout(p_tle);
                         break;
 #endif
-
-                    case BTU_TTYPE_USER_FUNC:
-                        {
-                            tUSER_TIMEOUT_FUNC  *p_uf = (tUSER_TIMEOUT_FUNC *)p_tle->param;
-                            (*p_uf)(p_tle);
-                        }
-                        break;
 
                     default:
                         // FAIL
@@ -861,6 +855,18 @@ void btu_start_timer_oneshot(TIMER_LIST_ENT *p_tle, UINT16 type, UINT32 timeout_
     BTM_TRACE_DEBUG("Starting oneshot timer type:%d timeout:%ds", type, timeout_in_secs);
     GKI_disable();
     if (GKI_timer_queue_is_empty(&btu_cb.timer_queue_oneshot)) {
+        /* RPC to BTU thread if timer start request from non-BTU task */
+        if (GKI_get_taskid() != BTU_TASK) {
+            /* post event to start timer in BTU task */
+            BTM_TRACE_WARNING("Posting oneshot timer event to btu_task");
+            BT_HDR *p_msg = (BT_HDR *)GKI_getbuf(BT_HDR_SIZE);
+            if (p_msg != NULL) {
+                p_msg->event = BT_EVT_TO_START_TIMER_ONESHOT;
+                GKI_send_msg (BTU_TASK, TASK_MBOX_0, p_msg);
+            }
+        } else {
+            GKI_start_timer(TIMER_3, timeout_in_ticks, FALSE);
+        }
     }
 
     GKI_remove_from_timer_list(&btu_cb.timer_queue_oneshot, p_tle);
@@ -870,19 +876,6 @@ void btu_start_timer_oneshot(TIMER_LIST_ENT *p_tle, UINT16 type, UINT32 timeout_
     p_tle->ticks_initial = timeout_in_ticks;
 
     GKI_add_to_timer_list(&btu_cb.timer_queue_oneshot, p_tle);
-    /* RPC to BTU thread if timer start request from non-BTU task */
-    if (GKI_get_taskid() != BTU_TASK) {
-        /* post event to start timer in BTU task */
-        BTM_TRACE_WARNING("Posting oneshot timer event to btu_task");
-        BT_HDR *p_msg = (BT_HDR *)GKI_getbuf(BT_HDR_SIZE);
-        if (p_msg != NULL) {
-            p_msg->event = BT_EVT_TO_START_TIMER_ONESHOT;
-            GKI_send_msg (BTU_TASK, TASK_MBOX_0, p_msg);
-        }
-    } else {
-        TIMER_LIST_ENT *tle = GKI_timer_getfirst(&btu_cb.timer_queue_oneshot);
-        GKI_start_timer(TIMER_3, tle->ticks, FALSE);
-    }
     GKI_enable();
 }
 

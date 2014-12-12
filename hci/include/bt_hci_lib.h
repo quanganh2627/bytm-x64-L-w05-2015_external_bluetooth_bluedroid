@@ -20,7 +20,6 @@
 #define BT_HCI_LIB_H
 
 #include <stdint.h>
-#include <stdbool.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
@@ -191,7 +190,7 @@ typedef struct {
     int (*set_rxflow)(bt_rx_flow_state_t state);
 
     /** Controls HCI logging on/off */
-    int (*logging)(bt_hc_logging_state_t state, char *p_path, bool save_existing);
+    int (*logging)(bt_hc_logging_state_t state, char *p_path);
 
     void (*sco_trigger)(int state, uint16_t sco_handle);
 

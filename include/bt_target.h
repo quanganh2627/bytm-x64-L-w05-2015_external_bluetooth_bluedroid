@@ -261,6 +261,11 @@
 #define BTA_HOST_INTERLEAVE_SEARCH FALSE
 #endif
 
+/* This feature is used to skip query of ble read remote features*/
+#ifndef BTA_SKIP_BLE_READ_REMOTE_FEAT
+#define BTA_SKIP_BLE_READ_REMOTE_FEAT FALSE
+#endif
+
 #ifndef BT_TRACE_PROTOCOL
 #define BT_TRACE_PROTOCOL  TRUE
 #endif
@@ -311,12 +316,6 @@
 
 #ifndef BTIF_DM_OOB_TEST
 #define BTIF_DM_OOB_TEST  TRUE
-#endif
-
-// How long to wait before activating sniff mode after entering the
-// idle state for FTS, OPS connections
-#ifndef BTA_FTS_OPS_IDLE_TO_SNIFF_DELAY_MS
-#define BTA_FTS_OPS_IDLE_TO_SNIFF_DELAY_MS 7000
 #endif
 
 //------------------End added from bdroid_buildcfg.h---------------------
@@ -535,8 +534,6 @@
 
 #ifndef PAN_POOL_ID
 #define PAN_POOL_ID                 GKI_POOL_ID_3
-/* Maximum amount of the shared buffer to allocate for PAN */
-#define PAN_POOL_MAX                (GKI_BUF3_MAX / 4)
 #endif
 
 /* UNV pool for read/write serialization */
@@ -1322,24 +1319,13 @@ and USER_HW_DISABLE_API macros */
 #define BLE_PRIVACY_SPT         FALSE
 #endif
 
-//<<<<<<< HEAD
-#ifndef BLE_VND_INCLUDED
-#define BLE_VND_INCLUDED        FALSE
-#endif
-
-#ifndef BTM_BLE_ADV_TX_POWER
-#define BTM_BLE_ADV_TX_POWER {-21, -15, -7, 1, 9}
-#endif
-//=======
 #ifndef BLE_MULTI_ADV_INCLUDED
 #define BLE_MULTI_ADV_INCLUDED  FALSE
 #endif
 
 #ifndef BLE_VND_INCLUDED
 #define BLE_VND_INCLUDED        FALSE
->>>>>>> [PATCH] Signed-off-by: Huan Zheng <huan.zheng@intel.com>
 #endif
-
 
 #ifndef BLE_BATCH_SCAN_INCLUDED
 #define BLE_BATCH_SCAN_INCLUDED  FALSE
@@ -1388,6 +1374,10 @@ and USER_HW_DISABLE_API macros */
 #define BLE_PERIPHERAL_MODE_SUPPORT  TRUE
 #endif
 
+#ifndef BLE_PERIPHERAL_DISPLAYONLY
+#define BLE_PERIPHERAL_DISPLAYONLY   FALSE
+#endif
+
 #ifndef BLE_PERIPHERAL_ADV_NAME
 #define BLE_PERIPHERAL_ADV_NAME      FALSE
 #endif
@@ -1411,7 +1401,7 @@ and USER_HW_DISABLE_API macros */
 #endif
 
 #ifndef GATT_MAX_APPS
-#define GATT_MAX_APPS            32 /* note: 2 apps used internally GATT and GAP */
+#define GATT_MAX_APPS            10 /* note: 2 apps used internally GATT and GAP */
 #endif
 
 #ifndef GATT_MAX_CL_PROFILES
@@ -3345,6 +3335,7 @@ Range: Minimum 12000 (12 secs) on BR/EDR when supporting PBF.
 #define SAP_SERVER_INCLUDED         FALSE
 #endif
 
+
 /*************************************************************************
  * A2DP Definitions
  */
@@ -3801,3 +3792,4 @@ The maximum number of payload octets that the local device can receive in a sing
 #include "bt_trace.h"
 
 #endif /* BT_TARGET_H */
+

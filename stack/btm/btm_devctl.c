@@ -580,22 +580,6 @@ static void btm_read_local_supported_cmds (UINT8 local_controller_id)
 
 /*******************************************************************************
 **
-** Function         btm_read_local_supported_commands
-**
-** Description      Local function called to send a read local supported HCI commandss
-**
-** Returns          void
-**
-*******************************************************************************/
-void btm_read_local_supported_commands (void)
-{
-    btu_start_timer (&btm_cb.devcb.reset_timer, BTU_TTYPE_BTM_DEV_CTL, BTM_DEV_REPLY_TIMEOUT);
-
-    btsnd_hcic_read_local_supported_cmds (LOCAL_BR_EDR_CONTROLLER_ID);
-}
-
-/*******************************************************************************
-**
 ** Function         btm_get_local_features
 **
 ** Description      Local function called to send a read local features
@@ -720,6 +704,9 @@ void btm_reset_complete (void)
      btm_cb.ble_ctr_cb.p_select_cback = NULL;
      memset(&btm_cb.ble_ctr_cb.bg_dev_list, 0, (sizeof(tBTM_LE_BG_CONN_DEV)*BTM_BLE_MAX_BG_CONN_DEV_NUM));
      gatt_reset_bgdev_list();
+#if BLE_MULTI_ADV_INCLUDED == TRUE
+     btm_ble_multi_adv_init();
+#endif
 #endif
     }
 }
@@ -1061,9 +1048,15 @@ void btm_read_local_version_complete (UINT8 *p, UINT16 evt_len)
         STREAM_TO_UINT16 (p_vi->manufacturer, p);
         STREAM_TO_UINT16 (p_vi->lmp_subversion, p);
     }
-    //Send read local available supported command
-    BTM_TRACE_DEBUG("%s send out btm_read_local_supported_commands", __func__);
-    btm_read_local_supported_commands ();
+
+    if (p_vi->hci_version >= HCI_PROTO_VERSION_1_2)
+    {
+        btm_read_local_supported_cmds(LOCAL_BR_EDR_CONTROLLER_ID);
+    }
+    else
+    {
+        btm_get_local_features ();
+    }
 }
 
 /*******************************************************************************

@@ -4191,9 +4191,6 @@ void btm_sec_encrypt_change (UINT16 handle, UINT8 status, UINT8 encr_enable)
 
     if (p_acl && p_acl->transport == BT_TRANSPORT_LE)
     {
-        if (status == HCI_ERR_KEY_MISSING || status == HCI_ERR_AUTH_FAILURE
-            ||status == HCI_ERR_ENCRY_MODE_NOT_ACCEPTABLE)
-            p_dev_rec->sec_flags &= ~ (BTM_SEC_LE_LINK_KEY_KNOWN);
         btm_ble_link_encrypted(p_dev_rec->bd_addr, encr_enable);
         return;
     }
@@ -4743,7 +4740,7 @@ void btm_sec_disconnected (UINT16 handle, UINT8 reason)
 
 #if BLE_INCLUDED == TRUE && SMP_INCLUDED == TRUE
     p_dev_rec->enc_key_size = 0;
-    btm_ble_update_mode_operation(HCI_ROLE_UNKNOWN, p_dev_rec->bd_addr, HCI_SUCCESS);
+    btm_ble_update_mode_operation(HCI_ROLE_UNKNOWN, p_dev_rec->bd_addr, FALSE);
     /* see sec_flags processing in btm_acl_removed */
 
     if (transport == BT_TRANSPORT_LE)

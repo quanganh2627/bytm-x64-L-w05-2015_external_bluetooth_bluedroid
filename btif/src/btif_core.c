@@ -776,11 +776,7 @@ void btif_disable_bluetooth_evt(void)
     bte_main_enable_lpm(FALSE);
 #endif
 
-#if (BLE_INCLUDED == TRUE)
-     BTA_VendorCleanup();
-#endif
-
-     bte_main_disable();
+    bte_main_disable();
 
     /* update local state */
     btif_core_state = BTIF_CORE_STATE_DISABLED;

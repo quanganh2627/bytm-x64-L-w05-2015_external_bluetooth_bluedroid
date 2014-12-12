@@ -209,7 +209,7 @@ static UINT32 a2dp_media_task_stack[(A2DP_MEDIA_TASK_STACK_SIZE + 3) / 4];
 /* 18 frames is equivalent to 6.89*18*2.9 ~= 360 ms @ 44.1 khz, 20 ms mediatick */
 #define MAX_OUTPUT_A2DP_FRAME_QUEUE_SZ 18
 #define A2DP_PACKET_COUNT_LOW_WATERMARK 5
-#define MAX_PCM_FRAME_NUM_PER_TICK     10
+#define MAX_PCM_FRAME_NUM_PER_TICK     40
 #define RESET_RATE_COUNTER_THRESHOLD_MS    2000
 
 //#define BTIF_MEDIA_VERBOSE_ENABLED
@@ -510,11 +510,8 @@ static void btif_recv_ctrl_data(void)
 
                 /* post start event and wait for audio path to open */
                 btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-
-#if (BTA_AV_SINK_INCLUDED == TRUE)
-                if (btif_media_cb.peer_sep == AVDT_TSEP_SRC)
-                    a2dp_cmd_acknowledge(A2DP_CTRL_ACK_SUCCESS);
-#endif
+//FIXME
+                a2dp_cmd_acknowledge(A2DP_CTRL_ACK_SUCCESS);
             }
             else if (btif_av_stream_started_ready())
             {
@@ -1877,7 +1874,7 @@ static void btif_media_task_enc_update(BT_HDR *p_msg)
     tBTIF_MEDIA_UPDATE_AUDIO * pUpdateAudio = (tBTIF_MEDIA_UPDATE_AUDIO *) p_msg;
     SBC_ENC_PARAMS *pstrEncParams = &btif_media_cb.encoder;
     UINT16 s16SamplingFreq;
-    SINT16 s16BitPool = 0;
+    SINT16 s16BitPool;
     SINT16 s16BitRate;
     SINT16 s16FrameLen;
     UINT8 protect = 0;
@@ -1907,16 +1904,6 @@ static void btif_media_task_enc_update(BT_HDR *p_msg)
 
         do
         {
-            if (pstrEncParams->s16NumOfBlocks == 0 || pstrEncParams->s16NumOfSubBands == 0
-                || pstrEncParams->s16NumOfChannels == 0)
-            {
-                APPL_TRACE_ERROR("btif_media_task_enc_update() - Avoiding division by zero...");
-                APPL_TRACE_ERROR("btif_media_task_enc_update() - block=%d, subBands=%d, channels=%d",
-                    pstrEncParams->s16NumOfBlocks, pstrEncParams->s16NumOfSubBands,
-                    pstrEncParams->s16NumOfChannels);
-                break;
-            }
-
             if ((pstrEncParams->s16ChannelMode == SBC_JOINT_STEREO) ||
                 (pstrEncParams->s16ChannelMode == SBC_STEREO) )
             {
@@ -2476,17 +2463,11 @@ static UINT8 btif_get_num_aa_frame(void)
                 }
                 /* calculate nbr of frames pending for this media tick */
                 result = btif_media_cb.media_feeding_state.pcm.counter/pcm_bytes_per_frame;
-                if (result > MAX_PCM_FRAME_NUM_PER_TICK)
-                {
-                    APPL_TRACE_ERROR("%s() - Limiting frames to be sent from %d to %d"
-                        , __FUNCTION__, result, MAX_PCM_FRAME_NUM_PER_TICK);
-                    result = MAX_PCM_FRAME_NUM_PER_TICK;
-                }
+                if (result > MAX_PCM_FRAME_NUM_PER_TICK) result = MAX_PCM_FRAME_NUM_PER_TICK;
                 btif_media_cb.media_feeding_state.pcm.counter -= result*pcm_bytes_per_frame;
             } else {
                 result = 0;
             }
-
             VERBOSE("WRITE %d FRAMES", result);
         }
         break;

@@ -20,6 +20,7 @@
 #include "bt_target.h"
 
 #if (BLE_INCLUDED == TRUE)
+#if BLE_BATCH_SCAN_INCLUDED == TRUE
 #include "bt_types.h"
 #include "hcimsgs.h"
 #include "btu.h"
@@ -58,33 +59,6 @@ static UINT8 btm_ble_cs_update_pf_counter(tBTM_BLE_SCAN_COND_OP action,
 #define BTM_BLE_ADV_FILT_CB_EVT_MASK       0xF0
 #define BTM_BLE_ADV_FILT_SUBCODE_MASK      0x0F
 
-/*******************************************************************************
-**
-** Function         btm_ble_obtain_vsc_details
-**
-** Description      This function obtains the VSC details
-**
-** Parameters
-**
-** Returns          status
-**
-*******************************************************************************/
-tBTM_STATUS btm_ble_obtain_vsc_details()
-{
-    tBTM_STATUS st = BTM_SUCCESS;
-
-#if BLE_VND_INCLUDED == TRUE
-    BTM_BleGetVendorCapabilities(&cmn_ble_vsc_cb);
-    if (0 == cmn_ble_vsc_cb.max_filter)
-    {
-        st = BTM_MODE_UNSUPPORTED;
-        return st;
-    }
-#else
-    cmn_ble_vsc_cb.max_filter = BTM_BLE_MAX_FILTER_COUNTER;
-#endif
-    return st;
-}
 
 /*******************************************************************************
 **
@@ -267,7 +241,7 @@ void btm_ble_scan_pf_cmpl_cback(tBTM_VSC_CMPL *p_params)
     STREAM_TO_UINT8(action, p);
 
     /* Ignore the event, if it is not the same one expected */
-    if (3 == evt_len)
+    if(3 == evt_len)
     {
         if(ocf != op_subcode)
         {
@@ -355,10 +329,10 @@ void btm_ble_scan_pf_cmpl_cback(tBTM_VSC_CMPL *p_params)
 tBTM_BLE_PF_COUNT* btm_ble_find_addr_filter_counter(tBLE_BD_ADDR *p_le_bda)
 {
     UINT8               i;
-    tBTM_BLE_PF_COUNT   *p_addr_filter = &btm_ble_adv_filt_cb.p_addr_filter_count[1];
+    tBTM_BLE_PF_COUNT   *p_addr_filter = &btm_ble_adv_filt_cb.addr_filter_count[1];
 
     if (p_le_bda == NULL)
-        return &btm_ble_adv_filt_cb.p_addr_filter_count[0];
+        return &btm_ble_adv_filt_cb.addr_filter_count[0];
 
     for (i = 0; i < cmn_ble_vsc_cb.max_filter; i ++, p_addr_filter ++)
     {
@@ -383,7 +357,7 @@ tBTM_BLE_PF_COUNT* btm_ble_find_addr_filter_counter(tBLE_BD_ADDR *p_le_bda)
 tBTM_BLE_PF_COUNT * btm_ble_alloc_addr_filter_counter(BD_ADDR bd_addr)
 {
     UINT8               i;
-    tBTM_BLE_PF_COUNT   *p_addr_filter = &btm_ble_adv_filt_cb.p_addr_filter_count[1];
+    tBTM_BLE_PF_COUNT   *p_addr_filter = &btm_ble_adv_filt_cb.addr_filter_count[1];
 
     for (i = 0; i < cmn_ble_vsc_cb.max_filter; i ++, p_addr_filter ++)
     {
@@ -408,11 +382,11 @@ tBTM_BLE_PF_COUNT * btm_ble_alloc_addr_filter_counter(BD_ADDR bd_addr)
 BOOLEAN btm_ble_dealloc_addr_filter_counter(tBLE_BD_ADDR *p_bd_addr, UINT8 filter_type)
 {
     UINT8               i;
-    tBTM_BLE_PF_COUNT   *p_addr_filter = &btm_ble_adv_filt_cb.p_addr_filter_count[1];
+    tBTM_BLE_PF_COUNT   *p_addr_filter = &btm_ble_adv_filt_cb.addr_filter_count[1];
     BOOLEAN             found = FALSE;
 
     if (BTM_BLE_PF_TYPE_ALL == filter_type && NULL == p_bd_addr)
-        memset(&btm_ble_adv_filt_cb.p_addr_filter_count[0], 0, sizeof(tBTM_BLE_PF_COUNT));
+        memset(&btm_ble_adv_filt_cb.addr_filter_count[0], 0, sizeof(tBTM_BLE_PF_COUNT));
 
     for (i = 0; i < cmn_ble_vsc_cb.max_filter; i ++, p_addr_filter ++)
     {
@@ -542,7 +516,7 @@ tBTM_STATUS btm_ble_update_pf_manu_data(tBTM_BLE_SCAN_COND_OP action,
           len = BTM_BLE_ADV_FILT_META_HDR_LENGTH;
     tBTM_STATUS st = BTM_ILLEGAL_VALUE;
 
-    if (NULL == p_data)
+    if(NULL!= p_data && 0 == p_data->manu_data.data_len && 0 == p_data->srvc_data.data_len)
         return st;
 
     memset(param, 0, BTM_BLE_PF_STR_LEN_MAX + BTM_BLE_PF_STR_LEN_MAX
@@ -562,7 +536,8 @@ tBTM_STATUS btm_ble_update_pf_manu_data(tBTM_BLE_SCAN_COND_OP action,
     /* Filter index */
     UINT8_TO_STREAM(p, filt_index);
 
-    if (BTM_BLE_SCAN_COND_ADD == action || BTM_BLE_SCAN_COND_DELETE == action)
+    if (BTM_BLE_SCAN_COND_ADD == action ||
+        BTM_BLE_SCAN_COND_DELETE == action)
     {
         if (BTM_BLE_PF_SRVC_DATA_PATTERN == cond_type)
         {
@@ -571,7 +546,7 @@ tBTM_STATUS btm_ble_update_pf_manu_data(tBTM_BLE_SCAN_COND_OP action,
             if (p_srvc_data->data_len > (BTM_BLE_PF_STR_LEN_MAX - 2))
                 p_srvc_data->data_len = (BTM_BLE_PF_STR_LEN_MAX - 2);
 
-            if (p_srvc_data->data_len > 0)
+            if(p_srvc_data->data_len > 0)
             {
                 ARRAY_TO_STREAM(p, p_srvc_data->p_pattern, p_srvc_data->data_len);
                 len += (p_srvc_data->data_len);
@@ -584,42 +559,31 @@ tBTM_STATUS btm_ble_update_pf_manu_data(tBTM_BLE_SCAN_COND_OP action,
         else
         {
             if (NULL == p_manu_data)
-            {
-                BTM_TRACE_ERROR("btm_ble_update_pf_manu_data - No manuf data");
                 return st;
-            }
-            BTM_TRACE_EVENT("btm_ble_update_pf_manu_data length: %d",
-                                    p_manu_data->data_len);
-            if (p_manu_data->data_len > (BTM_BLE_PF_STR_LEN_MAX - 2))
-                p_manu_data->data_len = (BTM_BLE_PF_STR_LEN_MAX - 2);
+           if (p_manu_data->data_len > (BTM_BLE_PF_STR_LEN_MAX - 2))
+               p_manu_data->data_len = (BTM_BLE_PF_STR_LEN_MAX - 2);
 
-            UINT16_TO_STREAM(p, p_manu_data->company_id);
-            if (p_manu_data->data_len > 0 && p_manu_data->p_pattern_mask != NULL)
-            {
+           UINT16_TO_STREAM(p, p_manu_data->company_id);
+
+           if(p_manu_data->data_len > 0)
                 ARRAY_TO_STREAM(p, p_manu_data->p_pattern, p_manu_data->data_len);
-                len += (p_manu_data->data_len + 2);
-            }
-            else
-                len += 2;
+           len += (p_manu_data->data_len + 2);
 
-            if (p_manu_data->company_id_mask != 0)
-            {
-                UINT16_TO_STREAM (p, p_manu_data->company_id_mask);
-            }
-            else
-            {
-                memset(p, 0xff, 2);
-                p += 2;
-            }
-            len += 2;
+           if (p_manu_data->company_id_mask != 0)
+           {
+               UINT16_TO_STREAM (p, p_manu_data->company_id_mask);
+           }
+           else
+           {
+               memset(p, 0xff, 2);
+               p += 2;
+           }
 
-            if (p_manu_data->data_len > 0 && p_manu_data->p_pattern_mask != NULL)
-            {
-                ARRAY_TO_STREAM(p, p_manu_data->p_pattern_mask, p_manu_data->data_len);
-                len += (p_manu_data->data_len);
-            }
+           if(p_manu_data->data_len > 0)
+              ARRAY_TO_STREAM(p, p_manu_data->p_pattern_mask, p_manu_data->data_len);
+           len += (p_manu_data->data_len + 2);
 
-            BTM_TRACE_DEBUG("Manuf data length: %d", len);
+           BTM_TRACE_DEBUG("Manuf data length: %d", len);
         }
     }
 
@@ -656,7 +620,7 @@ UINT8 btm_ble_cs_update_pf_counter(tBTM_BLE_SCAN_COND_OP action,
     tBTM_BLE_PF_COUNT   *p_addr_filter = NULL;
     UINT8               *p_counter = NULL;
 
-    btm_ble_obtain_vsc_details();
+    BTM_BleGetVendorCapabilities(&cmn_ble_vsc_cb);
 
     if (cond_type > BTM_BLE_PF_TYPE_ALL)
     {
@@ -691,11 +655,18 @@ UINT8 btm_ble_cs_update_pf_counter(tBTM_BLE_SCAN_COND_OP action,
         else if (cond_type != BTM_BLE_PF_TYPE_ALL)
         {
             p_counter = p_addr_filter->pf_counter;
-            if (num_available > 0)
-                p_counter[cond_type] += 1;
+            if(num_available > 0)
+               p_counter[cond_type] += 1;
 
-            BTM_TRACE_DEBUG("counter = %d, maxfilt = %d, num_avbl=%d",
-                p_counter[cond_type], cmn_ble_vsc_cb.max_filter, num_available);
+            /* update corresponding feature mask */
+            if (num_available > 0)
+                p_addr_filter->feat_mask |= (BTM_BLE_PF_BIT_TO_MASK(cond_type));
+            else
+                p_addr_filter->feat_mask &= ~(BTM_BLE_PF_BIT_TO_MASK(cond_type));
+
+            BTM_TRACE_DEBUG("counter = %d, maxfilt = %d, num_avbl=%d, feat_mask = %d",
+                p_counter[cond_type], cmn_ble_vsc_cb.max_filter, num_available,
+                p_addr_filter->feat_mask);
             return p_counter[cond_type];
         }
     }
@@ -947,8 +918,8 @@ tBTM_STATUS btm_ble_clear_scan_pf_filter(tBTM_BLE_SCAN_COND_OP action,
     p_bda_filter = btm_ble_find_addr_filter_counter(p_target);
 
     if (NULL == p_bda_filter ||
-        /* not a generic filter */
-        (p_target != NULL && p_bda_filter))
+        /* not a generic filter, and feature selection is empty */
+        (p_target != NULL && p_bda_filter && 0 == p_bda_filter->feat_mask))
     {
         BTM_TRACE_ERROR("Error: Can not clear filter, No PF filter has been configured!");
         return st;
@@ -1011,6 +982,9 @@ tBTM_STATUS btm_ble_clear_scan_pf_filter(tBTM_BLE_SCAN_COND_OP action,
                                 btm_ble_scan_pf_cmpl_cback))
             != BTM_NO_RESOURCES)
     {
+        if (p_bda_filter)
+            p_bda_filter->feat_mask = BTM_BLE_PF_SELECT_NONE;
+
         if (p_target)
             memcpy(&btm_ble_adv_filt_cb.cur_filter_target, p_target, sizeof(tBLE_BD_ADDR));
         else
@@ -1046,12 +1020,16 @@ tBTM_STATUS BTM_BleAdvFilterParamSetup(int action, tBTM_BLE_PF_FILT_INDEX filt_i
     tBTM_BLE_PF_COUNT *p_bda_filter = NULL;
     UINT8 len =0;
 
-    if (BTM_SUCCESS  != btm_ble_obtain_vsc_details())
-        return st;
-
     p = param;
     memset(param, 0, 20);
     BTM_TRACE_EVENT (" BTM_BleAdvFilterParamSetup");
+
+    BTM_BleGetVendorCapabilities(&cmn_ble_vsc_cb);
+    if (0 == cmn_ble_vsc_cb.max_filter)
+    {
+        st = BTM_MODE_UNSUPPORTED;
+        return st;
+    }
 
     if (BTM_BLE_SCAN_COND_ADD == action)
     {
@@ -1062,7 +1040,7 @@ tBTM_STATUS BTM_BleAdvFilterParamSetup(int action, tBTM_BLE_PF_FILT_INDEX filt_i
            return st;
         }
 
-        BTM_TRACE_DEBUG("BTM_BleAdvFilterParamSetup : Feat mask:%d", p_filt_params->feat_seln);
+        BTM_TRACE_DEBUG("BTM_BleAdvFilterParamSetup : Feat mask:%d", p_bda_filter->feat_mask);
         /* select feature based on control block settings */
         UINT8_TO_STREAM(p, BTM_BLE_META_PF_FEAT_SEL);
         UINT8_TO_STREAM(p, BTM_BLE_SCAN_COND_ADD);
@@ -1081,7 +1059,7 @@ tBTM_STATUS BTM_BleAdvFilterParamSetup(int action, tBTM_BLE_PF_FILT_INDEX filt_i
         /* set delivery mode */
         UINT8_TO_STREAM(p, p_filt_params->dely_mode);
 
-        if (0x01 == p_filt_params->dely_mode)
+        if(0x01 == p_filt_params->dely_mode)
         {
             /* set onfound timeout */
             UINT16_TO_STREAM(p, p_filt_params->found_timeout);
@@ -1107,7 +1085,7 @@ tBTM_STATUS BTM_BleAdvFilterParamSetup(int action, tBTM_BLE_PF_FILT_INDEX filt_i
                                  ref_value, NULL, p_cmpl_cback);
     }
     else
-    if (BTM_BLE_SCAN_COND_DELETE == action)
+    if(BTM_BLE_SCAN_COND_DELETE == action)
     {
         /* select feature based on control block settings */
         UINT8_TO_STREAM(p, BTM_BLE_META_PF_FEAT_SEL);
@@ -1127,7 +1105,7 @@ tBTM_STATUS BTM_BleAdvFilterParamSetup(int action, tBTM_BLE_PF_FILT_INDEX filt_i
                                  ref_value, NULL, p_cmpl_cback);
     }
     else
-    if (BTM_BLE_SCAN_COND_CLEAR == action)
+    if(BTM_BLE_SCAN_COND_CLEAR == action)
     {
         /* Deallocate all filters here */
         btm_ble_dealloc_addr_filter_counter(NULL, BTM_BLE_PF_TYPE_ALL);
@@ -1171,8 +1149,12 @@ tBTM_STATUS BTM_BleEnableDisableFilterFeature(UINT8 enable,
     UINT8           param[20], *p;
     tBTM_STATUS     st = BTM_WRONG_MODE;
 
-    if (BTM_SUCCESS  != btm_ble_obtain_vsc_details())
-       return st;
+    BTM_BleGetVendorCapabilities(&cmn_ble_vsc_cb);
+    if (0 == cmn_ble_vsc_cb.max_filter)
+    {
+        st = BTM_MODE_UNSUPPORTED;
+        return st;
+    }
 
     p = param;
     memset(param, 0, 20);
@@ -1223,8 +1205,12 @@ tBTM_STATUS BTM_BleCfgFilterCondition(tBTM_BLE_SCAN_COND_OP action,
     BTM_TRACE_EVENT (" BTM_BleCfgFilterCondition action:%d, cond_type:%d, index:%d", action,
                         cond_type, filt_index);
 
-    if (BTM_SUCCESS  != btm_ble_obtain_vsc_details())
+    BTM_BleGetVendorCapabilities(&cmn_ble_vsc_cb);
+    if (0 == cmn_ble_vsc_cb.max_filter)
+    {
+        st = BTM_MODE_UNSUPPORTED;
         return st;
+    }
 
     switch (cond_type)
     {
@@ -1293,34 +1279,9 @@ tBTM_STATUS BTM_BleCfgFilterCondition(tBTM_BLE_SCAN_COND_OP action,
 void btm_ble_adv_filter_init(void)
 {
     memset(&btm_ble_adv_filt_cb, 0, sizeof(tBTM_BLE_MULTI_ADV_CB));
-    if (BTM_SUCCESS != btm_ble_obtain_vsc_details())
-       return;
-
-    if (cmn_ble_vsc_cb.max_filter > 0)
-    {
-        btm_ble_adv_filt_cb.p_addr_filter_count =
-            (tBTM_BLE_PF_COUNT*) GKI_getbuf( sizeof(tBTM_BLE_PF_COUNT) * cmn_ble_vsc_cb.max_filter);
-    }
-
     if (!HCI_LE_HOST_SUPPORTED(btm_cb.devcb.local_lmp_features[HCI_EXT_FEATURES_PAGE_1]))
         return;
 }
 
-/*******************************************************************************
-**
-** Function         btm_ble_adv_filter_cleanup
-**
-** Description      This function de-initializes the adv filter control block
-**
-** Parameters
-**
-** Returns          status
-**
-*******************************************************************************/
-void btm_ble_adv_filter_cleanup(void)
-{
-    if (btm_ble_adv_filt_cb.p_addr_filter_count)
-        GKI_freebuf (btm_ble_adv_filt_cb.p_addr_filter_count);
-}
-
+#endif
 #endif

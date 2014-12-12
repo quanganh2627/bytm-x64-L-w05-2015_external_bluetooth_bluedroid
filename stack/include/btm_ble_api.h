@@ -53,7 +53,6 @@ typedef UINT32 tBTM_BLE_REF_VALUE;
 #define BTM_BLE_SCAN_MODE_NONE      0xff
 typedef UINT8 tBTM_BLE_SCAN_MODE;
 
-#define BTM_BLE_BATCH_SCAN_MODE_DISABLE 0
 #define BTM_BLE_BATCH_SCAN_MODE_PASS  1
 #define BTM_BLE_BATCH_SCAN_MODE_ACTI  2
 #define BTM_BLE_BATCH_SCAN_MODE_PASS_ACTI 3
@@ -325,6 +324,8 @@ typedef UINT8   tBTM_BLE_AD_TYPE;
 typedef UINT8 tBTM_BLE_ADV_TX_POWER;
 
 /* adv tx power in dBm */
+#define BTM_BLE_ADV_TX_POWER {-21, -15, -7, 1, 9}
+
 typedef struct
 {
     UINT8 adv_inst_max;         /* max adv instance supported in controller */
@@ -334,7 +335,6 @@ typedef struct
     UINT8 filter_support;
     UINT8 max_filter;
     UINT8 energy_support;
-    BOOLEAN values_read;
 }tBTM_BLE_VSC_CB;
 
 /* slave preferred connection interval range */
@@ -413,8 +413,7 @@ typedef struct
 }tBTM_BLE_ADV_DATA;
 
 #ifndef BTM_BLE_MULTI_ADV_MAX
-#define BTM_BLE_MULTI_ADV_MAX   10 /* controller returned adv_inst_max should be less
-                                      than this number */
+#define BTM_BLE_MULTI_ADV_MAX   4
 #endif
 
 #define BTM_BLE_MULTI_ADV_INVALID   0
@@ -439,8 +438,8 @@ typedef struct
 
 typedef struct
 {
-    UINT8   *p_sub_code; /* dynamic array to store sub code */
-    UINT8   *p_inst_id;  /* dynamic array to store instance id */
+    UINT8   sub_code[BTM_BLE_MULTI_ADV_MAX];
+    UINT8   inst_id[BTM_BLE_MULTI_ADV_MAX];
     UINT8   pending_idx;
     UINT8   next_idx;
 }tBTM_BLE_MULTI_ADV_OPQ;
@@ -454,21 +453,14 @@ typedef struct
     UINT8                       adv_evt;
     BD_ADDR                     rpa;
     TIMER_LIST_ENT              raddr_timer_ent;
+    void                        *p_rpa_cback;
     tBTM_BLE_MULTI_ADV_CBACK    *p_cback;
     void                        *p_ref;
-    UINT8                       index;
 }tBTM_BLE_MULTI_ADV_INST;
 
 typedef struct
 {
-    UINT8 inst_index_queue[BTM_BLE_MULTI_ADV_MAX];
-    int front;
-    int rear;
-}tBTM_BLE_MULTI_ADV_INST_IDX_Q;
-
-typedef struct
-{
-    tBTM_BLE_MULTI_ADV_INST *p_adv_inst; /* dynamic array to store adv instance */
+    tBTM_BLE_MULTI_ADV_INST adv_inst[BTM_BLE_MULTI_ADV_MAX];
     tBTM_BLE_MULTI_ADV_OPQ  op_q;
 }tBTM_BLE_MULTI_ADV_CB;
 
@@ -495,13 +487,6 @@ typedef enum
     BTM_BLE_SCAN_DISABLED_STATE=4
 }tBTM_BLE_BATCH_SCAN_STATE;
 
-enum
-{
-    BTM_BLE_DISCARD_OLD_ITEMS,
-    BTM_BLE_DISCARD_LOWER_RSSI_ITEMS
-};
-typedef UINT8 tBTM_BLE_DISCARD_RULE;
-
 typedef struct
 {
     UINT8   sub_code[BTM_BLE_BATCH_SCAN_MAX];
@@ -526,10 +511,6 @@ typedef struct
 {
     tBTM_BLE_BATCH_SCAN_STATE      cur_state;
     tBTM_BLE_BATCH_SCAN_MODE scan_mode;
-    UINT32                  scan_interval;
-    UINT32                  scan_window;
-    tBLE_ADDR_TYPE          addr_type;
-    tBTM_BLE_DISCARD_RULE   discard_rule;
     tBTM_BLE_BATCH_SCAN_OPQ  op_q;
     tBTM_BLE_BATCH_SCAN_REP_Q main_rep_q;
     tBTM_BLE_SCAN_SETUP_CBACK     *p_setup_cback;
@@ -709,14 +690,11 @@ typedef struct
 
 #define BTM_BLE_MAX_FILTER_COUNTER  (BTM_BLE_MAX_ADDR_FILTER + 1) /* per device filter + one generic filter indexed by 0 */
 
-#ifndef BTM_CS_IRK_LIST_MAX
-#define BTM_CS_IRK_LIST_MAX 0x20
-#endif
-
 typedef struct
 {
     BOOLEAN    in_use;
     BD_ADDR    bd_addr;
+    UINT16     feat_mask;      /* per BD_ADDR feature mask */
     UINT8      pf_counter[BTM_BLE_PF_TYPE_MAX]; /* number of filter indexed by tBTM_BLE_PF_COND_TYPE */
 }tBTM_BLE_PF_COUNT;
 
@@ -724,7 +702,7 @@ typedef struct
 {
     BOOLEAN             enable;
     UINT8               op_type;
-    tBTM_BLE_PF_COUNT   *p_addr_filter_count; /* per BDA filter array */
+    tBTM_BLE_PF_COUNT   addr_filter_count[BTM_BLE_MAX_FILTER_COUNTER]; /* per BDA filter indexed by tBTM_BLE_PF_COND_TYPE */
     tBLE_BD_ADDR        cur_filter_target;
     tBTM_BLE_PF_STATUS_CBACK *p_filt_stat_cback;
     tBTM_BLE_ADV_FILTER_ADV_OPQ  op_q;
@@ -762,6 +740,13 @@ enum
     BTM_BLE_CONN_SELECTIVE
 };
 typedef UINT8   tBTM_BLE_CONN_TYPE;
+
+enum
+{
+    BTM_BLE_DISCARD_OLD_ITEMS,
+    BTM_BLE_DISCARD_LOWER_RSSI_ITEMS
+};
+typedef UINT8 tBTM_BLE_DISCARD_RULE;
 
 typedef void (tBTM_BLE_TRACK_ADV_CBACK)(int filt_index, tBLE_ADDR_TYPE addr_type, BD_ADDR bda,
                                         int adv_state, tBTM_BLE_REF_VALUE ref_value);
@@ -1414,16 +1399,7 @@ BTM_API extern void BTM_BleConfigPrivacy(BOOLEAN enable);
 *******************************************************************************/
 BTM_API extern BOOLEAN BTM_BleLocalPrivacyEnabled();
 
-/*******************************************************************************
-**
-** Function          BTM_BleMaxMultiAdvInstanceCount
-**
-** Description        Returns max number of multi adv instances  supported by controller
-**
-** Returns          Max multi adv instance count
-**
-*******************************************************************************/
-BTM_API extern UINT8  BTM_BleMaxMultiAdvInstanceCount();
+
 
 /*******************************************************************************
 **
