@@ -851,10 +851,9 @@ void bta_gattc_reset_discover_st(tBTA_GATTC_SERV *p_srcb, tBTA_GATT_STATUS statu
 void bta_gattc_disc_close(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
 {
     APPL_TRACE_DEBUG("Discovery cancel conn_id=%d",p_clcb->bta_conn_id);
-    if (p_clcb->disc_active)
-        bta_gattc_reset_discover_st(p_clcb->p_srcb, BTA_GATT_ERROR);
-    else
-        p_clcb->state = BTA_GATTC_CONN_ST;
+
+    bta_gattc_reset_discover_st(p_clcb->p_srcb, BTA_GATT_ERROR);
+    bta_gattc_sm_execute(p_clcb, BTA_GATTC_API_CLOSE_EVT, p_data);
 }
 /*******************************************************************************
 **
@@ -979,8 +978,6 @@ void bta_gattc_start_discover(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
                 APPL_TRACE_ERROR("discovery on server failed");
                 bta_gattc_reset_discover_st(p_clcb->p_srcb, p_clcb->status);
             }
-            else
-                p_clcb->disc_active = TRUE;
         }
         else
         {
@@ -1018,7 +1015,6 @@ void bta_gattc_disc_cmpl(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
         L2CA_EnableUpdateBleConnParams(p_clcb->p_srcb->server_bda, TRUE);
 #endif
     p_clcb->p_srcb->state = BTA_GATTC_SERV_IDLE;
-    p_clcb->disc_active = FALSE;
 
     if (p_clcb->status != GATT_SUCCESS)
     {
@@ -1665,21 +1661,22 @@ void bta_gattc_ci_open(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
 void bta_gattc_ci_load(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
 {
 
-    APPL_TRACE_DEBUG("bta_gattc_ci_load conn_id=%d load status=%d",
-                      p_clcb->bta_conn_id, p_data->ci_load.status);
+    APPL_TRACE_DEBUG("bta_gattc_ci_load conn_id=%d load status=%d" ,
+                      p_clcb->bta_conn_id, p_data->ci_load.status );
+    bta_gattc_co_cache_close(p_clcb->p_srcb->server_bda, 0);
 
-    if (p_data->ci_load.status == BTA_GATT_OK ||
-         p_data->ci_load.status == BTA_GATT_MORE)
+    if ((p_data->ci_load.status == BTA_GATT_OK ||
+         p_data->ci_load.status == BTA_GATT_MORE) &&
+        p_data->ci_load.num_attr > 0)
     {
-        if (p_data->ci_load.num_attr != 0)
-            bta_gattc_rebuild_cache(p_clcb->p_srcb, p_data->ci_load.num_attr,
+        bta_gattc_rebuild_cache(p_clcb->p_srcb, p_data->ci_load.num_attr,
                                 p_data->ci_load.attr, p_clcb->p_srcb->attr_index);
 
         if (p_data->ci_load.status == BTA_GATT_OK)
         {
             p_clcb->p_srcb->attr_index = 0;
             bta_gattc_reset_discover_st(p_clcb->p_srcb, BTA_GATT_OK);
-            bta_gattc_co_cache_close(p_clcb->p_srcb->server_bda, 0);
+
         }
         else /* load more */
         {
@@ -1693,7 +1690,6 @@ void bta_gattc_ci_load(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
     }
     else
     {
-        bta_gattc_co_cache_close(p_clcb->p_srcb->server_bda, 0);
         p_clcb->p_srcb->state = BTA_GATTC_SERV_DISC;
         p_clcb->p_srcb->attr_index = 0;
         /* cache load failure, start discovery */
@@ -1702,7 +1698,7 @@ void bta_gattc_ci_load(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
 }
 /*******************************************************************************
 **
-** Function         bta_gattc_ci_save
+** Function         bta_gattc_ci_load
 **
 ** Description      cache loading received.
 **

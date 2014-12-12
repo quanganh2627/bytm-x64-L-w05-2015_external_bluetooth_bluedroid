@@ -112,7 +112,7 @@ void vendor_close(void) {
 int vendor_send_command(bt_vendor_opcode_t opcode, void *param) {
   if(vendor_interface == NULL)
   {
-    ALOGE("%s : vendor_interface is null", __func__);
+    ALOGE("%s : vendor_interface is null", __func__); 
   }
   assert(vendor_interface != NULL);
 
@@ -247,3 +247,4 @@ static void set_host_wake_state_cb(uint8_t state)
 {
     lpm_host_wake_handler(state);
 }
+

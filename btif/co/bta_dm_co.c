@@ -32,16 +32,8 @@
 #if (defined BLE_INCLUDED && BLE_INCLUDED == TRUE)
 #include "bte_appl.h"
 
-tBTE_APPL_CFG bte_appl_cfg =
-{
-    BTM_AUTH_SPGB_YES,  // Authentication requirements
-    BTM_LOCAL_IO_CAPS,  // I/O capabilities
-    7,                  // Initiaor key size
-    7,                  // Responder key size
-    16                  // Maximum key size
-};
+tBTE_APPL_CFG bte_appl_cfg = { 0x5, 0x4, 0x7, 0x7, 0x10 };
 #endif
-
 #define MAX_TX_BUFFER_SIZE 481
 #define MAX_RX_BUFFER_SIZE 1921
 #define SCO_PACKET_SIZE 48
@@ -59,14 +51,16 @@ static UINT16 rx_write_pointer = 0;
 static pthread_mutex_t tx_sco_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t rx_sco_lock = PTHREAD_MUTEX_INITIALIZER;
 static tBTM_SCO_CFG cur_cfg;
+
+
 /*******************************************************************************
 **
-** Function	    BTA_dm_hsp_flush_tx_data_buf
+** Function         BTA_dm_hsp_flush_tx_data_buf
 **
 ** Description      This function flush the HSP Tx data buffer.
 **
 **
-** Returns	    Void.
+** Returns          Void.
 **
 *******************************************************************************/
 void BTA_dm_hsp_flush_tx_data_buf()
@@ -78,12 +72,12 @@ void BTA_dm_hsp_flush_tx_data_buf()
 
 /*******************************************************************************
 **
-** Function	    BTA_dm_hsp_flush_rx_data_buf
+** Function         BTA_dm_hsp_flush_rx_data_buf
 **
 ** Description      This function flush the HSP Rx data buffer.
 **
 **
-** Returns	    Void.
+** Returns          Void.
 **
 *******************************************************************************/
 void BTA_dm_hsp_flush_rx_data_buf()
@@ -95,32 +89,32 @@ void BTA_dm_hsp_flush_rx_data_buf()
 
 /*******************************************************************************
 **
-** Function	    BTA_dm_hsp_get_tx_data_buf_size
+** Function         BTA_dm_hsp_get_tx_data_buf_size
 **
 ** Description      This function check the available free buffer size
-**		    of the HSP Tx buffer.
+**                  of the HSP Tx buffer.
 **
 **
-** Returns	    Available free buffer size.
+** Returns          Available free buffer size.
 **
 *******************************************************************************/
 int BTA_dm_hsp_get_tx_data_buf_size()
 {
     int freebuf = 0;
     if((freebuf = tx_read_pointer - tx_write_pointer) <= 0)
-	freebuf += MAX_TX_BUFFER_SIZE;
+        freebuf += MAX_TX_BUFFER_SIZE;
     return (freebuf);
 }
 
 /*******************************************************************************
 **
-** Function	    BTA_dm_hsp_write_tx_data_buf
+** Function         BTA_dm_hsp_write_tx_data_buf
 **
 ** Description      This function writes the data coming from AF to
-**		    internal HSP Tx buffer for HSP outstream.
+**                  internal HSP Tx buffer for HSP outstream.
 **
 **
-** Returns	    Void.
+** Returns          Void.
 **
 *******************************************************************************/
 void BTA_dm_hsp_write_tx_data_buf(void *p_buf, UINT16 length)
@@ -130,28 +124,28 @@ void BTA_dm_hsp_write_tx_data_buf(void *p_buf, UINT16 length)
 
     if (p_buf == NULL)
     {
-	BTIF_TRACE_ERROR("Invalid argument : NULL buffer in %s", __func__);
-	return;
+        BTIF_TRACE_ERROR("Invalid argument : NULL buffer in %s", __func__);
+        return;
     }
 
     LOCK(tx_sco_lock);
 
     for (i = 0; i < length; i++)
     {
-	/*check for buffer overflow*/
-	if ((tx_write_pointer == (tx_read_pointer-1)) || (tx_write_pointer == (tx_read_pointer + MAX_TX_BUFFER_SIZE - 1)))
-	{
-	    tx_read_pointer++;
-	    if (tx_read_pointer >= MAX_TX_BUFFER_SIZE)
-	    {
-		tx_read_pointer = 0;
-	    }
-	}
-	tx_data_buffer[tx_write_pointer++] = p[i];
-	if (tx_write_pointer >= MAX_TX_BUFFER_SIZE)
-	{
-	    tx_write_pointer = 0;
-	}
+        /*check for buffer overflow*/
+        if ((tx_write_pointer == (tx_read_pointer-1)) || (tx_write_pointer == (tx_read_pointer + MAX_TX_BUFFER_SIZE - 1)))
+        {
+            tx_read_pointer++;
+            if (tx_read_pointer >= MAX_TX_BUFFER_SIZE)
+            {
+                tx_read_pointer = 0;
+            }
+        }
+        tx_data_buffer[tx_write_pointer++] = p[i];
+        if (tx_write_pointer >= MAX_TX_BUFFER_SIZE)
+        {
+            tx_write_pointer = 0;
+        }
 
     }
 
@@ -161,13 +155,13 @@ void BTA_dm_hsp_write_tx_data_buf(void *p_buf, UINT16 length)
 
 /*******************************************************************************
 **
-** Function	    BTA_dm_hsp_read_tx_data_buf
+** Function         BTA_dm_hsp_read_tx_data_buf
 **
 ** Description      This function reads the data from internal HSP Tx
-**		    buffer.
+**                  buffer.
 **
 **
-** Returns	    Length of the read bytes.
+** Returns          Length of the read bytes.
 **
 *******************************************************************************/
 UINT16 bta_dm_hsp_read_tx_data_buf(void *p_buf, UINT16 length)
@@ -177,26 +171,26 @@ UINT16 bta_dm_hsp_read_tx_data_buf(void *p_buf, UINT16 length)
 
     if(p_buf == NULL)
     {
-	BTIF_TRACE_ERROR("Invalid argument : NULL buffer in %s", __func__);
-	return 0;
+        BTIF_TRACE_ERROR("Invalid argument : NULL buffer in %s", __func__);
+        return 0;
     }
 
     LOCK(tx_sco_lock);
 
     for (i = 0; i < length; i++)
     {
-	/*check for empty buffer*/
-	if (tx_read_pointer == tx_write_pointer)
-	{
-	    length = i;
-	    break;
-	}
+        /*check for empty buffer*/
+        if (tx_read_pointer == tx_write_pointer)
+        {
+            length = i;
+            break;
+        }
 
-	p[i] = tx_data_buffer[tx_read_pointer++];
-	if (tx_read_pointer >= MAX_TX_BUFFER_SIZE)
-	{
-	    tx_read_pointer = 0;
-	}
+        p[i] = tx_data_buffer[tx_read_pointer++];
+        if (tx_read_pointer >= MAX_TX_BUFFER_SIZE)
+        {
+            tx_read_pointer = 0;
+        }
 
     }
 
@@ -208,13 +202,13 @@ UINT16 bta_dm_hsp_read_tx_data_buf(void *p_buf, UINT16 length)
 
 /*******************************************************************************
 **
-** Function	    BTA_dm_hsp_write_rx_data_buf
+** Function         BTA_dm_hsp_write_rx_data_buf
 **
 ** Description      This function writes the data coming from lower to
-**		    internal HSP Rx buffer for HSP instream.
+**                  internal HSP Rx buffer for HSP instream.
 **
 **
-** Returns	    Void.
+** Returns          Void.
 **
 *******************************************************************************/
 void bta_dm_hsp_write_rx_data_buf(void *p_buf, UINT16 length)
@@ -224,28 +218,28 @@ void bta_dm_hsp_write_rx_data_buf(void *p_buf, UINT16 length)
 
     if (p_buf == NULL)
     {
-	BTIF_TRACE_ERROR("Invalid argument : NULL buffer in %s", __func__);
-	return;
+        BTIF_TRACE_ERROR("Invalid argument : NULL buffer in %s", __func__);
+        return;
     }
 
     LOCK(rx_sco_lock);
 
     for (i = 0; i < length; i++)
     {
-	/*check for buffer overflow*/
-	if ((rx_write_pointer == (rx_read_pointer-1)) || (rx_write_pointer == (rx_read_pointer + MAX_RX_BUFFER_SIZE - 1)))
-	{
-	    rx_read_pointer++;
-	    if (rx_read_pointer >= MAX_RX_BUFFER_SIZE)
-	    {
-		rx_read_pointer = 0;
-	    }
-	}
-	rx_data_buffer[rx_write_pointer++] = p[i];
-	if(rx_write_pointer >= MAX_RX_BUFFER_SIZE)
-	{
-	    rx_write_pointer = 0;
-	}
+        /*check for buffer overflow*/
+        if ((rx_write_pointer == (rx_read_pointer-1)) || (rx_write_pointer == (rx_read_pointer + MAX_RX_BUFFER_SIZE - 1)))
+        {
+            rx_read_pointer++;
+            if (rx_read_pointer >= MAX_RX_BUFFER_SIZE)
+            {
+                rx_read_pointer = 0;
+            }
+        }
+        rx_data_buffer[rx_write_pointer++] = p[i];
+        if(rx_write_pointer >= MAX_RX_BUFFER_SIZE)
+        {
+            rx_write_pointer = 0;
+        }
 
     }
 
@@ -254,13 +248,13 @@ void bta_dm_hsp_write_rx_data_buf(void *p_buf, UINT16 length)
 
 /*******************************************************************************
 **
-** Function	    BTA_dm_hsp_read_rx_data_buf
+** Function         BTA_dm_hsp_read_rx_data_buf
 **
 ** Description      This function reads the data from internal HSP Rx
-**		    buffer and give it to upper layer for HSP instream.
+**                  buffer and give it to upper layer for HSP instream.
 **
 **
-** Returns	    Length of the read bytes.
+** Returns          Length of the read bytes.
 **
 *******************************************************************************/
 UINT16 BTA_dm_hsp_read_rx_data_buf(void *p_buf, UINT16 length)
@@ -270,50 +264,31 @@ UINT16 BTA_dm_hsp_read_rx_data_buf(void *p_buf, UINT16 length)
 
     if (p_buf == NULL)
     {
-	BTIF_TRACE_ERROR("Invalid argument : NULL buffer in %s", __func__);
-	return 0;
+        BTIF_TRACE_ERROR("Invalid argument : NULL buffer in %s", __func__);
+        return 0;
     }
 
     LOCK(rx_sco_lock);
 
     for (i = 0; i < length; i++)
     {
-	/*check for empty buffer*/
-	if (rx_read_pointer == rx_write_pointer)
-	{
-	    length = i;
-	    break;
-	}
+        /*check for empty buffer*/
+        if (rx_read_pointer == rx_write_pointer)
+        {
+            length = i;
+            break;
+        }
 
-	p[i] = rx_data_buffer[rx_read_pointer++];
-	if (rx_read_pointer >= MAX_RX_BUFFER_SIZE)
-	{
-	    rx_read_pointer = 0;
-	}
+        p[i] = rx_data_buffer[rx_read_pointer++];
+        if (rx_read_pointer >= MAX_RX_BUFFER_SIZE)
+        {
+            rx_read_pointer = 0;
+        }
     }
 
     UNLOCK(rx_sco_lock);
 
     return length;
-}
-
-/*******************************************************************************
-**
-** Function	    btui_sco_register
-**
-** Description      Sco register function which initializes the callbacks.
-**
-**
-** Returns	    void
-**
-*******************************************************************************/
-static void btui_sco_register(tBTM_SCO_CFG *cfg)
-{
-    cur_cfg.event = cfg->event;
-    cur_cfg.sco_handle = cfg->sco_handle;
-    cur_cfg.pkt_size = cfg->pkt_size;
-    cur_cfg.p_cback = cfg->p_cback;
-    cur_cfg.sco_pool_id = cfg->sco_pool_id;
 }
 
 /*******************************************************************************
@@ -477,6 +452,25 @@ static void btui_sco_codec_callback(UINT16 event, UINT16 sco_handle)
 {
     bta_dm_sco_ci_data_ready(event, sco_handle);
 }
+
+/*******************************************************************************
+**
+** Function         btui_sco_register
+**
+** Description      Sco register function which initializes the callbacks.
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+static void btui_sco_register(tBTM_SCO_CFG *cfg)
+{
+    cur_cfg.event = cfg->event;
+    cur_cfg.sco_handle = cfg->sco_handle;
+    cur_cfg.pkt_size = cfg->pkt_size;
+    cur_cfg.p_cback = cfg->p_cback;
+    cur_cfg.sco_pool_id = cfg->sco_pool_id;
+}
 /*******************************************************************************
 **
 ** Function         bta_dm_sco_co_init
@@ -493,7 +487,6 @@ tBTA_DM_SCO_ROUTE_TYPE bta_dm_sco_co_init(UINT32 rx_bw, UINT32 tx_bw,
                                           tBTA_CODEC_INFO * p_codec_type, UINT8 app_id)
 {
     tBTM_SCO_ROUTE_TYPE route = BTA_DM_SCO_ROUTE_PCM;
-
     return route;
 }
 
@@ -514,10 +507,9 @@ void bta_dm_sco_co_open(UINT16 handle, UINT8 pkt_size, UINT16 event)
     BTIF_TRACE_DEBUG("%s", __func__);
     UINT16 sco_buffer_size = (UINT16) (sizeof(BT_HDR)+HCI_SCO_PREAMBLE_SIZE+SCO_PACKET_SIZE);
     UINT8 sco_buffer_pool_id = GKI_create_pool(sco_buffer_size, SCO_POOL_SIZE, GKI_RESTRICTED_POOL, NULL);
-
     if (sco_buffer_pool_id == GKI_INVALID_POOL)
     {
-       BTIF_TRACE_DEBUG("Failed to create a new buffer");
+        BTIF_TRACE_DEBUG("Failed to create a new buffer");
     }
     tBTM_SCO_CFG cfg;
     cfg.sco_pool_id = sco_buffer_pool_id;
@@ -526,7 +518,6 @@ void bta_dm_sco_co_open(UINT16 handle, UINT8 pkt_size, UINT16 event)
     cfg.sco_handle = handle;
     cfg.p_cback = btui_sco_codec_callback;
     btui_sco_register(&cfg);
-
 }
 
 /*******************************************************************************
@@ -544,6 +535,7 @@ void bta_dm_sco_co_close(void)
     BTIF_TRACE_DEBUG("%s", __func__);
     GKI_delete_pool(cur_cfg.sco_pool_id);
     cur_cfg.sco_pool_id = GKI_INVALID_POOL;
+
 }
 
 /*******************************************************************************
@@ -555,21 +547,22 @@ void bta_dm_sco_co_close(void)
 ** Returns          void
 **
 *******************************************************************************/
-void bta_dm_sco_co_in_data(BT_HDR  *p_buf, tBTM_SCO_DATA_FLAG status)
+void bta_dm_sco_co_in_data(BT_HDR  *p_buf,tBTM_SCO_DATA_FLAG status)
 {
-   uint8_t *p_data;
-   int length;
-   int i;
-   BTIF_TRACE_DEBUG("%s", __func__);
-   if (p_buf != NULL)
-   {
-       p_data = (uint8_t*)p_buf+sizeof(BT_HDR)+HCI_SCO_PREAMBLE_SIZE;
-       bta_dm_hsp_write_rx_data_buf(p_data, SCO_PACKET_SIZE);
-       GKI_freebuf(p_buf);
-   }
-   else
-       BTIF_TRACE_ERROR("Invalid argument : NULL buffer in %s", __func__);
+    uint8_t *p_data;
+    int length;
+    int i;
+    BTIF_TRACE_DEBUG("%s", __func__);
+    if (p_buf != NULL)
+    {
+        p_data = (uint8_t*)p_buf+sizeof(BT_HDR)+HCI_SCO_PREAMBLE_SIZE;
+        bta_dm_hsp_write_rx_data_buf(p_data, SCO_PACKET_SIZE);
+        GKI_freebuf(p_buf);
+    }
+    else
+        BTIF_TRACE_ERROR("Invalid argument : NULL buffer in %s", __func__);
 }
+
 void btui_sco_codec_readbuf(BT_HDR **p_buf)
 {
     static int count = 0;
@@ -582,67 +575,68 @@ void btui_sco_codec_readbuf(BT_HDR **p_buf)
     *p_buf = NULL;
     if (count < SCO_PACKET_PER_TIMEOUT)
     {
-	if(cur_cfg.sco_pool_id == GKI_INVALID_POOL)
-	{
-	    for (xx = count; xx < SCO_PACKET_PER_TIMEOUT; xx++)
-		bta_dm_hsp_read_tx_data_buf(buffer, SCO_PACKET_SIZE);
-	    count = 0;
-	    return;
-	}
-	else
-	{
-	    while (retry_count < MAX_GET_POOL_BUF_RETRY)
-	    {
-		*p_buf = (BT_HDR *) GKI_getpoolbuf(cur_cfg.sco_pool_id);
-		if(*p_buf == NULL)
-		{
-		    BTIF_TRACE_DEBUG("GKI failed to allocate");
-		    BTIF_TRACE_DEBUG("count = %d", count);
-		    retry_count++;
-		}
-		else
-		{
-		    break;
-		}
-	    }
-	    if (*p_buf == NULL)
-	    {
-		BTIF_TRACE_ERROR("Fail to allocate the buffer pull in %s", __func__);
-		for (xx = count; xx < SCO_PACKET_PER_TIMEOUT; xx++)
-		    bta_dm_hsp_read_tx_data_buf(buffer, SCO_PACKET_SIZE);
-		count = 0;
-		return;
-	    }
-	    else
-	    {
-		p_data_buf = (UINT8*)*p_buf + (sizeof(BT_HDR)+HCI_SCO_PREAMBLE_SIZE);
-		if ((r = bta_dm_hsp_read_tx_data_buf(p_data_buf, SCO_PACKET_SIZE)) > 0)
-		{
-		    if (r < SCO_PACKET_SIZE)
-		    {
-			p_data_buf+=r;
-			memset(p_data_buf, 0, (SCO_PACKET_SIZE - r));
-		    }
-		    count++;
-		}
-		else
-		{
-		    BTIF_TRACE_DEBUG("No Data in the buffer. Drift compensation");
-		    memset(p_data_buf, 0, SCO_PACKET_SIZE);
-		    count++;
-		}
-		(*p_buf)->len = SCO_PACKET_SIZE;
-		(*p_buf)->offset = HCI_SCO_PREAMBLE_SIZE;
-		(*p_buf)->layer_specific = 0;
-	    }
-	}
+        if(cur_cfg.sco_pool_id == GKI_INVALID_POOL)
+        {
+            for (xx = count; xx < SCO_PACKET_PER_TIMEOUT; xx++)
+                bta_dm_hsp_read_tx_data_buf(buffer, SCO_PACKET_SIZE);
+            count = 0;
+            return;
+        }
+        else
+        {
+            while (retry_count < MAX_GET_POOL_BUF_RETRY)
+            {
+                *p_buf = (BT_HDR *) GKI_getpoolbuf(cur_cfg.sco_pool_id);
+                if(*p_buf == NULL)
+                {
+                    BTIF_TRACE_DEBUG("GKI failed to allocate");
+                    BTIF_TRACE_DEBUG("count = %d", count);
+                    retry_count++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            if (*p_buf == NULL)
+            {
+                BTIF_TRACE_ERROR("Fail to allocate the buffer pull in %s", __func__);
+                for (xx = count; xx < SCO_PACKET_PER_TIMEOUT; xx++)
+                    bta_dm_hsp_read_tx_data_buf(buffer, SCO_PACKET_SIZE);
+                count = 0;
+                return;
+            }
+            else
+            {
+                p_data_buf = (UINT8*)*p_buf + (sizeof(BT_HDR)+HCI_SCO_PREAMBLE_SIZE);
+                if ((r = bta_dm_hsp_read_tx_data_buf(p_data_buf, SCO_PACKET_SIZE)) > 0)
+                {
+                    if (r < SCO_PACKET_SIZE)
+                    {
+                        p_data_buf+=r;
+                        memset(p_data_buf, 0, (SCO_PACKET_SIZE - r));
+                    }
+                    count++;
+                }
+                else
+                {
+                    BTIF_TRACE_DEBUG("No Data in the buffer. Drift compensation");
+                    memset(p_data_buf, 0, SCO_PACKET_SIZE);
+                    count++;
+                }
+                (*p_buf)->len = SCO_PACKET_SIZE;
+                (*p_buf)->offset = HCI_SCO_PREAMBLE_SIZE;
+                (*p_buf)->layer_specific = 0;
+            }
+        }
     }
     else
     {
-	count = 0;
+        count = 0;
     }
     return;
 }
+
 /*******************************************************************************
 **
 ** Function         bta_dm_sco_co_out_data

@@ -25,13 +25,9 @@
 
 #define CLNT_IF_IDX 0
 #define INST_ID_IDX 1
-#define INST_ID_IDX_MAX INST_ID_IDX + 1
 #define INVALID_ADV_INST -1
 #define STD_ADV_INSTID 0
-
-/* Default ADV flags for general and limited discoverability */
-#define ADV_FLAGS_LIMITED BTA_DM_LIMITED_DISC
-#define ADV_FLAGS_GENERAL BTA_DM_GENERAL_DISC
+#define ADV_FLAGS 0x02
 
 typedef struct
 {
@@ -59,16 +55,13 @@ typedef struct
     tBTA_BLE_AD_MASK mask;
     tBTA_BLE_ADV_DATA data;
     tBTA_BLE_ADV_PARAMS param;
-    TIMER_LIST_ENT tle_limited_timer;
-    int timeout_s;
 }btgatt_multi_adv_inst_cb;
 
 typedef struct
 {
-     INT8 *clntif_map;
+    INT8 clntif_map[BTM_BLE_MULTI_ADV_MAX][INST_ID_IDX+1];
     // Includes the stored data for standard LE instance
-    btgatt_multi_adv_inst_cb *inst_cb;
-
+    btgatt_multi_adv_inst_cb inst_cb[BTM_BLE_MULTI_ADV_MAX+1];
 } btgatt_multi_adv_common_data;
 
 extern btgatt_multi_adv_common_data *btif_obtain_multi_adv_data_cb();
@@ -77,7 +70,7 @@ extern void btif_gattc_destroy_multi_adv_cb();
 extern int btif_multi_adv_add_instid_map(int client_if, int inst_id,
         BOOLEAN gen_temp_instid);
 extern int btif_multi_adv_instid_for_clientif(int client_if);
-extern int btif_gattc_obtain_idx_for_datacb(int value, int clnt_inst_index);
+extern int btif_gattc_obtain_idx_for_datacb(int value, int arrindex);
 extern void btif_gattc_clear_clientif(int client_if);
 extern void btif_gattc_cleanup_inst_cb(int inst_id);
 extern void btif_gattc_cleanup_multi_inst_cb(btgatt_multi_adv_inst_cb *p_inst_cb);
@@ -85,10 +78,10 @@ extern BOOLEAN btif_gattc_copy_datacb(int arrindex, btif_adv_data_t *p_adv_data,
                                             BOOLEAN bInstData);
 extern void btif_gattc_adv_data_packager(int client_if, bool set_scan_rsp,
                 bool include_name, bool include_txpower, int min_interval, int max_interval,
-                int appearance, int manufacturer_len, char* manufacturer_data,
-                int service_data_len, char* service_data, int service_uuid_len,
+                int appearance, uint16_t manufacturer_len, char* manufacturer_data,
+                uint16_t service_data_len, char* service_data, uint16_t service_uuid_len,
                 char* service_uuid, btif_adv_data_t *p_multi_adv_inst);
-void btif_multi_adv_timer_ctrl(int client_if, TIMER_CBACK cb);
+
 #endif
 
 

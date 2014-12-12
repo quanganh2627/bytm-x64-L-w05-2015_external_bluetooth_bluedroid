@@ -62,7 +62,6 @@ bool userial_init(void);
 // returns false if there was an error.
 bool userial_open(userial_port_t port);
 void userial_close(void);
-void userial_close_reader(void);
 
 // Reads a maximum of |len| bytes from the serial port into |p_buffer|.
 // This function returns the number of bytes actually read, which may be
@@ -93,3 +92,4 @@ uint16_t userial_write(uint16_t msg_id, const uint8_t *p_data, uint16_t len);
 **
 *******************************************************************************/
 void userial_sco_trigger(int state, uint16_t sco_handle);
+

@@ -40,6 +40,7 @@
 #include "bd.h"
 #include "bt_utils.h"
 
+static void btm_establish_continue (tACL_CONN *p_acl_cb);
 static void btm_read_remote_features (UINT16 handle);
 static void btm_read_remote_ext_features (UINT16 handle, UINT8 page_number);
 static void btm_process_remote_ext_features_page (tACL_CONN *p_acl_cb, tBTM_SEC_DEV_REC *p_dev_rec,
@@ -47,6 +48,52 @@ static void btm_process_remote_ext_features_page (tACL_CONN *p_acl_cb, tBTM_SEC_
 static void btm_process_remote_ext_features (tACL_CONN *p_acl_cb, UINT8 num_read_pages);
 
 #define BTM_DEV_REPLY_TIMEOUT   3       /* 3 second timeout waiting for responses */
+
+/*******************************************************************************
+**
+** Function         btm_save_remote_device_role
+**
+** Description      This function is to save remote device role
+**
+** Returns          void
+**
+*******************************************************************************/
+static void btm_save_remote_device_role(BD_ADDR bd_addr, UINT8 role)
+{
+    UINT8 i, j;
+    if (role == BTM_ROLE_UNDEFINED) return;
+
+    for (i = 0; i < BTM_ROLE_DEVICE_NUM; i++) {
+        if ((btm_cb.previous_connected_role[i] != BTM_ROLE_UNDEFINED) &&
+            (!bdcmp(bd_addr, btm_cb.previous_connected_remote_addr[i]))) {
+            break;
+        }
+    }
+
+    if (i < BTM_ROLE_DEVICE_NUM) {
+        UINT8 end;
+        if (i < btm_cb.front) {
+            for (j = i; j > 0; j--) {
+                bdcpy(btm_cb.previous_connected_remote_addr[j],
+                    btm_cb.previous_connected_remote_addr[j-1]);
+            }
+            bdcpy(btm_cb.previous_connected_remote_addr[0],
+                btm_cb.previous_connected_remote_addr[BTM_ROLE_DEVICE_NUM-1]);
+            end = BTM_ROLE_DEVICE_NUM-1;
+        } else {
+            end = i;
+        }
+
+        for (j = end; j > btm_cb.front; j--) {
+            bdcpy(btm_cb.previous_connected_remote_addr[j],
+                btm_cb.previous_connected_remote_addr[j-1]);
+        }
+    }
+
+    bdcpy(btm_cb.previous_connected_remote_addr[btm_cb.front], bd_addr);
+    btm_cb.previous_connected_role[btm_cb.front] = role;
+    btm_cb.front = (btm_cb.front + 1) % BTM_ROLE_DEVICE_NUM;
+}
 
 /*******************************************************************************
 **
@@ -222,6 +269,7 @@ void btm_acl_created (BD_ADDR bda, DEV_CLASS dc, BD_NAME bdn,
     {
         p->hci_handle = hci_handle;
         p->link_role  = link_role;
+        btm_save_remote_device_role(bda, link_role);
 #if BLE_INCLUDED == TRUE
         p->transport = transport;
 #endif
@@ -239,14 +287,16 @@ void btm_acl_created (BD_ADDR bda, DEV_CLASS dc, BD_NAME bdn,
             p->in_use            = TRUE;
             p->hci_handle        = hci_handle;
             p->link_role         = link_role;
+            btm_save_remote_device_role(bda, link_role);
             p->link_up_issued    = FALSE;
 
 #if BLE_INCLUDED == TRUE
             p->transport = transport;
             if (transport == BT_TRANSPORT_LE)
             {
-#if BLE_PRIVACY_SPT == TRUE
-                if (btm_cb.ble_ctr_cb.privacy)
+#if ( BLE_PRIVACY_SPT == TRUE )
+                /*allow central device to use random address for now by skipping the role check */
+                if (btm_cb.ble_ctr_cb.privacy /* && p->link_role == HCI_ROLE_SLAVE */)
                 {
                     p->conn_addr_type = btm_cb.ble_ctr_cb.addr_mgnt_cb.own_addr_type;
                     memcpy(p->conn_addr, btm_cb.ble_ctr_cb.addr_mgnt_cb.private_addr, BD_ADDR_LEN);
@@ -325,16 +375,14 @@ void btm_acl_created (BD_ADDR bda, DEV_CLASS dc, BD_NAME bdn,
                 btm_ble_get_acl_remote_addr (p_dev_rec, p->active_remote_addr,
                     &p->active_remote_addr_type);
 #endif
+                btm_establish_continue(p);
 
-                if (HCI_LE_SLAVE_INIT_FEAT_EXC_SUPPORTED(btm_cb.devcb.local_le_features)
-                    || link_role == HCI_ROLE_MASTER)
+#if (!defined(BTA_SKIP_BLE_READ_REMOTE_FEAT) || BTA_SKIP_BLE_READ_REMOTE_FEAT == FALSE)
+                if (link_role == HCI_ROLE_MASTER)
                 {
                     btsnd_hcic_ble_read_remote_feat(p->hci_handle);
                 }
-                else
-                {
-                    btm_establish_continue(p);
-                }
+#endif
             }
             else
 #endif
@@ -1102,7 +1150,7 @@ tBTM_STATUS BTM_SetLinkPolicy (BD_ADDR remote_bda, UINT16 *settings)
     if ((p = btm_bda_to_acl(remote_bda, BT_TRANSPORT_BR_EDR)) != NULL)
     {
         // Hack to not to allow role switch once connected
-        *settings &= (~HCI_ENABLE_MASTER_SLAVE_SWITCH);
+    //    *settings &= (~HCI_ENABLE_MASTER_SLAVE_SWITCH);
         return(btsnd_hcic_write_policy_set (p->hci_handle, *settings) ? BTM_CMD_STARTED : BTM_NO_RESOURCES);
     }
 
@@ -1614,7 +1662,7 @@ void btm_read_remote_ext_features_failed (UINT8 status, UINT16 handle)
 ** Returns          void
 **
 *******************************************************************************/
-void btm_establish_continue (tACL_CONN *p_acl_cb)
+static void btm_establish_continue (tACL_CONN *p_acl_cb)
 {
 #if (defined(BTM_BUSY_LEVEL_CHANGE_INCLUDED) && BTM_BUSY_LEVEL_CHANGE_INCLUDED == TRUE)
         tBTM_BL_EVENT_DATA  evt_data;
@@ -2328,7 +2376,7 @@ void btm_acl_role_changed (UINT8 hci_status, BD_ADDR bd_addr, UINT8 new_role)
 
         /* Update cached value */
         p->link_role = new_role;
-
+        btm_save_remote_device_role(p_bda, new_role);
         /* Reload LSTO: link supervision timeout is reset in the LM after a role switch */
         if (new_role == BTM_ROLE_MASTER)
         {
@@ -2455,9 +2503,9 @@ BOOLEAN BTM_TryAllocateSCN(UINT8 scn)
     /* Make sure we don't exceed max port range.
      * Stack reserves scn 1 for HFP, HSP we still do the correct way.
      */
-    if (scn > 0 && scn <= BTM_MAX_SCN)
+    if ( (scn>BTM_MAX_SCN) || (scn <= 1) )
         return FALSE;
-
+    
     /* check if this port is available */
     if (!btm_cb.btm_scn[scn-1])
     {
@@ -2480,7 +2528,7 @@ BOOLEAN BTM_TryAllocateSCN(UINT8 scn)
 BOOLEAN BTM_FreeSCN(UINT8 scn)
 {
     BTM_TRACE_DEBUG ("BTM_FreeSCN ");
-    if (scn <= BTM_MAX_SCN)
+    if (scn > 0 && scn <= BTM_MAX_SCN)
     {
         btm_cb.btm_scn[scn-1] = FALSE;
         return(TRUE);
@@ -2895,11 +2943,7 @@ void btm_qos_setup_complete (UINT8 status, UINT16 handle, FLOW_SPEC *p_flow)
 tBTM_STATUS BTM_ReadRSSI (BD_ADDR remote_bda, tBTM_CMPL_CB *p_cb)
 {
     tACL_CONN   *p;
-    tBT_TRANSPORT transport = BT_TRANSPORT_BR_EDR;
-#if BLE_INCLUDED == TRUE
-    tBT_DEVICE_TYPE dev_type;
-    tBLE_ADDR_TYPE  addr_type;
-#endif
+
     BTM_TRACE_API ("BTM_ReadRSSI: RemBdAddr: %02x%02x%02x%02x%02x%02x",
                     remote_bda[0], remote_bda[1], remote_bda[2],
                     remote_bda[3], remote_bda[4], remote_bda[5]);
@@ -2908,13 +2952,7 @@ tBTM_STATUS BTM_ReadRSSI (BD_ADDR remote_bda, tBTM_CMPL_CB *p_cb)
     if (btm_cb.devcb.p_rssi_cmpl_cb)
         return(BTM_BUSY);
 
-#if BLE_INCLUDED == TRUE
-    BTM_ReadDevInfo(remote_bda, &dev_type, &addr_type);
-    if (dev_type == BT_DEVICE_TYPE_BLE)
-        transport = BT_TRANSPORT_LE;
-#endif
-
-    p = btm_bda_to_acl(remote_bda, transport);
+    p = btm_bda_to_acl(remote_bda, BT_TRANSPORT_BR_EDR);
     if (p != (tACL_CONN *)NULL)
     {
         btu_start_timer (&btm_cb.devcb.rssi_timer, BTU_TTYPE_BTM_ACL,

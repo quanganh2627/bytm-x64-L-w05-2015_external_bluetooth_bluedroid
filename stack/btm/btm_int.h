@@ -54,6 +54,10 @@ typedef char tBTM_LOC_BD_NAME[BTM_MAX_LOC_BD_NAME_LEN + 1];
 */
 #define BTM_MAX_SCN      PORT_MAX_RFC_PORTS
 
+/* Definition for number of the remote device role saved
+*/
+#define BTM_ROLE_DEVICE_NUM      4
+
 /* Define masks for supported and exception 2.0 ACL packet types
 */
 #define BTM_ACL_SUPPORTED_PKTS_MASK      (HCI_PKT_TYPES_MASK_DM1        | \
@@ -947,6 +951,9 @@ typedef struct
     tBTM_PCM2_ACTION        pcm2_action;
 #endif
 
+    BD_ADDR previous_connected_remote_addr[BTM_ROLE_DEVICE_NUM];
+    UINT8   previous_connected_role[BTM_ROLE_DEVICE_NUM];
+    UINT8   front; /* front index of the role table */
 } tBTM_CB;
 
 
@@ -1029,8 +1036,6 @@ extern void         btm_read_remote_features_complete (UINT8 *p);
 extern void         btm_read_remote_ext_features_complete (UINT8 *p);
 extern void         btm_read_remote_ext_features_failed (UINT8 status, UINT16 handle);
 extern void         btm_read_remote_version_complete (UINT8 *p);
-extern void         btm_establish_continue (tACL_CONN *p_acl_cb);
-
 // btla-specific ++
 extern void         btm_acl_chk_peer_pkt_type_support (tACL_CONN *p, UINT16 *p_pkt_type);
 // btla-specific --

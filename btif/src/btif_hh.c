@@ -919,8 +919,10 @@ static void btif_hh_upstreams_evt(UINT16 event, char* p_param)
             break;
 
         case BTA_HH_GET_DSCP_EVT:
-            len = p_data->dscp_info.descriptor.dl_len;
-            BTIF_TRACE_DEBUG("BTA_HH_GET_DSCP_EVT: len = %d", len);
+            BTIF_TRACE_WARNING("BTA_HH_GET_DSCP_EVT: status = %d, handle = %d",
+                p_data->dev_status.status, p_data->dev_status.handle);
+                len = p_data->dscp_info.descriptor.dl_len;
+                BTIF_TRACE_DEBUG("BTA_HH_GET_DSCP_EVT: len = %d", len);
             p_dev = btif_hh_cb.p_curr_dev;
             if (p_dev == NULL) {
                 BTIF_TRACE_ERROR("BTA_HH_GET_DSCP_EVT: No HID device is currently connected");

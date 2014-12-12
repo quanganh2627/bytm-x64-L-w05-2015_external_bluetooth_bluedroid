@@ -249,11 +249,7 @@ static void *userial_read_thread(void *arg)
             p_buf->layer_specific = 0;
 
             p = (uint8_t *) (p_buf + 1);
-            int userial_fd = userial_cb.fd;
-            if (userial_fd != -1)
-                rx_length = select_read(userial_fd, p, HCI_MAX_FRAME_SIZE + 1);
-            else
-                rx_length = 0;
+            rx_length = select_read(userial_cb.fd, p, HCI_MAX_FRAME_SIZE + 1);
         }
         else
         {
@@ -315,12 +311,9 @@ bool userial_open(userial_port_t port) {
 
     // Call in to the vendor-specific library to open the serial port.
     int fd_array[CH_MAX];
-    for (int i = 0; i < CH_MAX; i++)
-        fd_array[i] = -1;
-
     int num_ports = vendor_send_command(BT_VND_OP_USERIAL_OPEN, &fd_array);
 
-    if (num_ports != 1) {
+    if (num_ports > 1) {
         ALOGE("%s opened wrong number of ports: got %d, expected 1.", __func__, num_ports);
         goto error;
     }
@@ -409,19 +402,6 @@ uint16_t userial_write(uint16_t msg_id, const uint8_t *p_data, uint16_t len) {
     }
 
     return total;
-}
-
-void userial_close_reader(void) {
-    // Join the reader thread if it is still running.
-    if (userial_running) {
-        send_event(USERIAL_RX_EXIT);
-        int result = pthread_join(userial_cb.read_thread, NULL);
-        USERIALDBG("%s Joined userial reader thread: %d", __func__, result);
-        if (result)
-            ALOGE("%s failed to join reader thread: %d", __func__, result);
-        return;
-    }
-    ALOGW("%s Already closed userial reader thread", __func__);
 }
 
 void userial_close(void) {

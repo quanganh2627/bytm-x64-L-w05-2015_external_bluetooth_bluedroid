@@ -70,20 +70,12 @@ tL2C_LCB *l2cu_allocate_lcb (BD_ADDR p_bd_addr, BOOLEAN is_bonding, tBT_TRANSPOR
             p_lcb->idle_timeout    = l2cb.idle_timeout;
             p_lcb->id              = 1;                     /* spec does not allow '0' */
             p_lcb->is_bonding      = is_bonding;
-#if (BLE_INCLUDED == TRUE)
+#if BLE_INCLUDED == TRUE
             p_lcb->transport       = transport;
-
-            if (transport == BT_TRANSPORT_LE)
-            {
-                l2cb.num_ble_links_active++;
-                l2c_ble_link_adjust_allocation();
-            }
-            else
 #endif
-            {
-                l2cb.num_links_active++;
-                l2c_link_adjust_allocation();
-            }
+            l2cb.num_links_active++;
+
+            l2c_link_adjust_allocation();
             return (p_lcb);
         }
     }
@@ -218,23 +210,11 @@ void l2cu_release_lcb (tL2C_LCB *p_lcb)
     l2c_ucd_delete_sec_pending_q(p_lcb);
 #endif
 
-#if BLE_INCLUDED == TRUE
     /* Re-adjust flow control windows make sure it does not go negative */
-    if (p_lcb->transport == BT_TRANSPORT_LE)
-    {
-        if (l2cb.num_ble_links_active >= 1)
-            l2cb.num_ble_links_active--;
+    if (l2cb.num_links_active >= 1)
+        l2cb.num_links_active--;
 
-        l2c_ble_link_adjust_allocation();
-    }
-    else
-#endif
-    {
-        if (l2cb.num_links_active >= 1)
-            l2cb.num_links_active--;
-
-        l2c_link_adjust_allocation();
-    }
+    l2c_link_adjust_allocation();
 
     /* Check for ping outstanding */
     if (p_lcb->p_echo_rsp_cb)
@@ -294,6 +274,15 @@ tL2C_LCB  *l2cu_find_lcb_by_bd_addr (BD_ADDR p_bd_addr, tBT_TRANSPORT transport)
 *******************************************************************************/
 UINT8 l2cu_get_conn_role (tL2C_LCB *p_this_lcb)
 {
+    UINT8 i;
+    for (i = 0; i < BTM_ROLE_DEVICE_NUM; i++) {
+        if ((btm_cb.previous_connected_role[i] != BTM_ROLE_UNDEFINED) &&
+            (!bdcmp(p_this_lcb->remote_bd_addr, btm_cb.previous_connected_remote_addr[i]))) {
+            L2CAP_TRACE_WARNING ("l2cu_get_conn_role %d",
+                                  btm_cb.previous_connected_role[i]);
+            return btm_cb.previous_connected_role[i];
+        }
+    }
     return l2cb.desire_role;
 }
 
@@ -2890,16 +2879,13 @@ void l2cu_process_fixed_disc_cback (tL2C_LCB *p_lcb)
     {
         if (p_lcb->p_fixed_ccbs[xx])
         {
-            if (p_lcb->p_fixed_ccbs[xx] != p_lcb->p_pending_ccb)
-            {
-                l2cu_release_ccb (p_lcb->p_fixed_ccbs[xx]);
-                p_lcb->p_fixed_ccbs[xx] = NULL;
+            l2cu_release_ccb (p_lcb->p_fixed_ccbs[xx]);
+            p_lcb->p_fixed_ccbs[xx] = NULL;
 #if BLE_INCLUDED == TRUE
             (*l2cb.fixed_reg[xx].pL2CA_FixedConn_Cb)(p_lcb->remote_bd_addr, FALSE, p_lcb->disc_reason, p_lcb->transport);
 #else
             (*l2cb.fixed_reg[xx].pL2CA_FixedConn_Cb)(p_lcb->remote_bd_addr, FALSE, p_lcb->disc_reason, BT_TRANSPORT_BR_EDR);
 #endif
-           }
         }
         else if ( (p_lcb->peer_chnl_mask[0] & (1 << (xx + L2CAP_FIRST_FIXED_CHNL)))
                && (l2cb.fixed_reg[xx].pL2CA_FixedConn_Cb != NULL) )

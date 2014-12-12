@@ -45,34 +45,6 @@
 #include "btif_config.h"
 
 #include "bta_gatt_api.h"
-
-/******************************************************************************
-**  Device specific workarounds
-******************************************************************************/
-
-/**
- * The devices below have proven problematic during the pairing process, often
- * requiring multiple retries to complete pairing. To avoid degrading the user
- * experience for other devices, explicitely blacklist troubled devices here.
- */
-static const UINT8 blacklist_pairing_retries[][3] = {
-    {0x9C, 0xDF, 0x03} // BMW car kits (Harman/Becker)
-};
-
-BOOLEAN blacklistPairingRetries(BD_ADDR bd_addr)
-{
-    const unsigned blacklist_size = sizeof(blacklist_pairing_retries)
-        / sizeof(blacklist_pairing_retries[0]);
-    for (unsigned i = 0; i != blacklist_size; ++i)
-    {
-        if (blacklist_pairing_retries[i][0] == bd_addr[0] &&
-            blacklist_pairing_retries[i][1] == bd_addr[1] &&
-            blacklist_pairing_retries[i][2] == bd_addr[2])
-            return TRUE;
-    }
-    return FALSE;
-}
-
 /******************************************************************************
 **  Constants & Macros
 ******************************************************************************/
@@ -92,8 +64,6 @@ BOOLEAN blacklistPairingRetries(BD_ADDR bd_addr)
 #define BTIF_DM_DEFAULT_INQ_MAX_RESULTS     0
 #define BTIF_DM_DEFAULT_INQ_MAX_DURATION    10
 #define BTIF_DM_MAX_SDP_ATTEMPTS_AFTER_PAIRING 2
-
-#define NUM_TIMEOUT_RETRIES                 5
 
 #define PROPERTY_PRODUCT_MODEL "ro.product.model"
 #define DEFAULT_LOCAL_NAME_MAX  31
@@ -120,7 +90,6 @@ typedef struct
     UINT8   auth_req;
     UINT8   io_cap;
     UINT8   autopair_attempts;
-    UINT8   timeout_retries;
     UINT8   is_local_initiated;
     UINT8   sdp_attempts;
 #if (defined(BLE_INCLUDED) && (BLE_INCLUDED == TRUE))
@@ -638,20 +607,9 @@ static void btif_dm_cb_create_bond(bt_bdaddr_t *bd_addr, tBTA_TRANSPORT transpor
     int addr_type;
     bdstr_t bdstr;
     bd2str(bd_addr, &bdstr);
-    if (transport == BT_TRANSPORT_LE)
-    {
-        if (!btif_config_get_int("Remote", (char const *)&bdstr,"DevType", &device_type))
-        {
-            btif_config_set_int("Remote", bdstr, "DevType", BT_DEVICE_TYPE_BLE);
-        }
-        if (btif_storage_get_remote_addr_type(bd_addr, &addr_type) != BT_STATUS_SUCCESS)
-        {
-            btif_storage_set_remote_addr_type(bd_addr, BLE_ADDR_PUBLIC);
-        }
-    }
-    if((btif_config_get_int("Remote", (char const *)&bdstr,"DevType", &device_type) &&
+    if(btif_config_get_int("Remote", (char const *)&bdstr,"DevType", &device_type) &&
        (btif_storage_get_remote_addr_type(bd_addr, &addr_type) == BT_STATUS_SUCCESS) &&
-       (device_type == BT_DEVICE_TYPE_BLE)) || (transport == BT_TRANSPORT_LE))
+       (device_type == BT_DEVICE_TYPE_BLE))
     {
         BTA_DmAddBleDevice(bd_addr->address, addr_type, BT_DEVICE_TYPE_BLE);
     }
@@ -1024,7 +982,6 @@ static void btif_dm_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
     // Skip SDP for certain  HID Devices
     if (p_auth_cmpl->success)
     {
-        pairing_cb.timeout_retries = 0;
         status = BT_STATUS_SUCCESS;
         state = BT_BOND_STATE_BONDED;
         bdcpy(bd_addr.address, p_auth_cmpl->bd_addr);
@@ -1073,14 +1030,6 @@ static void btif_dm_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
         switch(p_auth_cmpl->fail_reason)
         {
             case HCI_ERR_PAGE_TIMEOUT:
-                if (blacklistPairingRetries(bd_addr.address) && pairing_cb.timeout_retries)
-                {
-                    BTIF_TRACE_WARNING("%s() - Pairing timeout; retrying (%d) ...", __FUNCTION__, pairing_cb.timeout_retries);
-                    --pairing_cb.timeout_retries;
-                    btif_dm_cb_create_bond (&bd_addr, BTA_TRANSPORT_UNKNOWN);
-                    return;
-                }
-                /* Fall-through */
             case HCI_ERR_CONNECTION_TOUT:
                 status =  BT_STATUS_RMT_DEV_DOWN;
                 break;
@@ -1570,11 +1519,6 @@ static void btif_dm_upstreams_evt(UINT16 event, char* p_param)
                  BTA_DmSetDeviceName(btif_get_default_local_name());
              }
 
-#if (defined(BLE_INCLUDED) && (BLE_INCLUDED == TRUE))
-             /* Enable local privacy */
-             BTA_DmBleConfigLocalPrivacy(TRUE);
-#endif
-
              /* for each of the enabled services in the mask, trigger the profile
               * enable */
              service_mask = btif_get_enabled_services_mask();
@@ -1597,6 +1541,12 @@ static void btif_dm_upstreams_evt(UINT16 event, char* p_param)
              btif_storage_load_autopair_device_list();
 
              btif_enable_bluetooth_evt(p_data->enable.status, p_data->enable.bd_addr);
+
+             #if (defined(BLE_INCLUDED) && (BLE_INCLUDED == TRUE))
+             /* Enable local privacy */
+             /*TODO  Should this call be exposed to JAVA...? */
+             BTA_DmBleConfigLocalPrivacy(TRUE);
+             #endif
         }
         break;
 
@@ -1747,19 +1697,10 @@ static void btif_dm_upstreams_evt(UINT16 event, char* p_param)
                 case BTA_LE_KEY_PID:
                     BTIF_TRACE_DEBUG("Rcv BTA_LE_KEY_PID");
                     pairing_cb.ble.is_pid_key_rcvd = TRUE;
-                    pairing_cb.ble.pid_key.addr_type = p_data->ble_key.key_value.pid_key.addr_type;
-                    memcpy(pairing_cb.ble.pid_key.irk, p_data->ble_key.key_value.pid_key.irk, 16);
-                    memcpy(pairing_cb.ble.pid_key.static_addr,
-                            p_data->ble_key.key_value.pid_key.static_addr,BD_ADDR_LEN);
+                    memcpy(pairing_cb.ble.pid_key, p_data->ble_key.key_value.pid_key.irk, 16);
                     for (i=0; i<16; i++)
                     {
-                        BTIF_TRACE_DEBUG("pairing_cb.ble.pid_key.irk[%d]=0x%02x"
-                                            ,i,pairing_cb.ble.pid_key.irk[i]);
-                    }
-                    for (i=0; i<BD_ADDR_LEN; i++)
-                    {
-                        BTIF_TRACE_DEBUG("piaring_cb.ble.pid_address[%d] = %x"
-                                            ,i, pairing_cb.ble.pid_key.static_addr[i]);
+                        BTIF_TRACE_DEBUG("pairing_cb.ble.pid_key[%d]=0x%02x",i,pairing_cb.ble.pid_key[i]);
                     }
                     break;
 
@@ -1938,7 +1879,6 @@ static void btif_dm_generic_evt(UINT16 event, char* p_param)
 
         case BTIF_DM_CB_CREATE_BOND:
         {
-            pairing_cb.timeout_retries = NUM_TIMEOUT_RETRIES;
             btif_dm_create_bond_cb_t *create_bond_cb = (btif_dm_create_bond_cb_t*)p_param;
             btif_dm_cb_create_bond(&create_bond_cb->bdaddr, create_bond_cb->transport);
         }
@@ -2913,9 +2853,9 @@ void btif_dm_save_ble_bonding_keys(void)
     if (pairing_cb.ble.is_pid_key_rcvd)
     {
         btif_storage_add_ble_bonding_key(&bd_addr,
-                                         (char *) &pairing_cb.ble.pid_key,
+                                         (char *) &pairing_cb.ble.pid_key[0],
                                          BTIF_DM_LE_KEY_PID,
-                                         sizeof(btif_dm_ble_pid_keys_t));
+                                         BT_OCTET16_LEN);
     }
 
 
