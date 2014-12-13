@@ -272,7 +272,7 @@ static ssize_t skt_write(int fd, const void *p, size_t len)
         DEBUG("%s: time out %d", __FUNCTION__, fd);
         return 0;
     }
-    if (pfd.revents & (POLLHUP|POLLNVAL))
+    if (pfd.revents & (POLLHUP|POLLNVAL|POLLRDHUP|POLLERR))
     {
         ERROR("%s:remote error fd %d, events 0x%x", __FUNCTION__, fd, pfd.revents);
         return -1;
@@ -686,7 +686,7 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
     while (sent < total)
     {
         wrote = skt_write(private->data_fd, (int8_t *) send_buf + sent, total - sent);
-        if (wrote < 0)
+        if (wrote <= 0)
         {
             sent = -1;
             goto out_done;
@@ -777,6 +777,7 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
             {
                 DEBUG("stream closing, disallow any writes");
                 private->state = AUDIO_HSP_STATE_STOPPING;
+
             }
         }
 
