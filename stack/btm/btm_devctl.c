@@ -1532,6 +1532,9 @@ void btm_read_local_supported_cmds_complete (UINT8 *p)
     if (status == HCI_SUCCESS)
     {
         btm_cb.devcb.enhanced_hci_cmds = BTM_ENHANCED_HCI_CMD_SUPPORT(p);
+
+        /* Save the supported commands bit mask */
+        STREAM_TO_ARRAY(p_devcb->supported_cmds, p, HCI_NUM_SUPP_COMMANDS_BYTES);
 #if (BTM_WBS_INCLUDED == TRUE)
         btm_cb.devcb.enhanced_hci_sco  = btm_cb.devcb.enhanced_hci_cmds &
                                                     BTM_ENHANCED_SETUP_SYNC_CON_MASK;
@@ -1542,8 +1545,6 @@ void btm_read_local_supported_cmds_complete (UINT8 *p)
             return;
         }
 #endif
-        /* Save the supported commands bit mask */
-        STREAM_TO_ARRAY(p_devcb->supported_cmds, p, HCI_NUM_SUPP_COMMANDS_BYTES);
     }
 
     btm_get_local_features();
