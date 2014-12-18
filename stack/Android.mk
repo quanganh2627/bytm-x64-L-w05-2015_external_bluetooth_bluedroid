@@ -19,6 +19,7 @@ LOCAL_C_INCLUDES:= . \
                    $(LOCAL_PATH)/sdp \
                    $(LOCAL_PATH)/smp \
                    $(LOCAL_PATH)/srvc \
+                   $(LOCAL_PATH)/mcap \
                    $(LOCAL_PATH)/../include \
                    $(LOCAL_PATH)/../gki/common \
                    $(LOCAL_PATH)/../gki/ulinux \
