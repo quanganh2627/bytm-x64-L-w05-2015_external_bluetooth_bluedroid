@@ -474,6 +474,7 @@ static void btif_hf_upstreams_evt(UINT16 event, char* p_param)
             break;
 
         case BTA_AG_AUDIO_OPEN_EVT:
+	    idx = p_data->audio_open.handle -1;
 #if (BTM_WBS_INCLUDED == TRUE)
             if (p_data->audio_open.codec == 1) /* MSBC */
             {
@@ -655,8 +656,10 @@ static void bte_hf_evt(tBTA_AG_EVT event, tBTA_AG *p_data)
         param_len = sizeof(tBTA_AG_OPEN);
     else if (BTA_AG_CONN_EVT == event)
         param_len = sizeof(tBTA_AG_CONN);
-    else if ( (BTA_AG_CLOSE_EVT == event) || (BTA_AG_AUDIO_OPEN_EVT == event) || (BTA_AG_AUDIO_CLOSE_EVT == event))
+    else if ( (BTA_AG_CLOSE_EVT == event) || (BTA_AG_AUDIO_CLOSE_EVT == event))
         param_len = sizeof(tBTA_AG_HDR);
+    else if (BTA_AG_AUDIO_OPEN_EVT == event)
+        param_len = sizeof(tBTA_AG);
     else if (p_data)
         param_len = sizeof(tBTA_AG_VAL);
 
