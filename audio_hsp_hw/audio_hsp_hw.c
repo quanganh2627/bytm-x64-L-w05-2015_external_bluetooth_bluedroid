@@ -764,45 +764,48 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
 
     parms = str_parms_create_str(kvpairs);
 
-    /* dump params */
-    str_parms_dump(parms);
-
-    retval = str_parms_get_str(parms, "closing", keyval, sizeof(keyval));
-
-    if (retval >= 0)
+    if(parms != NULL)
     {
-        if (strcmp(keyval, "true") == 0)
-        {
-            DEBUG("stream closing, disallow any writes");
-            private->state = AUDIO_HSP_STATE_STOPPING;
-        }
-    }
+        /* dump params */
+        str_parms_dump(parms);
 
-    /* use A2dp instead of Hsp */
-    retval = str_parms_get_str(parms, "A2dpSuspended", keyval, sizeof(keyval));
+        retval = str_parms_get_str(parms, "closing", keyval, sizeof(keyval));
 
-    if (retval >= 0)
-    {
-        if (strcmp(keyval, "true") == 0)
+        if (retval >= 0)
         {
-            if (private->state == AUDIO_HSP_STATE_STARTED)
-                retval = suspend_audio_datapath(private, false);
+            if (strcmp(keyval, "true") == 0)
+            {
+                DEBUG("stream closing, disallow any writes");
+                private->state = AUDIO_HSP_STATE_STOPPING;
+            }
         }
-        else
+
+        /* use A2dp instead of Hsp */
+        retval = str_parms_get_str(parms, "A2dpSuspended", keyval, sizeof(keyval));
+
+        if (retval >= 0)
         {
-            /* Do not start the streaming automatically. If the phone was streaming
-             * prior to being suspended, the next out_write shall trigger the
-             * AVDTP start procedure */
-            if (private->state == AUDIO_HSP_STATE_SUSPENDED)
-                private->state = AUDIO_HSP_STATE_STANDBY;
-            /* Irrespective of the state, return 0 */
-            retval = 0;
+            if (strcmp(keyval, "true") == 0)
+            {
+                if (private->state == AUDIO_HSP_STATE_STARTED)
+                    retval = suspend_audio_datapath(private, false);
+            }
+            else
+            {
+                /* Do not start the streaming automatically. If the phone was streaming
+                 * prior to being suspended, the next out_write shall trigger the
+                 * AVDTP start procedure */
+                if (private->state == AUDIO_HSP_STATE_SUSPENDED)
+                    private->state = AUDIO_HSP_STATE_STANDBY;
+                /* Irrespective of the state, return 0 */
+                retval = 0;
+            }
         }
+
+        str_parms_destroy(parms);
     }
 
     pthread_mutex_unlock(&private->lock);
-    str_parms_destroy(parms);
-
     return retval;
 }
 
@@ -1175,9 +1178,12 @@ static char * adev_get_parameters(const struct audio_hw_device *dev,
 
     parms = str_parms_create_str(keys);
 
-    str_parms_dump(parms);
+    if(parms != NULL)
+    {
+        str_parms_dump(parms);
 
-    str_parms_destroy(parms);
+        str_parms_destroy(parms);
+    }
 
     return strdup("");
 }
