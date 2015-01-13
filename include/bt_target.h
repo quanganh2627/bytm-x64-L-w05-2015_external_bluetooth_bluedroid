@@ -354,7 +354,7 @@
 
 /* This feature is used to eanble interleaved scan*/
 #ifndef BTA_HOST_INTERLEAVE_SEARCH
-#define BTA_HOST_INTERLEAVE_SEARCH FALSE
+#define BTA_HOST_INTERLEAVE_SEARCH TRUE
 #endif
 
 /* This feature is used to skip query of ble read remote features*/
